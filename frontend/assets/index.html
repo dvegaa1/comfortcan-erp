@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#121212">
+    <meta name="description" content="ComfortCan México - Sistema de Gestión de Paseos Caninos">
+    <title>ComfortCan México | Train & Care</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/png" href="assets/logo.png">
+</head>
+<body>
+    <!-- Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
+    
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay hidden">
+        <div class="spinner"></div>
+        <span>Cargando...</span>
+    </div>
+
+    <!-- ============================================
+         PANTALLA DE LOGIN
+         ============================================ -->
+    <div id="login-screen" class="login-container">
+        <div class="login-card">
+            <img src="assets/logo.png" alt="ComfortCan México" class="login-logo">
+            <h1 class="login-title">Iniciar Sesión</h1>
+            
+            <form id="login-form">
+                <div class="form-group">
+                    <label class="form-label" for="login-email">Correo electrónico</label>
+                    <input 
+                        type="email" 
+                        id="login-email" 
+                        class="form-input" 
+                        placeholder="admin@comfortcan.mx"
+                        required
+                        autocomplete="email"
+                    >
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="login-password">Contraseña</label>
+                    <input 
+                        type="password" 
+                        id="login-password" 
+                        class="form-input" 
+                        placeholder="••••••••"
+                        required
+                        autocomplete="current-password"
+                    >
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-block btn-lg mt-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+                    Ingresar
+                </button>
+            </form>
+            
+            <p id="login-error" class="text-center text-danger mt-md hidden"></p>
+        </div>
+    </div>
+
+    <!-- ============================================
+         APLICACIÓN PRINCIPAL
+         ============================================ -->
+    <div id="app-screen" class="app-layout hidden">
+        
+        <!-- Botón toggle sidebar móvil -->
+        <button id="sidebar-toggle" class="sidebar-toggle">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        
+        <!-- Sidebar -->
+        <aside id="sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <img src="assets/logo.png" alt="ComfortCan" class="sidebar-logo">
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a class="nav-item active" data-section="dashboard">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+                    Dashboard
+                </a>
+                <a class="nav-item" data-section="propietarios">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    Propietarios
+                </a>
+                <a class="nav-item" data-section="perros">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+                    Perros
+                </a>
+                <a class="nav-item" data-section="paseos">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    Paseos
+                </a>
+                <a class="nav-item" data-section="caja">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    Caja
+                </a>
+                <a class="nav-item" data-section="reservas">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    Reservas
+                </a>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <button id="logout-btn" class="btn btn-secondary btn-block">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    Cerrar Sesión
+                </button>
+            </div>
+        </aside>
+        
+        <!-- Contenido Principal -->
+        <main class="main-content">
+            
+            <!-- ============================================
+                 SECCIÓN: DASHBOARD
+                 ============================================ -->
+            <section id="section-dashboard" class="section">
+                <div class="page-header">
+                    <h1 class="page-title">Dashboard</h1>
+                </div>
+                
+                <!-- Stats Cards -->
+                <div class="grid-auto mb-lg" id="stats-container">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                        </div>
+                        <div>
+                            <div class="stat-value" id="stat-propietarios">0</div>
+                            <div class="stat-label">Propietarios</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+                        </div>
+                        <div>
+                            <div class="stat-value" id="stat-perros">0</div>
+                            <div class="stat-label">Perros</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        </div>
+                        <div>
+                            <div class="stat-value" id="stat-paseos-mes">0</div>
+                            <div class="stat-label">Paseos este mes</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                        </div>
+                        <div>
+                            <div class="stat-value text-success" id="stat-ingresos">$0</div>
+                            <div class="stat-label">Ingresos del mes</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Pendientes -->
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Paseos Pendientes de Cobro</h3>
+                            <span class="badge badge-warning" id="badge-pendientes">0</span>
+                        </div>
+                        <div id="lista-pendientes-dashboard">
+                            <p class="text-muted text-center">No hay paseos pendientes</p>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Total Pendiente</h3>
+                        </div>
+                        <div class="text-center">
+                            <div class="stat-value text-warning" id="stat-monto-pendiente">$0</div>
+                            <p class="text-muted mt-sm">Por cobrar</p>
+                            <button class="btn btn-primary mt-md" onclick="App.navigateTo('caja')">
+                                Ir a Caja
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- ============================================
+                 SECCIÓN: PROPIETARIOS
+                 ============================================ -->
+            <section id="section-propietarios" class="section hidden">
+                <div class="page-header">
+                    <h1 class="page-title">Propietarios</h1>
+                    <button class="btn btn-primary" onclick="App.openModal('propietario')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Nuevo Propietario
+                    </button>
+                </div>
+                
+                <div class="search-filters">
+                    <input type="text" class="form-input search-input" id="search-propietarios" placeholder="Buscar por nombre o teléfono...">
+                </div>
+                
+                <div class="card">
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Nombre</th>
+                                    <th>Teléfono</th>
+                                    <th>Email</th>
+                                    <th>Perros</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-propietarios">
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted">Cargando...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- ============================================
+                 SECCIÓN: PERROS
+                 ============================================ -->
+            <section id="section-perros" class="section hidden">
+                <div class="page-header">
+                    <h1 class="page-title">Perros</h1>
+                    <button class="btn btn-primary" onclick="App.openModal('perro')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Nuevo Perro
+                    </button>
+                </div>
+                
+                <div class="search-filters">
+                    <input type="text" class="form-input search-input" id="search-perros" placeholder="Buscar por nombre...">
+                    <select class="form-select filter-select" id="filter-propietario-perros">
+                        <option value="">Todos los propietarios</option>
+                    </select>
+                </div>
+                
+                <div class="grid-auto" id="grid-perros">
+                    <p class="text-muted text-center">Cargando...</p>
+                </div>
+            </section>
+            
+            <!-- ============================================
+                 SECCIÓN: PASEOS
+                 ============================================ -->
+            <section id="section-paseos" class="section hidden">
+                <div class="page-header">
+                    <h1 class="page-title">Registro de Paseos</h1>
+                    <button class="btn btn-primary" onclick="App.openModal('paseo')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Registrar Paseo
+                    </button>
+                </div>
+                
+                <div class="search-filters">
+                    <input type="date" class="form-input" id="filter-fecha-inicio" style="max-width: 180px;">
+                    <input type="date" class="form-input" id="filter-fecha-fin" style="max-width: 180px;">
+                    <select class="form-select filter-select" id="filter-pagado">
+                        <option value="">Todos</option>
+                        <option value="false">Pendientes</option>
+                        <option value="true">Pagados</option>
+                    </select>
+                    <button class="btn btn-secondary" onclick="App.loadPaseos()">Filtrar</button>
+                </div>
+                
+                <div class="card">
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Perro</th>
+                                    <th>Propietario</th>
+                                    <th>Tipo</th>
+                                    <th>Precio</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-paseos">
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted">Cargando...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- ============================================
+                 SECCIÓN: CAJA
+                 ============================================ -->
+            <section id="section-caja" class="section hidden">
+                <div class="page-header">
+                    <h1 class="page-title">Caja - Cobros</h1>
+                </div>
+                
+                <div class="grid-2">
+                    <!-- Panel de Cobro -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Cobrar Paseos</h3>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Seleccionar Propietario</label>
+                            <select class="form-select" id="caja-propietario" onchange="App.loadPaseosPendientes()">
+                                <option value="">-- Seleccione --</option>
+                            </select>
+                        </div>
+                        
+                        <div id="caja-paseos-container" class="hidden">
+                            <label class="form-label">Paseos Pendientes</label>
+                            <div class="selection-list" id="caja-paseos-lista">
+                            </div>
+                            
+                            <div class="flex-between mt-lg">
+                                <span class="text-muted">Total a cobrar:</span>
+                                <span class="stat-value text-success" id="caja-total">$0.00</span>
+                            </div>
+                            
+                            <div class="form-group mt-md">
+                                <label class="form-label">Método de Pago</label>
+                                <select class="form-select" id="caja-metodo">
+                                    <option value="Efectivo">Efectivo</option>
+                                    <option value="Transferencia">Transferencia</option>
+                                    <option value="Tarjeta">Tarjeta</option>
+                                </select>
+                            </div>
+                            
+                            <button class="btn btn-success btn-block btn-lg mt-md" id="btn-cobrar" onclick="App.procesarCobro()">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                                Cobrar
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Panel de Ticket -->
+                    <div class="card" id="ticket-container" style="display: none;">
+                        <div class="card-header">
+                            <h3 class="card-title">Ticket de Pago</h3>
+                            <button class="btn btn-sm btn-secondary" onclick="window.print()">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                                Imprimir
+                            </button>
+                        </div>
+                        <div id="ticket-content">
+                            <!-- El ticket se genera dinámicamente -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Historial de Cargos -->
+                <div class="card mt-lg">
+                    <div class="card-header">
+                        <h3 class="card-title">Historial de Cobros</h3>
+                    </div>
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Propietario</th>
+                                    <th>Monto</th>
+                                    <th>Método</th>
+                                    <th>Paseos</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-cargos">
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted">Cargando...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- ============================================
+                 SECCIÓN: RESERVAS
+                 ============================================ -->
+            <section id="section-reservas" class="section hidden">
+                <div class="page-header">
+                    <h1 class="page-title">Reservas</h1>
+                    <button class="btn btn-primary" onclick="App.openModal('reserva')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Nueva Reserva
+                    </button>
+                </div>
+                
+                <div class="search-filters">
+                    <input type="date" class="form-input" id="filter-fecha-reserva" style="max-width: 180px;">
+                    <select class="form-select filter-select" id="filter-estado-reserva">
+                        <option value="">Todos los estados</option>
+                        <option value="Pendiente">Pendiente</option>
+                        <option value="Confirmada">Confirmada</option>
+                        <option value="Completada">Completada</option>
+                        <option value="Cancelada">Cancelada</option>
+                    </select>
+                    <button class="btn btn-secondary" onclick="App.loadReservas()">Filtrar</button>
+                </div>
+                
+                <div class="card">
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Hora</th>
+                                    <th>Perro</th>
+                                    <th>Propietario</th>
+                                    <th>Servicio</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-reservas">
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted">Cargando...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+            
+        </main>
+    </div>
+
+    <!-- ============================================
+         MODALES
+         ============================================ -->
+    
+    <!-- Modal: Propietario -->
+    <div id="modal-propietario" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modal-propietario-title">Nuevo Propietario</h2>
+                <button class="modal-close" onclick="App.closeModal('propietario')">&times;</button>
+            </div>
+            <form id="form-propietario" onsubmit="App.savePropietario(event)">
+                <div class="modal-body">
+                    <input type="hidden" id="propietario-id">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Nombre *</label>
+                            <input type="text" class="form-input" id="propietario-nombre" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Apellido *</label>
+                            <input type="text" class="form-input" id="propietario-apellido" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Teléfono</label>
+                            <input type="tel" class="form-input" id="propietario-telefono">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-input" id="propietario-email">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Dirección</label>
+                        <textarea class="form-textarea" id="propietario-direccion" rows="2"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Notas</label>
+                        <textarea class="form-textarea" id="propietario-notas" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="App.closeModal('propietario')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Modal: Perro -->
+    <div id="modal-perro" class="modal-overlay">
+        <div class="modal modal-lg">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modal-perro-title">Nuevo Perro</h2>
+                <button class="modal-close" onclick="App.closeModal('perro')">&times;</button>
+            </div>
+            <form id="form-perro" onsubmit="App.savePerro(event)">
+                <div class="modal-body">
+                    <input type="hidden" id="perro-id">
+                    <div class="form-group">
+                        <label class="form-label">Propietario *</label>
+                        <select class="form-select" id="perro-propietario" required>
+                            <option value="">-- Seleccione --</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Nombre *</label>
+                            <input type="text" class="form-input" id="perro-nombre" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Raza</label>
+                            <input type="text" class="form-input" id="perro-raza">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Fecha Nacimiento</label>
+                            <input type="date" class="form-input" id="perro-nacimiento">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Peso (kg)</label>
+                            <input type="number" step="0.1" class="form-input" id="perro-peso">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Sexo</label>
+                            <select class="form-select" id="perro-sexo">
+                                <option value="">-- Seleccione --</option>
+                                <option value="Macho">Macho</option>
+                                <option value="Hembra">Hembra</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Color</label>
+                            <input type="text" class="form-input" id="perro-color">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-checkbox">
+                            <input type="checkbox" id="perro-esterilizado">
+                            <span>Esterilizado/Castrado</span>
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Alergias</label>
+                        <input type="text" class="form-input" id="perro-alergias" placeholder="Separar con comas">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Veterinario de Contacto</label>
+                        <input type="text" class="form-input" id="perro-veterinario">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Notas</label>
+                        <textarea class="form-textarea" id="perro-notas" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="App.closeModal('perro')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Modal: Paseo -->
+    <div id="modal-paseo" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 class="modal-title">Registrar Paseo</h2>
+                <button class="modal-close" onclick="App.closeModal('paseo')">&times;</button>
+            </div>
+            <form id="form-paseo" onsubmit="App.savePaseo(event)">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Perro *</label>
+                        <select class="form-select" id="paseo-perro" required>
+                            <option value="">-- Seleccione --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Tipo de Paseo *</label>
+                        <select class="form-select" id="paseo-tipo" required onchange="App.updatePrecioPaseo()">
+                            <option value="">-- Seleccione --</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Fecha *</label>
+                            <input type="date" class="form-input" id="paseo-fecha" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Precio *</label>
+                            <input type="number" step="0.01" class="form-input" id="paseo-precio" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Hora Inicio</label>
+                            <input type="time" class="form-input" id="paseo-hora-inicio">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Hora Fin</label>
+                            <input type="time" class="form-input" id="paseo-hora-fin">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Notas</label>
+                        <textarea class="form-textarea" id="paseo-notas" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="App.closeModal('paseo')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Modal: Reserva -->
+    <div id="modal-reserva" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 class="modal-title">Nueva Reserva</h2>
+                <button class="modal-close" onclick="App.closeModal('reserva')">&times;</button>
+            </div>
+            <form id="form-reserva" onsubmit="App.saveReserva(event)">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Perro *</label>
+                        <select class="form-select" id="reserva-perro" required>
+                            <option value="">-- Seleccione --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Servicio *</label>
+                        <select class="form-select" id="reserva-servicio" required>
+                            <option value="">-- Seleccione --</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Fecha *</label>
+                            <input type="date" class="form-input" id="reserva-fecha" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Hora</label>
+                            <input type="time" class="form-input" id="reserva-hora">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Notas</label>
+                        <textarea class="form-textarea" id="reserva-notas" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="App.closeModal('reserva')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Modal: Confirmación -->
+    <div id="modal-confirm" class="modal-overlay">
+        <div class="modal" style="max-width: 400px;">
+            <div class="modal-header">
+                <h2 class="modal-title" id="confirm-title">Confirmar</h2>
+                <button class="modal-close" onclick="App.closeModal('confirm')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="confirm-message">¿Está seguro?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="App.closeModal('confirm')">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="confirm-btn">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
