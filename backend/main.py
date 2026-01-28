@@ -33,13 +33,12 @@ app.add_middleware(
 )
 
 def get_headers(token: str = None):
-    headers = {
+    return {
         "apikey": SUPABASE_KEY,
         "Authorization": f"Bearer {token or SUPABASE_KEY}",
         "Content-Type": "application/json",
         "Prefer": "return=representation"
     }
-    return headers
 
 async def supabase_request(method: str, endpoint: str, data: dict = None, token: str = None):
     url = f"{SUPABASE_URL}/rest/v1/{endpoint}"
@@ -151,13 +150,13 @@ async def obtener_propietario(id: str, authorization: str = Header(None)):
 @app.post("/propietarios")
 async def crear_propietario(data: PropietarioCreate, authorization: str = Header(None)):
     token = await verify_token(authorization)
-    result = await supabase_request("POST", "propietarios", data.dict(), token=token)
+    result = await supabase_request("POST", "propietarios", data.model_dump(), token=token)
     return result[0] if result else None
 
 @app.put("/propietarios/{id}")
 async def actualizar_propietario(id: str, data: PropietarioCreate, authorization: str = Header(None)):
     token = await verify_token(authorization)
-    result = await supabase_request("PATCH", f"propietarios?id=eq.{id}", data.dict(exclude_none=True), token=token)
+    result = await supabase_request("PATCH", f"propietarios?id=eq.{id}", data.model_dump(exclude_none=True), token=token)
     return result[0] if result else None
 
 @app.delete("/propietarios/{id}")
@@ -187,13 +186,13 @@ async def obtener_perro(id: str, authorization: str = Header(None)):
 @app.post("/perros")
 async def crear_perro(data: PerroCreate, authorization: str = Header(None)):
     token = await verify_token(authorization)
-    result = await supabase_request("POST", "perros", data.dict(), token=token)
+    result = await supabase_request("POST", "perros", data.model_dump(), token=token)
     return result[0] if result else None
 
 @app.put("/perros/{id}")
 async def actualizar_perro(id: str, data: PerroCreate, authorization: str = Header(None)):
     token = await verify_token(authorization)
-    result = await supabase_request("PATCH", f"perros?id=eq.{id}", data.dict(exclude_none=True), token=token)
+    result = await supabase_request("PATCH", f"perros?id=eq.{id}", data.model_dump(exclude_none=True), token=token)
     return result[0] if result else None
 
 @app.delete("/perros/{id}")
@@ -228,7 +227,7 @@ async def paseos_pendientes(propietario_id: str, authorization: str = Header(Non
 @app.post("/paseos")
 async def crear_paseo(data: PaseoCreate, authorization: str = Header(None)):
     token = await verify_token(authorization)
-    result = await supabase_request("POST", "paseos", data.dict(), token=token)
+    result = await supabase_request("POST", "paseos", data.model_dump(), token=token)
     return result[0] if result else None
 
 @app.delete("/paseos/{id}")
@@ -286,7 +285,7 @@ async def listar_reservas(authorization: str = Header(None)):
 @app.post("/reservas")
 async def crear_reserva(data: ReservaCreate, authorization: str = Header(None)):
     token = await verify_token(authorization)
-    result = await supabase_request("POST", "reservas", data.dict(), token=token)
+    result = await supabase_request("POST", "reservas", data.model_dump(), token=token)
     return result[0] if result else None
 
 @app.put("/reservas/{id}/estado")
