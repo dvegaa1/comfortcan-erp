@@ -211,22 +211,44 @@
                                 <input type="text" id="perro-veterinario" class="form-input">
                             </div>
                             
-                            <h3 class="mb-2 mt-3">Desparasitación</h3>
-                            <div class="form-row">
+                                <h3 class="mb-2 mt-3">Desparasitación</h3>
                                 <div class="form-group">
                                     <label class="form-label">Tipo</label>
                                     <select id="perro-desparasitacion-tipo" class="form-select">
                                         <option value="">Ninguna</option>
                                         <option value="Interna">Interna</option>
                                         <option value="Externa">Externa</option>
-                                        <option value="Ambas">Ambas</option>
+                                        <option value="Dual">Dual (Interna + Externa)</option>
                                     </select>
                                 </div>
-                                <div class="form-group">
-                                    <label class="form-label">Fecha</label>
-                                    <input type="date" id="perro-desparasitacion-fecha" class="form-input">
+
+                                <!-- Campos Interna -->
+                                <div id="desparasitacion-interna" class="hidden">
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label class="form-label">Producto (Interna)</label>
+                                            <input type="text" id="perro-despara-producto-int" class="form-input" placeholder="Ej. Drontal">
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Fecha Aplicación</label>
+                                            <input type="date" id="perro-despara-fecha-int" class="form-input">
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
+
+                                <!-- Campos Externa -->
+                                <div id="desparasitacion-externa" class="hidden">
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label class="form-label">Producto (Externa)</label>
+                                            <input type="text" id="perro-despara-producto-ext" class="form-input" placeholder="Ej. Frontline, Nexgard">
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Fecha Aplicación</label>
+                                            <input type="date" id="perro-despara-fecha-ext" class="form-input">
+                                        </div>
+                                    </div>
+                                </div>
                             
                             <h3 class="mb-2 mt-3">Vacunas</h3>
                             <div class="vacunas-grid">

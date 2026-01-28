@@ -109,6 +109,11 @@ class PerroCreate(BaseModel):
     vacuna_extra_vence: Optional[str] = None
     foto_perro_url: Optional[str] = None
     foto_cartilla_url: Optional[str] = None
+    desparasitacion_producto_int: Optional[str] = None
+    desparasitacion_fecha_int: Optional[str] = None
+    desparasitacion_producto_ext: Optional[str] = None
+    desparasitacion_fecha_ext: Optional[str] = None
+
 
 class EstanciaCreate(BaseModel):
     perro_id: str
