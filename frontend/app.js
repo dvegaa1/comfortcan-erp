@@ -1,19 +1,16 @@
 // ============================================
-// COMFORTCAN MÉXICO - APP.JS
+// COMFORTCAN MÉXICO - APP.JS v2
 // ============================================
 
-const API_URL = 'https://comfortcan-api.onrender.com'; // Cambiar por tu URL de Render
+const API_URL = 'https://comfortcan-api.onrender.com'; // Tu URL de Render
 
-// ============================================
-// ESTADO GLOBAL
-// ============================================
+// Estado global
 let authToken = localStorage.getItem('authToken');
-let currentUser = null;
-let catalogoServicios = [];
-let catalogoPaseos = [];
 let propietarios = [];
 let perros = [];
-let cargosPendientes = [];
+let catalogoServicios = [];
+let catalogoPaseos = [];
+let cargosActuales = [];
 
 // ============================================
 // INICIALIZACIÓN
@@ -28,11 +25,29 @@ document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
 });
 
+function showLogin() {
+    document.getElementById('login-screen').classList.remove('hidden');
+    document.getElementById('app-screen').classList.add('hidden');
+}
+
+function showApp() {
+    document.getElementById('login-screen').classList.add('hidden');
+    document.getElementById('app-screen').classList.remove('hidden');
+}
+
 function setupEventListeners() {
-    // Login form
-    document.getElementById('loginForm')?.addEventListener('submit', handleLogin);
+    // Login
+    document.getElementById('login-form').addEventListener('submit', handleLogin);
     
-    // Navegación sidebar
+    // Logout
+    document.getElementById('logout-btn').addEventListener('click', handleLogout);
+    
+    // Sidebar toggle mobile
+    document.getElementById('sidebar-toggle')?.addEventListener('click', () => {
+        document.getElementById('sidebar').classList.toggle('open');
+    });
+    
+    // Navegación
     document.querySelectorAll('.nav-item').forEach(item => {
         item.addEventListener('click', () => {
             const section = item.dataset.section;
@@ -40,43 +55,46 @@ function setupEventListeners() {
         });
     });
     
-    // Tabs dentro de secciones
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const tab = btn.dataset.tab;
-            const container = btn.closest('.section');
-            switchTab(container, tab);
+    // Tabs
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            const tabId = tab.dataset.tab;
+            switchTab(tab, tabId);
         });
     });
     
-    // Logout
-    document.getElementById('logoutBtn')?.addEventListener('click', handleLogout);
-    
     // Forms
-    document.getElementById('formNuevoDueno')?.addEventListener('submit', handleNuevoDueno);
-    document.getElementById('formNuevoPerro')?.addEventListener('submit', handleNuevoPerro);
-    document.getElementById('formCheckIn')?.addEventListener('submit', handleCheckIn);
-    document.getElementById('formNuevoPaseo')?.addEventListener('submit', handleNuevoPaseo);
-    document.getElementById('formNuevoCargo')?.addEventListener('submit', handleNuevoCargo);
-    document.getElementById('formServicio')?.addEventListener('submit', handleGuardarServicio);
-    document.getElementById('formPaseo')?.addEventListener('submit', handleGuardarPaseo);
+    document.getElementById('form-propietario')?.addEventListener('submit', handleNuevoPropietario);
+    document.getElementById('form-perro')?.addEventListener('submit', handleNuevoPerro);
+    document.getElementById('form-paseo')?.addEventListener('submit', handleNuevoPaseo);
     
-    // Búsquedas
-    document.getElementById('buscarExpediente')?.addEventListener('input', buscarExpedientes);
-    document.getElementById('buscarGestion')?.addEventListener('input', buscarGestion);
+    // Botones
+    document.getElementById('btn-confirmar-estancia')?.addEventListener('click', handleCheckIn);
+    document.getElementById('btn-agregar-cargo')?.addEventListener('click', handleAgregarCargo);
+    document.getElementById('btn-generar-ticket')?.addEventListener('click', generarTicket);
+    document.getElementById('btn-confirmar-pago')?.addEventListener('click', confirmarPago);
+    document.getElementById('btn-imprimir')?.addEventListener('click', imprimirTicket);
+    document.getElementById('btn-guardar-servicio')?.addEventListener('click', handleNuevoServicio);
+    document.getElementById('btn-guardar-tipo-paseo')?.addEventListener('click', handleNuevoTipoPaseo);
+    document.getElementById('btn-enviar-caja')?.addEventListener('click', enviarPaseosCaja);
     
     // Selects dinámicos
-    document.getElementById('selectDuenoPerro')?.addEventListener('change', cargarPerrosDueno);
-    document.getElementById('selectDuenoCheckIn')?.addEventListener('change', cargarPerrosCheckIn);
-    document.getElementById('selectDuenoPaseo')?.addEventListener('change', cargarPerrosPaseo);
-    document.getElementById('selectDuenoCargo')?.addEventListener('change', cargarPerrosCargo);
+    document.getElementById('caja-perro')?.addEventListener('change', cargarCargosPerro);
+    document.getElementById('expediente-perro')?.addEventListener('change', cargarExpediente);
+    document.getElementById('paseo-tipo')?.addEventListener('change', mostrarPrecioPaseo);
+    document.getElementById('checkin-entrada')?.addEventListener('change', calcularTotalCheckIn);
+    document.getElementById('checkin-salida')?.addEventListener('change', calcularTotalCheckIn);
     
-    // Calcular total check-in
-    document.getElementById('diasEstancia')?.addEventListener('input', calcularTotalCheckIn);
-    document.getElementById('selectServicioCheckIn')?.addEventListener('change', calcularTotalCheckIn);
+    // Gestión radio buttons
+    document.querySelectorAll('input[name="gestion-tipo"]').forEach(radio => {
+        radio.addEventListener('change', toggleGestionTipo);
+    });
+    document.getElementById('gestion-perro-select')?.addEventListener('change', cargarFormularioPerro);
+    document.getElementById('gestion-cliente-select')?.addEventListener('change', cargarFormularioCliente);
     
-    // Foto upload preview
-    document.getElementById('fotoPerro')?.addEventListener('change', previewFoto);
+    // File uploads
+    document.getElementById('foto-perro-input')?.addEventListener('change', (e) => previewImage(e, 'foto-perro-preview'));
+    document.getElementById('foto-cartilla-input')?.addEventListener('change', (e) => previewImage(e, 'foto-cartilla-preview'));
 }
 
 // ============================================
@@ -84,11 +102,12 @@ function setupEventListeners() {
 // ============================================
 async function handleLogin(e) {
     e.preventDefault();
-    const email = document.getElementById('loginEmail').value;
-    const password = document.getElementById('loginPassword').value;
-    const errorDiv = document.getElementById('loginError');
+    const email = document.getElementById('login-email').value;
+    const password = document.getElementById('login-password').value;
+    const errorEl = document.getElementById('login-error');
     
     try {
+        showLoading();
         const response = await fetch(`${API_URL}/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -96,6 +115,7 @@ async function handleLogin(e) {
         });
         
         const data = await response.json();
+        hideLoading();
         
         if (!response.ok) {
             throw new Error(data.detail || 'Error de autenticación');
@@ -103,85 +123,21 @@ async function handleLogin(e) {
         
         authToken = data.access_token;
         localStorage.setItem('authToken', authToken);
-        currentUser = data.user;
         
         showApp();
         loadInitialData();
         
     } catch (error) {
-        errorDiv.textContent = error.message;
-        errorDiv.style.display = 'block';
+        hideLoading();
+        errorEl.textContent = error.message;
+        errorEl.classList.remove('hidden');
     }
 }
 
 function handleLogout() {
     localStorage.removeItem('authToken');
     authToken = null;
-    currentUser = null;
     showLogin();
-}
-
-function showLogin() {
-    document.getElementById('loginScreen').style.display = 'flex';
-    document.getElementById('appContainer').style.display = 'none';
-}
-
-function showApp() {
-    document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('appContainer').style.display = 'flex';
-}
-
-// ============================================
-// NAVEGACIÓN
-// ============================================
-function navigateToSection(sectionId) {
-    // Actualizar nav items
-    document.querySelectorAll('.nav-item').forEach(item => {
-        item.classList.remove('active');
-        if (item.dataset.section === sectionId) {
-            item.classList.add('active');
-        }
-    });
-    
-    // Mostrar sección
-    document.querySelectorAll('.section').forEach(section => {
-        section.classList.remove('active');
-    });
-    document.getElementById(sectionId)?.classList.add('active');
-    
-    // Cargar datos según sección
-    switch(sectionId) {
-        case 'paseos':
-            cargarPaseos();
-            break;
-        case 'caja':
-            cargarCargos();
-            break;
-        case 'expedientes':
-            cargarExpedientes();
-            break;
-        case 'gestion':
-            cargarGestion();
-            break;
-        case 'configuracion':
-            cargarConfiguracion();
-            break;
-    }
-    
-    // Cerrar sidebar en móvil
-    document.querySelector('.sidebar')?.classList.remove('open');
-}
-
-function switchTab(container, tabId) {
-    container.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.remove('active');
-        if (btn.dataset.tab === tabId) btn.classList.add('active');
-    });
-    
-    container.querySelectorAll('.tab-content').forEach(content => {
-        content.classList.remove('active');
-    });
-    container.querySelector(`#${tabId}`)?.classList.add('active');
 }
 
 // ============================================
@@ -191,10 +147,11 @@ async function apiGet(endpoint) {
     const response = await fetch(`${API_URL}${endpoint}`, {
         headers: { 'Authorization': `Bearer ${authToken}` }
     });
-    if (!response.ok) {
-        if (response.status === 401) handleLogout();
-        throw new Error('Error en la petición');
+    if (response.status === 401) {
+        handleLogout();
+        throw new Error('Sesión expirada');
     }
+    if (!response.ok) throw new Error('Error en petición');
     return response.json();
 }
 
@@ -208,8 +165,8 @@ async function apiPost(endpoint, data) {
         body: JSON.stringify(data)
     });
     if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || 'Error en la petición');
+        const err = await response.json();
+        throw new Error(err.detail || 'Error en petición');
     }
     return response.json();
 }
@@ -223,10 +180,7 @@ async function apiPut(endpoint, data) {
         },
         body: JSON.stringify(data)
     });
-    if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || 'Error en la petición');
-    }
+    if (!response.ok) throw new Error('Error al actualizar');
     return response.json();
 }
 
@@ -240,99 +194,163 @@ async function apiDelete(endpoint) {
 }
 
 // ============================================
-// CARGA INICIAL DE DATOS
+// CARGA INICIAL
 // ============================================
 async function loadInitialData() {
     try {
         showLoading();
         
-        // Cargar catálogos y datos base en paralelo
-        const [servicios, paseos, props, dogs] = await Promise.all([
-            apiGet('/catalogo-servicios/'),
-            apiGet('/catalogo-paseos/'),
+        const [props, dogs, servicios, paseos] = await Promise.all([
             apiGet('/propietarios/'),
-            apiGet('/perros/')
+            apiGet('/perros/'),
+            apiGet('/catalogo-servicios/'),
+            apiGet('/catalogo-paseos/')
         ]);
         
-        catalogoServicios = servicios;
-        catalogoPaseos = paseos;
-        propietarios = props;
-        perros = dogs;
+        propietarios = props || [];
+        perros = dogs || [];
+        catalogoServicios = servicios || [];
+        catalogoPaseos = paseos || [];
         
-        // Llenar selects
+        // Llenar todos los selects
         llenarSelectPropietarios();
+        llenarSelectPerros();
         llenarSelectServicios();
         llenarSelectPaseos();
         
         hideLoading();
+        showToast('Datos cargados', 'success');
+        
     } catch (error) {
-        console.error('Error cargando datos:', error);
         hideLoading();
-        showToast('Error cargando datos', 'error');
+        showToast('Error cargando datos: ' + error.message, 'error');
     }
 }
 
 function llenarSelectPropietarios() {
-    const selects = [
-        'selectDuenoPerro',
-        'selectDuenoCheckIn', 
-        'selectDuenoPaseo',
-        'selectDuenoCargo'
-    ];
-    
-    selects.forEach(selectId => {
-        const select = document.getElementById(selectId);
+    const selects = ['perro-propietario', 'gestion-cliente-select'];
+    selects.forEach(id => {
+        const select = document.getElementById(id);
         if (select) {
-            select.innerHTML = '<option value="">Seleccionar dueño...</option>';
+            select.innerHTML = '<option value="">-- Seleccionar dueño --</option>';
             propietarios.forEach(p => {
-                select.innerHTML += `<option value="${p.id}">${p.nombre} - ${p.telefono}</option>`;
+                select.innerHTML += `<option value="${p.id}">${p.nombre} - ${p.telefono || 'Sin tel'}</option>`;
+            });
+        }
+    });
+}
+
+function llenarSelectPerros() {
+    const selects = ['checkin-perro', 'paseo-perro', 'filtro-paseo-perro', 'caja-perro', 'expediente-perro', 'gestion-perro-select'];
+    selects.forEach(id => {
+        const select = document.getElementById(id);
+        if (select) {
+            const defaultText = id === 'filtro-paseo-perro' ? 'Todos' : '-- Seleccionar perro --';
+            select.innerHTML = `<option value="">${defaultText}</option>`;
+            perros.forEach(p => {
+                const dueno = propietarios.find(prop => prop.id === p.propietario_id);
+                select.innerHTML += `<option value="${p.id}">${p.nombre} (${dueno?.nombre || 'Sin dueño'})</option>`;
             });
         }
     });
 }
 
 function llenarSelectServicios() {
-    const select = document.getElementById('selectServicioCheckIn');
-    if (select) {
-        select.innerHTML = '<option value="">Seleccionar servicio...</option>';
+    // Servicios en check-in
+    const container = document.getElementById('servicios-checkin-list');
+    if (container) {
+        container.innerHTML = '';
         catalogoServicios.forEach(s => {
-            select.innerHTML += `<option value="${s.id}" data-precio="${s.precio}">${s.nombre} - $${s.precio}/día</option>`;
+            container.innerHTML += `
+                <label class="form-checkbox">
+                    <input type="checkbox" name="servicio-checkin" value="${s.id}" data-precio="${s.precio}">
+                    ${s.nombre} ($${s.precio})
+                </label>`;
+        });
+        
+        // Agregar listeners para calcular total
+        container.querySelectorAll('input').forEach(input => {
+            input.addEventListener('change', calcularTotalCheckIn);
         });
     }
+    
+    // Tabla de servicios en configuración
+    renderTablaServicios();
 }
 
 function llenarSelectPaseos() {
-    const select = document.getElementById('selectTipoPaseo');
+    const select = document.getElementById('paseo-tipo');
     if (select) {
-        select.innerHTML = '<option value="">Seleccionar tipo...</option>';
+        select.innerHTML = '<option value="">-- Seleccionar --</option>';
         catalogoPaseos.forEach(p => {
             select.innerHTML += `<option value="${p.id}" data-precio="${p.precio}">${p.nombre} - $${p.precio}</option>`;
         });
     }
+    
+    // Tabla en configuración
+    renderTablaPaseos();
 }
 
 // ============================================
-// RECEPCIÓN - NUEVO DUEÑO
+// NAVEGACIÓN
 // ============================================
-async function handleNuevoDueno(e) {
+function navigateToSection(sectionId) {
+    // Actualizar nav
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.classList.toggle('active', item.dataset.section === sectionId);
+    });
+    
+    // Mostrar sección
+    document.querySelectorAll('.section').forEach(section => {
+        section.classList.toggle('active', section.id === `section-${sectionId}`);
+    });
+    
+    // Cerrar sidebar en móvil
+    document.getElementById('sidebar').classList.remove('open');
+    
+    // Cargar datos específicos
+    if (sectionId === 'paseos') cargarPaseos();
+    if (sectionId === 'configuracion') {
+        renderTablaServicios();
+        renderTablaPaseos();
+    }
+}
+
+function switchTab(clickedTab, tabId) {
+    const container = clickedTab.closest('.section');
+    
+    // Actualizar tabs
+    container.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    clickedTab.classList.add('active');
+    
+    // Mostrar contenido
+    container.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.getElementById(`tab-${tabId}`)?.classList.add('active');
+}
+
+// ============================================
+// RECEPCIÓN - NUEVO PROPIETARIO
+// ============================================
+async function handleNuevoPropietario(e) {
     e.preventDefault();
     
     const data = {
-        nombre: document.getElementById('nombreDueno').value,
-        telefono: document.getElementById('telefonoDueno').value,
-        email: document.getElementById('emailDueno').value || null,
-        direccion: document.getElementById('direccionDueno').value || null,
-        notas: document.getElementById('notasDueno').value || null
+        nombre: document.getElementById('prop-nombre').value,
+        telefono: document.getElementById('prop-telefono').value || null,
+        direccion: document.getElementById('prop-direccion').value || null,
+        email: document.getElementById('prop-email').value || null
     };
     
     try {
+        showLoading();
         const nuevo = await apiPost('/propietarios/', data);
         propietarios.push(nuevo);
         llenarSelectPropietarios();
-        
         e.target.reset();
-        showToast('Dueño registrado exitosamente', 'success');
+        hideLoading();
+        showToast('Cliente guardado exitosamente', 'success');
     } catch (error) {
+        hideLoading();
         showToast(error.message, 'error');
     }
 }
@@ -340,86 +358,92 @@ async function handleNuevoDueno(e) {
 // ============================================
 // RECEPCIÓN - NUEVO PERRO
 // ============================================
-async function cargarPerrosDueno() {
-    // Solo para mostrar perros existentes del dueño si se necesita
-}
-
-function previewFoto(e) {
+function previewImage(e, previewId) {
     const file = e.target.files[0];
-    const preview = document.getElementById('previewFoto');
+    const preview = document.getElementById(previewId);
     
-    if (file) {
+    if (file && preview) {
         const reader = new FileReader();
-        reader.onload = (e) => {
-            preview.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
+        reader.onload = (ev) => {
+            preview.src = ev.target.result;
+            preview.classList.remove('hidden');
         };
         reader.readAsDataURL(file);
-    } else {
-        preview.innerHTML = '<span>📷 Sin foto</span>';
     }
 }
 
 async function handleNuevoPerro(e) {
     e.preventDefault();
     
-    const propietarioId = document.getElementById('selectDuenoPerro').value;
+    const propietarioId = document.getElementById('perro-propietario').value;
     if (!propietarioId) {
-        showToast('Selecciona un dueño', 'error');
+        showToast('Selecciona un dueño primero', 'error');
         return;
     }
     
-    let fotoUrl = null;
-    const fotoInput = document.getElementById('fotoPerro');
-    
     // Subir foto si existe
+    let fotoUrl = null;
+    const fotoInput = document.getElementById('foto-perro-input');
     if (fotoInput.files[0]) {
         try {
             const formData = new FormData();
             formData.append('file', fotoInput.files[0]);
-            
             const response = await fetch(`${API_URL}/upload/foto`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${authToken}` },
                 body: formData
             });
-            
             if (response.ok) {
                 const result = await response.json();
                 fotoUrl = result.url;
             }
-        } catch (error) {
-            console.error('Error subiendo foto:', error);
+        } catch (err) {
+            console.error('Error subiendo foto:', err);
         }
     }
     
+    const generoEl = document.querySelector('input[name="perro-genero"]:checked');
+    
     const data = {
         propietario_id: propietarioId,
-        nombre: document.getElementById('nombrePerro').value,
-        raza: document.getElementById('razaPerro').value || null,
-        peso: parseFloat(document.getElementById('pesoPerro').value) || null,
-        edad_anos: parseInt(document.getElementById('edadPerro').value) || null,
-        sexo: document.getElementById('sexoPerro').value || null,
-        color: document.getElementById('colorPerro').value || null,
-        esterilizado: document.getElementById('esterilizadoPerro').checked,
-        foto_url: fotoUrl,
-        vacuna_rabia: document.getElementById('vacunaRabia').checked,
-        vacuna_rabia_fecha: document.getElementById('fechaRabia').value || null,
-        vacuna_multiple: document.getElementById('vacunaMultiple').checked,
-        vacuna_multiple_fecha: document.getElementById('fechaMultiple').value || null,
-        desparasitado: document.getElementById('desparasitado').checked,
-        desparasitado_fecha: document.getElementById('fechaDesparasitado').value || null,
-        condiciones_medicas: document.getElementById('condicionesMedicas').value || null,
-        notas: document.getElementById('notasPerro').value || null
+        nombre: document.getElementById('perro-nombre').value,
+        raza: document.getElementById('perro-raza').value || null,
+        edad_texto: document.getElementById('perro-edad').value || null,
+        sexo: generoEl?.value || null,
+        peso: parseFloat(document.getElementById('perro-peso').value) || null,
+        fecha_pesaje: document.getElementById('perro-fecha-pesaje').value || null,
+        medicamentos: document.getElementById('perro-medicamentos').value || null,
+        esterilizado: document.getElementById('perro-esterilizado').checked,
+        alergias: document.getElementById('perro-alergias').value || null,
+        veterinario: document.getElementById('perro-veterinario').value || null,
+        desparasitacion_tipo: document.getElementById('perro-desparasitacion-tipo').value || null,
+        desparasitacion_fecha: document.getElementById('perro-desparasitacion-fecha').value || null,
+        vacuna_rabia_estado: document.getElementById('vacuna-rabia-estado').value,
+        vacuna_rabia_vence: document.getElementById('vacuna-rabia-vence').value || null,
+        vacuna_sextuple_estado: document.getElementById('vacuna-sextuple-estado').value,
+        vacuna_sextuple_vence: document.getElementById('vacuna-sextuple-vence').value || null,
+        vacuna_bordetella_estado: document.getElementById('vacuna-bordetella-estado').value,
+        vacuna_bordetella_vence: document.getElementById('vacuna-bordetella-vence').value || null,
+        vacuna_giardia_estado: document.getElementById('vacuna-giardia-estado').value,
+        vacuna_giardia_vence: document.getElementById('vacuna-giardia-vence').value || null,
+        vacuna_extra_nombre: document.getElementById('vacuna-extra-nombre').value || null,
+        vacuna_extra_estado: document.getElementById('vacuna-extra-estado').value || null,
+        vacuna_extra_vence: document.getElementById('vacuna-extra-vence').value || null,
+        foto_url: fotoUrl
     };
     
     try {
+        showLoading();
         const nuevo = await apiPost('/perros/', data);
         perros.push(nuevo);
-        
+        llenarSelectPerros();
         e.target.reset();
-        document.getElementById('previewFoto').innerHTML = '<span>📷 Sin foto</span>';
+        document.getElementById('foto-perro-preview').classList.add('hidden');
+        document.getElementById('foto-cartilla-preview').classList.add('hidden');
+        hideLoading();
         showToast('Perro registrado exitosamente', 'success');
     } catch (error) {
+        hideLoading();
         showToast(error.message, 'error');
     }
 }
@@ -427,91 +451,89 @@ async function handleNuevoPerro(e) {
 // ============================================
 // RECEPCIÓN - CHECK-IN
 // ============================================
-async function cargarPerrosCheckIn() {
-    const propietarioId = document.getElementById('selectDuenoCheckIn').value;
-    const selectPerro = document.getElementById('selectPerroCheckIn');
-    
-    selectPerro.innerHTML = '<option value="">Seleccionar perro...</option>';
-    
-    if (propietarioId) {
-        const perrosDueno = perros.filter(p => p.propietario_id === propietarioId);
-        perrosDueno.forEach(p => {
-            selectPerro.innerHTML += `<option value="${p.id}">${p.nombre} (${p.raza || 'Sin raza'})</option>`;
-        });
-    }
-}
-
 function calcularTotalCheckIn() {
-    const dias = parseInt(document.getElementById('diasEstancia').value) || 0;
-    const selectServicio = document.getElementById('selectServicioCheckIn');
-    const precio = parseFloat(selectServicio.selectedOptions[0]?.dataset.precio) || 0;
+    const entrada = document.getElementById('checkin-entrada').value;
+    const salida = document.getElementById('checkin-salida').value;
     
-    const total = dias * precio;
-    document.getElementById('totalCheckIn').textContent = `$${total.toFixed(2)}`;
+    let total = 0;
+    let dias = 1;
+    
+    if (entrada && salida) {
+        const fechaEntrada = new Date(entrada);
+        const fechaSalida = new Date(salida);
+        dias = Math.max(1, Math.ceil((fechaSalida - fechaEntrada) / (1000 * 60 * 60 * 24)));
+    }
+    
+    // Sumar servicios seleccionados
+    document.querySelectorAll('input[name="servicio-checkin"]:checked').forEach(input => {
+        const precio = parseFloat(input.dataset.precio) || 0;
+        total += precio * dias;
+    });
+    
+    document.getElementById('checkin-total').textContent = `$${total.toFixed(2)}`;
 }
 
-async function handleCheckIn(e) {
-    e.preventDefault();
-    
-    const perroId = document.getElementById('selectPerroCheckIn').value;
-    const servicioId = document.getElementById('selectServicioCheckIn').value;
-    const dias = parseInt(document.getElementById('diasEstancia').value);
-    
-    if (!perroId || !servicioId || !dias) {
-        showToast('Completa todos los campos', 'error');
+async function handleCheckIn() {
+    const perroId = document.getElementById('checkin-perro').value;
+    if (!perroId) {
+        showToast('Selecciona un perro', 'error');
         return;
     }
     
-    const servicio = catalogoServicios.find(s => s.id === servicioId);
-    const fechaEntrada = document.getElementById('fechaEntrada').value || new Date().toISOString().split('T')[0];
+    const entrada = document.getElementById('checkin-entrada').value;
+    const salida = document.getElementById('checkin-salida').value;
+    const habitacion = document.getElementById('checkin-habitacion').value;
     
-    // Calcular fecha salida
-    const entrada = new Date(fechaEntrada);
-    entrada.setDate(entrada.getDate() + dias);
-    const fechaSalida = entrada.toISOString().split('T')[0];
+    if (!entrada || !salida) {
+        showToast('Selecciona fechas de entrada y salida', 'error');
+        return;
+    }
+    
+    const serviciosSeleccionados = [];
+    document.querySelectorAll('input[name="servicio-checkin"]:checked').forEach(input => {
+        serviciosSeleccionados.push(input.value);
+    });
     
     const data = {
         perro_id: perroId,
-        servicio_id: servicioId,
-        fecha_entrada: fechaEntrada,
-        fecha_salida: fechaSalida,
-        dias_reservados: dias,
-        precio_total: dias * servicio.precio,
-        notas: document.getElementById('notasCheckIn').value || null
+        fecha_entrada: entrada,
+        fecha_salida: salida,
+        habitacion: habitacion,
+        servicios_ids: serviciosSeleccionados,
+        color_etiqueta: document.getElementById('checkin-color').value
     };
     
     try {
+        showLoading();
         await apiPost('/estancias/', data);
-        e.target.reset();
-        document.getElementById('totalCheckIn').textContent = '$0.00';
-        showToast('Check-in realizado exitosamente', 'success');
+        hideLoading();
+        showToast('Estancia registrada exitosamente', 'success');
+        
+        // Reset
+        document.getElementById('checkin-perro').value = '';
+        document.getElementById('checkin-total').textContent = '$0.00';
+        document.querySelectorAll('input[name="servicio-checkin"]').forEach(i => i.checked = false);
+        
     } catch (error) {
+        hideLoading();
         showToast(error.message, 'error');
     }
 }
 
 // ============================================
-// PASEOS Y AGENDA
+// PASEOS
 // ============================================
-async function cargarPerrosPaseo() {
-    const propietarioId = document.getElementById('selectDuenoPaseo').value;
-    const selectPerro = document.getElementById('selectPerroPaseo');
-    
-    selectPerro.innerHTML = '<option value="">Seleccionar perro...</option>';
-    
-    if (propietarioId) {
-        const perrosDueno = perros.filter(p => p.propietario_id === propietarioId);
-        perrosDueno.forEach(p => {
-            selectPerro.innerHTML += `<option value="${p.id}">${p.nombre}</option>`;
-        });
-    }
+function mostrarPrecioPaseo() {
+    const select = document.getElementById('paseo-tipo');
+    const precio = select.selectedOptions[0]?.dataset.precio || 0;
+    document.getElementById('paseo-precio-info').textContent = `Precio del paseo: $${precio}`;
 }
 
 async function handleNuevoPaseo(e) {
     e.preventDefault();
     
-    const perroId = document.getElementById('selectPerroPaseo').value;
-    const tipoPaseoId = document.getElementById('selectTipoPaseo').value;
+    const perroId = document.getElementById('paseo-perro').value;
+    const tipoPaseoId = document.getElementById('paseo-tipo').value;
     
     if (!perroId || !tipoPaseoId) {
         showToast('Selecciona perro y tipo de paseo', 'error');
@@ -523,19 +545,23 @@ async function handleNuevoPaseo(e) {
     const data = {
         perro_id: perroId,
         tipo_paseo_id: tipoPaseoId,
-        fecha: document.getElementById('fechaPaseo').value || new Date().toISOString().split('T')[0],
-        hora: document.getElementById('horaPaseo').value || null,
-        precio: tipoPaseo.precio,
-        pagado: document.getElementById('paseoPagado').checked,
-        notas: document.getElementById('notasPaseo').value || null
+        fecha: document.getElementById('paseo-fecha').value || new Date().toISOString().split('T')[0],
+        hora_salida: document.getElementById('paseo-salida').value || null,
+        hora_regreso: document.getElementById('paseo-regreso').value || null,
+        precio: tipoPaseo?.precio || 0,
+        pagado: false
     };
     
     try {
+        showLoading();
         await apiPost('/paseos/', data);
-        e.target.reset();
-        cargarPaseos();
+        hideLoading();
         showToast('Paseo registrado', 'success');
+        e.target.reset();
+        document.getElementById('paseo-precio-info').textContent = 'Precio del paseo: $0.00';
+        cargarPaseos();
     } catch (error) {
+        hideLoading();
         showToast(error.message, 'error');
     }
 }
@@ -543,343 +569,294 @@ async function handleNuevoPaseo(e) {
 async function cargarPaseos() {
     try {
         const paseos = await apiGet('/paseos/');
-        renderPaseos(paseos);
+        renderTablaPaseosHistorial(paseos);
     } catch (error) {
         console.error('Error cargando paseos:', error);
     }
 }
 
-function renderPaseos(paseos) {
-    const container = document.getElementById('listaPaseos');
-    if (!container) return;
+function renderTablaPaseosHistorial(paseos) {
+    const tbody = document.getElementById('tabla-paseos');
+    if (!tbody) return;
     
-    if (paseos.length === 0) {
-        container.innerHTML = '<p class="empty-state">No hay paseos registrados</p>';
+    if (!paseos || paseos.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Sin paseos registrados</td></tr>';
+        document.getElementById('paseos-pendiente-total').textContent = '$0.00';
         return;
     }
     
-    // Agrupar por fecha
-    const porFecha = {};
-    paseos.forEach(p => {
-        const fecha = p.fecha;
-        if (!porFecha[fecha]) porFecha[fecha] = [];
-        porFecha[fecha].push(p);
-    });
-    
+    let pendienteTotal = 0;
     let html = '';
-    Object.keys(porFecha).sort().reverse().forEach(fecha => {
-        html += `<div class="paseo-grupo">
-            <h4 class="fecha-grupo">${formatDate(fecha)}</h4>`;
+    
+    paseos.forEach(p => {
+        const perro = perros.find(dog => dog.id === p.perro_id);
+        const tipo = catalogoPaseos.find(t => t.id === p.tipo_paseo_id);
         
-        porFecha[fecha].forEach(paseo => {
-            const perro = perros.find(p => p.id === paseo.perro_id);
-            const tipo = catalogoPaseos.find(t => t.id === paseo.tipo_paseo_id);
-            
-            html += `
-            <div class="paseo-card ${paseo.pagado ? 'pagado' : 'pendiente'}">
-                <div class="paseo-info">
-                    <span class="perro-nombre">${perro?.nombre || 'Desconocido'}</span>
-                    <span class="paseo-tipo">${tipo?.nombre || paseo.tipo_paseo_id}</span>
-                    ${paseo.hora ? `<span class="paseo-hora">🕐 ${paseo.hora}</span>` : ''}
-                </div>
-                <div class="paseo-precio">
-                    <span>$${paseo.precio}</span>
-                    <span class="status-badge ${paseo.pagado ? 'pagado' : 'pendiente'}">
-                        ${paseo.pagado ? '✓ Pagado' : 'Pendiente'}
-                    </span>
-                </div>
-                <div class="paseo-actions">
-                    ${!paseo.pagado ? `<button class="btn btn-sm btn-success" onclick="marcarPaseoPagado('${paseo.id}')">Marcar pagado</button>` : ''}
-                    <button class="btn btn-sm btn-danger" onclick="eliminarPaseo('${paseo.id}')">🗑</button>
-                </div>
-            </div>`;
-        });
+        if (!p.pagado) pendienteTotal += p.precio || 0;
         
-        html += '</div>';
+        html += `
+        <tr>
+            <td>${formatDate(p.fecha)}</td>
+            <td>${perro?.nombre || 'Desconocido'}</td>
+            <td>${tipo?.nombre || 'N/A'}</td>
+            <td>$${(p.precio || 0).toFixed(2)}</td>
+            <td>
+                ${p.pagado 
+                    ? '<span class="badge badge-success">Pagado</span>' 
+                    : `<span class="badge badge-warning">Pendiente</span>
+                       <button class="btn btn-sm btn-success ml-1" onclick="marcarPaseoPagado('${p.id}')">✓</button>`
+                }
+            </td>
+        </tr>`;
     });
     
-    container.innerHTML = html;
+    tbody.innerHTML = html;
+    document.getElementById('paseos-pendiente-total').textContent = `$${pendienteTotal.toFixed(2)}`;
 }
 
 async function marcarPaseoPagado(id) {
     try {
         await apiPut(`/paseos/${id}`, { pagado: true });
-        cargarPaseos();
         showToast('Paseo marcado como pagado', 'success');
+        cargarPaseos();
     } catch (error) {
         showToast(error.message, 'error');
     }
 }
 
-async function eliminarPaseo(id) {
-    if (!confirm('¿Eliminar este paseo?')) return;
-    
-    try {
-        await apiDelete(`/paseos/${id}`);
-        cargarPaseos();
-        showToast('Paseo eliminado', 'success');
-    } catch (error) {
-        showToast(error.message, 'error');
-    }
+async function enviarPaseosCaja() {
+    showToast('Paseos pendientes enviados a caja', 'info');
+    navigateToSection('caja');
 }
 
 // ============================================
 // CAJA Y TICKET
 // ============================================
-async function cargarPerrosCargo() {
-    const propietarioId = document.getElementById('selectDuenoCargo').value;
-    const selectPerro = document.getElementById('selectPerroCargo');
+async function cargarCargosPerro() {
+    const perroId = document.getElementById('caja-perro').value;
+    const tbody = document.getElementById('tabla-cargos');
     
-    selectPerro.innerHTML = '<option value="">Seleccionar perro...</option>';
+    if (!perroId) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Selecciona un cliente</td></tr>';
+        document.getElementById('caja-total').textContent = '$0.00';
+        cargosActuales = [];
+        return;
+    }
     
-    if (propietarioId) {
-        const perrosDueno = perros.filter(p => p.propietario_id === propietarioId);
-        perrosDueno.forEach(p => {
-            selectPerro.innerHTML += `<option value="${p.id}">${p.nombre}</option>`;
-        });
+    try {
+        showLoading();
+        const cargos = await apiGet(`/cargos/?perro_id=${perroId}&pagado=false`);
+        cargosActuales = cargos || [];
+        renderTablaCargos();
+        hideLoading();
+    } catch (error) {
+        hideLoading();
+        showToast(error.message, 'error');
     }
 }
 
-async function handleNuevoCargo(e) {
-    e.preventDefault();
+function renderTablaCargos() {
+    const tbody = document.getElementById('tabla-cargos');
     
-    const perroId = document.getElementById('selectPerroCargo').value;
-    const concepto = document.getElementById('conceptoCargo').value;
-    const monto = parseFloat(document.getElementById('montoCargo').value);
+    if (!cargosActuales || cargosActuales.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Sin cargos pendientes</td></tr>';
+        document.getElementById('caja-total').textContent = '$0.00';
+        return;
+    }
     
-    if (!perroId || !concepto || !monto) {
-        showToast('Completa todos los campos', 'error');
+    let total = 0;
+    let html = '';
+    
+    cargosActuales.forEach((c, index) => {
+        const perro = perros.find(p => p.id === c.perro_id);
+        total += c.monto || 0;
+        
+        html += `
+        <tr id="cargo-row-${index}">
+            <td>${formatDate(c.fecha || c.created_at)}</td>
+            <td>${perro?.nombre || 'N/A'}</td>
+            <td>${c.concepto}</td>
+            <td>$${(c.monto || 0).toFixed(2)}</td>
+            <td>
+                <input type="checkbox" class="cargo-borrar" data-index="${index}" data-id="${c.id}">
+            </td>
+        </tr>`;
+    });
+    
+    tbody.innerHTML = html;
+    document.getElementById('caja-total').textContent = `$${total.toFixed(2)}`;
+    
+    // Listeners para borrar
+    document.querySelectorAll('.cargo-borrar').forEach(checkbox => {
+        checkbox.addEventListener('change', async (e) => {
+            if (e.target.checked) {
+                if (confirm('¿Eliminar este cargo?')) {
+                    try {
+                        await apiDelete(`/cargos/${e.target.dataset.id}`);
+                        cargosActuales.splice(e.target.dataset.index, 1);
+                        renderTablaCargos();
+                        showToast('Cargo eliminado', 'success');
+                    } catch (error) {
+                        showToast(error.message, 'error');
+                        e.target.checked = false;
+                    }
+                } else {
+                    e.target.checked = false;
+                }
+            }
+        });
+    });
+}
+
+async function handleAgregarCargo() {
+    const perroId = document.getElementById('caja-perro').value;
+    if (!perroId) {
+        showToast('Selecciona un perro primero', 'error');
+        return;
+    }
+    
+    const concepto = document.getElementById('cargo-concepto').value;
+    const monto = parseFloat(document.getElementById('cargo-monto').value);
+    
+    if (!concepto || !monto) {
+        showToast('Ingresa concepto y monto', 'error');
         return;
     }
     
     const data = {
         perro_id: perroId,
+        fecha: document.getElementById('cargo-fecha').value || new Date().toISOString().split('T')[0],
         concepto: concepto,
         monto: monto,
         pagado: false
     };
     
     try {
-        await apiPost('/cargos/', data);
-        e.target.reset();
-        cargarCargos();
+        showLoading();
+        const nuevo = await apiPost('/cargos/', data);
+        cargosActuales.push(nuevo);
+        renderTablaCargos();
+        
+        // Limpiar campos
+        document.getElementById('cargo-concepto').value = '';
+        document.getElementById('cargo-monto').value = '';
+        
+        hideLoading();
         showToast('Cargo agregado', 'success');
     } catch (error) {
+        hideLoading();
         showToast(error.message, 'error');
     }
 }
 
-async function cargarCargos() {
-    try {
-        const cargos = await apiGet('/cargos/?pagado=false');
-        cargosPendientes = cargos;
-        renderCargos(cargos);
-    } catch (error) {
-        console.error('Error cargando cargos:', error);
-    }
-}
-
-function renderCargos(cargos) {
-    const container = document.getElementById('listaCargos');
-    if (!container) return;
-    
-    if (cargos.length === 0) {
-        container.innerHTML = '<p class="empty-state">No hay cargos pendientes</p>';
-        document.getElementById('totalCargos').textContent = '$0.00';
-        return;
-    }
-    
-    let total = 0;
-    let html = '<div class="cargos-list">';
-    
-    cargos.forEach(cargo => {
-        const perro = perros.find(p => p.id === cargo.perro_id);
-        total += cargo.monto;
-        
-        html += `
-        <div class="cargo-item">
-            <div class="cargo-info">
-                <span class="cargo-perro">${perro?.nombre || 'Desconocido'}</span>
-                <span class="cargo-concepto">${cargo.concepto}</span>
-            </div>
-            <div class="cargo-monto">$${cargo.monto.toFixed(2)}</div>
-            <div class="cargo-actions">
-                <button class="btn btn-sm btn-danger" onclick="eliminarCargo('${cargo.id}')">🗑</button>
-            </div>
-        </div>`;
-    });
-    
-    html += '</div>';
-    container.innerHTML = html;
-    document.getElementById('totalCargos').textContent = `$${total.toFixed(2)}`;
-}
-
-async function eliminarCargo(id) {
-    if (!confirm('¿Eliminar este cargo?')) return;
-    
-    try {
-        await apiDelete(`/cargos/${id}`);
-        cargarCargos();
-        showToast('Cargo eliminado', 'success');
-    } catch (error) {
-        showToast(error.message, 'error');
-    }
-}
-
-// ============================================
-// GENERAR TICKET
-// ============================================
-async function generarTicket() {
-    if (cargosPendientes.length === 0) {
+function generarTicket() {
+    if (cargosActuales.length === 0) {
         showToast('No hay cargos para generar ticket', 'error');
         return;
     }
     
-    // Agrupar cargos por perro/propietario
-    const perroId = cargosPendientes[0].perro_id;
+    const perroId = document.getElementById('caja-perro').value;
     const perro = perros.find(p => p.id === perroId);
     const propietario = propietarios.find(p => p.id === perro?.propietario_id);
-    
-    const ticketData = {
-        perro_id: perroId,
-        cargos_ids: cargosPendientes.map(c => c.id),
-        subtotal: cargosPendientes.reduce((sum, c) => sum + c.monto, 0),
-        descuento: 0,
-        total: cargosPendientes.reduce((sum, c) => sum + c.monto, 0)
-    };
-    
-    try {
-        const ticket = await apiPost('/tickets/', ticketData);
-        mostrarTicket(ticket, perro, propietario, cargosPendientes);
-    } catch (error) {
-        showToast(error.message, 'error');
-    }
-}
-
-function mostrarTicket(ticket, perro, propietario, cargos) {
-    const modal = document.getElementById('modalTicket');
-    const contenido = document.getElementById('ticketContenido');
     
     const fecha = new Date().toLocaleDateString('es-MX', {
         year: 'numeric',
         month: 'long',
-        day: 'numeric'
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
     });
     
+    const folio = 'TK-' + Date.now().toString().slice(-8);
+    
     let itemsHtml = '';
-    cargos.forEach(c => {
+    let total = 0;
+    
+    cargosActuales.forEach(c => {
+        total += c.monto;
         itemsHtml += `
         <tr>
-            <td>${c.concepto}</td>
-            <td class="text-right">$${c.monto.toFixed(2)}</td>
+            <td style="text-align:left; padding: 4px 0;">${c.concepto}</td>
+            <td style="text-align:right; padding: 4px 0;">$${c.monto.toFixed(2)}</td>
         </tr>`;
     });
     
-    contenido.innerHTML = `
-    <div class="ticket" id="ticketParaImprimir">
-        <div class="ticket-header">
-            <img src="logo.png" alt="ComfortCan" class="ticket-logo">
-            <h2>ComfortCan México</h2>
-            <p>Hotel & Guardería Canina</p>
-            <p class="ticket-fecha">${fecha}</p>
-            <p class="ticket-folio">Folio: ${ticket.folio}</p>
+    const ticketHtml = `
+    <div class="ticket" id="ticket-para-imprimir" style="background: white; color: black; padding: 20px; font-family: 'Courier New', monospace; max-width: 300px; margin: 0 auto;">
+        <div style="text-align: center; border-bottom: 2px dashed #000; padding-bottom: 10px; margin-bottom: 10px;">
+            <img src="assets/logo.png" alt="ComfortCan" style="width: 80px; margin-bottom: 5px;">
+            <h2 style="margin: 5px 0; font-size: 16px;">ComfortCan México</h2>
+            <p style="margin: 2px 0; font-size: 11px;">Hotel & Guardería Canina</p>
+            <p style="margin: 2px 0; font-size: 10px;">${fecha}</p>
+            <p style="margin: 2px 0; font-size: 10px;">Folio: ${folio}</p>
         </div>
         
-        <div class="ticket-cliente">
-            <p><strong>Cliente:</strong> ${propietario?.nombre || 'N/A'}</p>
-            <p><strong>Mascota:</strong> ${perro?.nombre || 'N/A'}</p>
+        <div style="border-bottom: 1px dashed #000; padding-bottom: 10px; margin-bottom: 10px; font-size: 12px;">
+            <p style="margin: 2px 0;"><strong>Cliente:</strong> ${propietario?.nombre || 'N/A'}</p>
+            <p style="margin: 2px 0;"><strong>Mascota:</strong> ${perro?.nombre || 'N/A'}</p>
         </div>
         
-        <table class="ticket-items">
-            <thead>
-                <tr>
-                    <th>Concepto</th>
-                    <th class="text-right">Monto</th>
-                </tr>
-            </thead>
+        <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
             <tbody>
                 ${itemsHtml}
             </tbody>
         </table>
         
-        <div class="ticket-total">
-            <div class="total-row">
-                <span>Subtotal:</span>
-                <span>$${ticket.subtotal.toFixed(2)}</span>
-            </div>
-            ${ticket.descuento > 0 ? `
-            <div class="total-row descuento">
-                <span>Descuento:</span>
-                <span>-$${ticket.descuento.toFixed(2)}</span>
-            </div>` : ''}
-            <div class="total-row total-final">
+        <div style="border-top: 2px dashed #000; margin-top: 10px; padding-top: 10px;">
+            <div style="display: flex; justify-content: space-between; font-size: 16px; font-weight: bold;">
                 <span>TOTAL:</span>
-                <span>$${ticket.total.toFixed(2)}</span>
+                <span>$${total.toFixed(2)}</span>
             </div>
         </div>
         
-        <div class="ticket-footer">
-            <p>¡Gracias por su preferencia!</p>
-            <p>🐕 ComfortCan México 🐕</p>
+        <div style="text-align: center; margin-top: 15px; font-size: 11px; border-top: 1px dashed #000; padding-top: 10px;">
+            <p style="margin: 2px 0;">¡Gracias por su preferencia!</p>
+            <p style="margin: 2px 0;">🐕 ComfortCan México 🐕</p>
         </div>
     </div>`;
     
-    modal.classList.add('active');
-}
-
-function cerrarModalTicket() {
-    document.getElementById('modalTicket').classList.remove('active');
+    document.getElementById('ticket-content').innerHTML = ticketHtml;
+    document.getElementById('ticket-container').style.display = 'block';
 }
 
 function imprimirTicket() {
-    const contenido = document.getElementById('ticketParaImprimir').innerHTML;
-    const ventana = window.open('', '_blank');
+    const contenido = document.getElementById('ticket-para-imprimir').outerHTML;
+    const ventana = window.open('', '_blank', 'width=350,height=600');
     
     ventana.document.write(`
     <html>
-    <head>
-        <title>Ticket ComfortCan</title>
-        <style>
-            body { font-family: 'Courier New', monospace; padding: 10px; max-width: 300px; margin: 0 auto; }
-            .ticket-header { text-align: center; border-bottom: 1px dashed #000; padding-bottom: 10px; }
-            .ticket-logo { max-width: 100px; }
-            .ticket-header h2 { margin: 10px 0 5px; font-size: 18px; }
-            .ticket-header p { margin: 2px 0; font-size: 12px; }
-            .ticket-cliente { padding: 10px 0; border-bottom: 1px dashed #000; font-size: 12px; }
-            .ticket-items { width: 100%; border-collapse: collapse; font-size: 12px; }
-            .ticket-items th, .ticket-items td { padding: 5px 0; text-align: left; }
-            .text-right { text-align: right; }
-            .ticket-total { border-top: 1px dashed #000; padding-top: 10px; margin-top: 10px; }
-            .total-row { display: flex; justify-content: space-between; font-size: 12px; }
-            .total-final { font-weight: bold; font-size: 16px; margin-top: 5px; }
-            .ticket-footer { text-align: center; margin-top: 15px; font-size: 11px; border-top: 1px dashed #000; padding-top: 10px; }
-        </style>
-    </head>
-    <body>${contenido}</body>
+    <head><title>Ticket ComfortCan</title></head>
+    <body style="margin:0; padding:10px;">
+        ${contenido}
+        <script>window.onload = function() { window.print(); }</script>
+    </body>
     </html>`);
-    
     ventana.document.close();
-    ventana.print();
-}
-
-function descargarTicket() {
-    // Usar html2canvas si está disponible, sino solo imprimir
-    imprimirTicket();
 }
 
 async function confirmarPago() {
-    if (!confirm('¿Confirmar pago de todos los cargos?')) return;
+    if (!confirm('¿Confirmar que se recibió el pago?')) return;
     
     try {
+        showLoading();
+        
         // Marcar todos los cargos como pagados
-        for (const cargo of cargosPendientes) {
+        for (const cargo of cargosActuales) {
             await apiPut(`/cargos/${cargo.id}`, { pagado: true });
         }
         
-        cerrarModalTicket();
-        cargarCargos();
-        showToast('Pago confirmado exitosamente', 'success');
+        hideLoading();
+        showToast('¡Pago confirmado exitosamente!', 'success');
+        
+        // Limpiar
+        cargosActuales = [];
+        document.getElementById('caja-perro').value = '';
+        document.getElementById('tabla-cargos').innerHTML = '<tr><td colspan="5" class="text-center text-muted">Selecciona un cliente</td></tr>';
+        document.getElementById('caja-total').textContent = '$0.00';
+        document.getElementById('ticket-container').style.display = 'none';
+        
     } catch (error) {
+        hideLoading();
         showToast(error.message, 'error');
     }
 }
@@ -887,401 +864,359 @@ async function confirmarPago() {
 // ============================================
 // EXPEDIENTES
 // ============================================
-async function cargarExpedientes() {
-    renderExpedientes(perros);
-}
-
-function buscarExpedientes(e) {
-    const busqueda = e.target.value.toLowerCase();
+async function cargarExpediente() {
+    const perroId = document.getElementById('expediente-perro').value;
+    const contenedor = document.getElementById('expediente-contenido');
     
-    const filtrados = perros.filter(p => {
-        const propietario = propietarios.find(prop => prop.id === p.propietario_id);
-        return p.nombre.toLowerCase().includes(busqueda) ||
-               propietario?.nombre.toLowerCase().includes(busqueda);
-    });
-    
-    renderExpedientes(filtrados);
-}
-
-function renderExpedientes(lista) {
-    const container = document.getElementById('listaExpedientes');
-    if (!container) return;
-    
-    if (lista.length === 0) {
-        container.innerHTML = '<p class="empty-state">No se encontraron expedientes</p>';
+    if (!perroId) {
+        contenedor.classList.add('hidden');
         return;
     }
     
-    let html = '<div class="expedientes-grid">';
-    
-    lista.forEach(perro => {
-        const propietario = propietarios.find(p => p.id === perro.propietario_id);
-        
-        html += `
-        <div class="expediente-card" onclick="verExpediente('${perro.id}')">
-            <div class="expediente-foto">
-                ${perro.foto_url ? 
-                    `<img src="${perro.foto_url}" alt="${perro.nombre}">` : 
-                    '<span class="no-foto">🐕</span>'}
-            </div>
-            <div class="expediente-info">
-                <h4>${perro.nombre}</h4>
-                <p class="raza">${perro.raza || 'Sin raza'}</p>
-                <p class="dueno">👤 ${propietario?.nombre || 'Sin dueño'}</p>
-            </div>
-            <div class="expediente-vacunas">
-                <span class="${perro.vacuna_rabia ? 'ok' : 'pending'}">🦠 Rabia</span>
-                <span class="${perro.vacuna_multiple ? 'ok' : 'pending'}">💉 Múltiple</span>
-            </div>
-        </div>`;
-    });
-    
-    html += '</div>';
-    container.innerHTML = html;
-}
-
-async function verExpediente(perroId) {
     const perro = perros.find(p => p.id === perroId);
     const propietario = propietarios.find(p => p.id === perro?.propietario_id);
     
     if (!perro) return;
     
     // Cargar historial
-    let estancias = [];
-    let paseos = [];
-    let tickets = [];
-    
+    let estancias = [], paseos = [], tickets = [];
     try {
         [estancias, paseos, tickets] = await Promise.all([
-            apiGet(`/estancias/?perro_id=${perroId}`),
-            apiGet(`/paseos/?perro_id=${perroId}`),
-            apiGet(`/tickets/?perro_id=${perroId}`)
+            apiGet(`/estancias/?perro_id=${perroId}`).catch(() => []),
+            apiGet(`/paseos/?perro_id=${perroId}`).catch(() => []),
+            apiGet(`/tickets/?perro_id=${perroId}`).catch(() => [])
         ]);
-    } catch (error) {
-        console.error('Error cargando historial:', error);
-    }
+    } catch (e) {}
     
-    const modal = document.getElementById('modalExpediente');
-    const contenido = document.getElementById('expedienteContenido');
-    
-    contenido.innerHTML = `
-    <div class="expediente-detalle">
-        <div class="expediente-header">
-            <div class="foto-grande">
-                ${perro.foto_url ? 
-                    `<img src="${perro.foto_url}" alt="${perro.nombre}">` : 
-                    '<span class="no-foto">🐕</span>'}
+    contenedor.innerHTML = `
+    <div class="card mt-2">
+        <div class="flex gap-3" style="flex-wrap: wrap;">
+            <div style="flex: 0 0 150px;">
+                ${perro.foto_url 
+                    ? `<img src="${perro.foto_url}" alt="${perro.nombre}" style="width:150px; height:150px; object-fit:cover; border-radius:12px;">` 
+                    : `<div style="width:150px; height:150px; background:var(--color-bg-input); border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:60px;">🐕</div>`
+                }
             </div>
-            <div class="info-principal">
-                <h2>${perro.nombre}</h2>
+            <div style="flex:1; min-width:200px;">
+                <h2 style="margin:0 0 10px 0;">${perro.nombre}</h2>
                 <p><strong>Raza:</strong> ${perro.raza || 'No especificada'}</p>
-                <p><strong>Edad:</strong> ${perro.edad_anos ? perro.edad_anos + ' años' : 'No especificada'}</p>
+                <p><strong>Edad:</strong> ${perro.edad_texto || 'No especificada'}</p>
                 <p><strong>Peso:</strong> ${perro.peso ? perro.peso + ' kg' : 'No especificado'}</p>
                 <p><strong>Sexo:</strong> ${perro.sexo || 'No especificado'}</p>
-                <p><strong>Color:</strong> ${perro.color || 'No especificado'}</p>
                 <p><strong>Esterilizado:</strong> ${perro.esterilizado ? 'Sí' : 'No'}</p>
             </div>
         </div>
-        
-        <div class="seccion-expediente">
-            <h3>👤 Propietario</h3>
-            <p><strong>Nombre:</strong> ${propietario?.nombre || 'N/A'}</p>
-            <p><strong>Teléfono:</strong> ${propietario?.telefono || 'N/A'}</p>
-            <p><strong>Email:</strong> ${propietario?.email || 'N/A'}</p>
-        </div>
-        
-        <div class="seccion-expediente">
-            <h3>💉 Vacunas y Salud</h3>
-            <div class="vacunas-grid">
-                <div class="vacuna-item ${perro.vacuna_rabia ? 'ok' : 'pending'}">
-                    <span class="vacuna-nombre">Rabia</span>
-                    <span class="vacuna-status">${perro.vacuna_rabia ? '✓' : '✗'}</span>
-                    ${perro.vacuna_rabia_fecha ? `<span class="vacuna-fecha">${formatDate(perro.vacuna_rabia_fecha)}</span>` : ''}
-                </div>
-                <div class="vacuna-item ${perro.vacuna_multiple ? 'ok' : 'pending'}">
-                    <span class="vacuna-nombre">Múltiple</span>
-                    <span class="vacuna-status">${perro.vacuna_multiple ? '✓' : '✗'}</span>
-                    ${perro.vacuna_multiple_fecha ? `<span class="vacuna-fecha">${formatDate(perro.vacuna_multiple_fecha)}</span>` : ''}
-                </div>
-                <div class="vacuna-item ${perro.desparasitado ? 'ok' : 'pending'}">
-                    <span class="vacuna-nombre">Desparasitado</span>
-                    <span class="vacuna-status">${perro.desparasitado ? '✓' : '✗'}</span>
-                    ${perro.desparasitado_fecha ? `<span class="vacuna-fecha">${formatDate(perro.desparasitado_fecha)}</span>` : ''}
-                </div>
+    </div>
+    
+    <div class="card mt-2">
+        <h3>👤 Propietario</h3>
+        <p><strong>Nombre:</strong> ${propietario?.nombre || 'N/A'}</p>
+        <p><strong>Teléfono:</strong> ${propietario?.telefono || 'N/A'}</p>
+        <p><strong>Email:</strong> ${propietario?.email || 'N/A'}</p>
+        <p><strong>Dirección:</strong> ${propietario?.direccion || 'N/A'}</p>
+    </div>
+    
+    <div class="card mt-2">
+        <h3>💉 Vacunas</h3>
+        <div class="vacunas-grid">
+            <div class="vacuna-card ${perro.vacuna_rabia_estado === 'Vigente' ? 'vigente' : perro.vacuna_rabia_estado === 'Vencida' ? 'vencida' : ''}">
+                <div class="vacuna-title">Rabia</div>
+                <div class="vacuna-status">${perro.vacuna_rabia_estado || 'Pendiente'}</div>
+                ${perro.vacuna_rabia_vence ? `<div class="vacuna-fecha">Vence: ${formatDate(perro.vacuna_rabia_vence)}</div>` : ''}
             </div>
-            ${perro.condiciones_medicas ? `<p><strong>Condiciones médicas:</strong> ${perro.condiciones_medicas}</p>` : ''}
+            <div class="vacuna-card ${perro.vacuna_sextuple_estado === 'Vigente' ? 'vigente' : perro.vacuna_sextuple_estado === 'Vencida' ? 'vencida' : ''}">
+                <div class="vacuna-title">Séxtuple</div>
+                <div class="vacuna-status">${perro.vacuna_sextuple_estado || 'Pendiente'}</div>
+                ${perro.vacuna_sextuple_vence ? `<div class="vacuna-fecha">Vence: ${formatDate(perro.vacuna_sextuple_vence)}</div>` : ''}
+            </div>
+            <div class="vacuna-card ${perro.vacuna_bordetella_estado === 'Vigente' ? 'vigente' : perro.vacuna_bordetella_estado === 'Vencida' ? 'vencida' : ''}">
+                <div class="vacuna-title">Bordetella</div>
+                <div class="vacuna-status">${perro.vacuna_bordetella_estado || 'Pendiente'}</div>
+                ${perro.vacuna_bordetella_vence ? `<div class="vacuna-fecha">Vence: ${formatDate(perro.vacuna_bordetella_vence)}</div>` : ''}
+            </div>
+            <div class="vacuna-card ${perro.vacuna_giardia_estado === 'Vigente' ? 'vigente' : perro.vacuna_giardia_estado === 'Vencida' ? 'vencida' : ''}">
+                <div class="vacuna-title">Giardia</div>
+                <div class="vacuna-status">${perro.vacuna_giardia_estado || 'Pendiente'}</div>
+                ${perro.vacuna_giardia_vence ? `<div class="vacuna-fecha">Vence: ${formatDate(perro.vacuna_giardia_vence)}</div>` : ''}
+            </div>
         </div>
-        
-        <div class="seccion-expediente">
-            <h3>🏨 Historial de Estancias (${estancias.length})</h3>
-            ${estancias.length > 0 ? `
-            <div class="historial-lista">
-                ${estancias.slice(0, 5).map(e => `
-                    <div class="historial-item">
-                        <span>${formatDate(e.fecha_entrada)} - ${formatDate(e.fecha_salida)}</span>
-                        <span>${e.dias_reservados} días</span>
-                        <span>$${e.precio_total}</span>
-                    </div>
-                `).join('')}
-            </div>` : '<p class="empty-state">Sin estancias registradas</p>'}
-        </div>
-        
-        <div class="seccion-expediente">
-            <h3>🦮 Historial de Paseos (${paseos.length})</h3>
-            ${paseos.length > 0 ? `
-            <div class="historial-lista">
-                ${paseos.slice(0, 5).map(p => `
-                    <div class="historial-item">
-                        <span>${formatDate(p.fecha)}</span>
-                        <span>$${p.precio}</span>
-                        <span class="status-badge ${p.pagado ? 'pagado' : 'pendiente'}">${p.pagado ? 'Pagado' : 'Pendiente'}</span>
-                    </div>
-                `).join('')}
-            </div>` : '<p class="empty-state">Sin paseos registrados</p>'}
-        </div>
-        
-        <div class="seccion-expediente">
-            <h3>🧾 Tickets (${tickets.length})</h3>
-            ${tickets.length > 0 ? `
-            <div class="historial-lista">
-                ${tickets.slice(0, 5).map(t => `
-                    <div class="historial-item">
-                        <span>Folio: ${t.folio}</span>
-                        <span>${formatDate(t.created_at)}</span>
-                        <span>$${t.total}</span>
-                    </div>
-                `).join('')}
-            </div>` : '<p class="empty-state">Sin tickets registrados</p>'}
-        </div>
-        
-        ${perro.notas ? `
-        <div class="seccion-expediente">
-            <h3>📝 Notas</h3>
-            <p>${perro.notas}</p>
-        </div>` : ''}
+    </div>
+    
+    <div class="card mt-2">
+        <h3>🏥 Información Médica</h3>
+        <p><strong>Medicamentos:</strong> ${perro.medicamentos || 'Ninguno'}</p>
+        <p><strong>Alergias/Condiciones:</strong> ${perro.alergias || 'Ninguna'}</p>
+        <p><strong>Veterinario:</strong> ${perro.veterinario || 'No especificado'}</p>
+        <p><strong>Desparasitación:</strong> ${perro.desparasitacion_tipo || 'N/A'} ${perro.desparasitacion_fecha ? '- ' + formatDate(perro.desparasitacion_fecha) : ''}</p>
+    </div>
+    
+    <div class="card mt-2">
+        <h3>🏨 Historial de Estancias (${estancias.length})</h3>
+        ${estancias.length > 0 ? `
+        <div class="table-container">
+            <table class="table">
+                <thead><tr><th>Entrada</th><th>Salida</th><th>Habitación</th></tr></thead>
+                <tbody>
+                    ${estancias.slice(0,10).map(e => `
+                        <tr>
+                            <td>${formatDate(e.fecha_entrada)}</td>
+                            <td>${formatDate(e.fecha_salida)}</td>
+                            <td>${e.habitacion || 'N/A'}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>` : '<p class="text-muted">Sin estancias registradas</p>'}
+    </div>
+    
+    <div class="card mt-2">
+        <h3>🦮 Historial de Paseos (${paseos.length})</h3>
+        ${paseos.length > 0 ? `
+        <div class="table-container">
+            <table class="table">
+                <thead><tr><th>Fecha</th><th>Tipo</th><th>Precio</th><th>Estado</th></tr></thead>
+                <tbody>
+                    ${paseos.slice(0,10).map(p => {
+                        const tipo = catalogoPaseos.find(t => t.id === p.tipo_paseo_id);
+                        return `
+                        <tr>
+                            <td>${formatDate(p.fecha)}</td>
+                            <td>${tipo?.nombre || 'N/A'}</td>
+                            <td>$${(p.precio||0).toFixed(2)}</td>
+                            <td>${p.pagado ? '<span class="badge badge-success">Pagado</span>' : '<span class="badge badge-warning">Pendiente</span>'}</td>
+                        </tr>`;
+                    }).join('')}
+                </tbody>
+            </table>
+        </div>` : '<p class="text-muted">Sin paseos registrados</p>'}
     </div>`;
     
-    modal.classList.add('active');
-}
-
-function cerrarModalExpediente() {
-    document.getElementById('modalExpediente').classList.remove('active');
+    contenedor.classList.remove('hidden');
 }
 
 // ============================================
 // GESTIÓN DE DATOS
 // ============================================
-async function cargarGestion() {
-    renderGestion(perros, propietarios);
+function toggleGestionTipo() {
+    const tipo = document.querySelector('input[name="gestion-tipo"]:checked').value;
+    document.getElementById('gestion-perros').classList.toggle('hidden', tipo !== 'perros');
+    document.getElementById('gestion-clientes').classList.toggle('hidden', tipo !== 'clientes');
 }
 
-function buscarGestion(e) {
-    const busqueda = e.target.value.toLowerCase();
+function cargarFormularioPerro() {
+    const perroId = document.getElementById('gestion-perro-select').value;
+    const container = document.getElementById('gestion-perro-form');
     
-    const perrosFiltrados = perros.filter(p => 
-        p.nombre.toLowerCase().includes(busqueda)
-    );
-    
-    const propietariosFiltrados = propietarios.filter(p => 
-        p.nombre.toLowerCase().includes(busqueda) ||
-        p.telefono.includes(busqueda)
-    );
-    
-    renderGestion(perrosFiltrados, propietariosFiltrados);
-}
-
-function renderGestion(listaPerros, listaPropietarios) {
-    const containerPerros = document.getElementById('gestionPerros');
-    const containerDuenos = document.getElementById('gestionDuenos');
-    
-    // Renderizar perros
-    if (containerPerros) {
-        let html = '<h3>🐕 Perros</h3><div class="gestion-lista">';
-        listaPerros.forEach(p => {
-            html += `
-            <div class="gestion-item">
-                <span class="nombre">${p.nombre}</span>
-                <span class="detalle">${p.raza || 'Sin raza'}</span>
-                <div class="actions">
-                    <button class="btn btn-sm btn-primary" onclick="editarPerro('${p.id}')">✏️</button>
-                    <button class="btn btn-sm btn-danger" onclick="eliminarPerro('${p.id}')">🗑</button>
-                </div>
-            </div>`;
-        });
-        html += '</div>';
-        containerPerros.innerHTML = html;
+    if (!perroId) {
+        container.classList.add('hidden');
+        return;
     }
     
-    // Renderizar propietarios
-    if (containerDuenos) {
-        let html = '<h3>👤 Propietarios</h3><div class="gestion-lista">';
-        listaPropietarios.forEach(p => {
-            html += `
-            <div class="gestion-item">
-                <span class="nombre">${p.nombre}</span>
-                <span class="detalle">${p.telefono}</span>
-                <div class="actions">
-                    <button class="btn btn-sm btn-primary" onclick="editarPropietario('${p.id}')">✏️</button>
-                    <button class="btn btn-sm btn-danger" onclick="eliminarPropietario('${p.id}')">🗑</button>
-                </div>
-            </div>`;
-        });
-        html += '</div>';
-        containerDuenos.innerHTML = html;
-    }
-}
-
-async function editarPerro(id) {
-    const perro = perros.find(p => p.id === id);
+    const perro = perros.find(p => p.id === perroId);
     if (!perro) return;
     
-    const nombre = prompt('Nombre del perro:', perro.nombre);
-    if (nombre === null) return;
+    container.innerHTML = `
+    <div class="card mt-2" style="background: var(--color-bg-input);">
+        <div class="form-group">
+            <label class="form-label">Nombre</label>
+            <input type="text" id="edit-perro-nombre" class="form-input" value="${perro.nombre || ''}">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Raza</label>
+            <input type="text" id="edit-perro-raza" class="form-input" value="${perro.raza || ''}">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Peso (kg)</label>
+            <input type="number" step="0.1" id="edit-perro-peso" class="form-input" value="${perro.peso || ''}">
+        </div>
+        <div class="btn-group mt-2">
+            <button type="button" class="btn btn-primary" onclick="guardarEdicionPerro('${perroId}')">Guardar Cambios</button>
+            <button type="button" class="btn btn-danger" onclick="eliminarPerro('${perroId}')">Eliminar Perro</button>
+        </div>
+    </div>`;
     
-    const raza = prompt('Raza:', perro.raza || '');
+    container.classList.remove('hidden');
+}
+
+async function guardarEdicionPerro(id) {
+    const data = {
+        nombre: document.getElementById('edit-perro-nombre').value,
+        raza: document.getElementById('edit-perro-raza').value,
+        peso: parseFloat(document.getElementById('edit-perro-peso').value) || null
+    };
     
     try {
-        const actualizado = await apiPut(`/perros/${id}`, { nombre, raza });
+        showLoading();
+        await apiPut(`/perros/${id}`, data);
         const index = perros.findIndex(p => p.id === id);
-        perros[index] = { ...perros[index], ...actualizado };
-        cargarGestion();
+        if (index > -1) perros[index] = { ...perros[index], ...data };
+        llenarSelectPerros();
+        hideLoading();
         showToast('Perro actualizado', 'success');
     } catch (error) {
+        hideLoading();
         showToast(error.message, 'error');
     }
 }
 
 async function eliminarPerro(id) {
-    if (!confirm('¿Eliminar este perro? Esta acción no se puede deshacer.')) return;
+    if (!confirm('¿Seguro que deseas eliminar este perro? Esta acción no se puede deshacer.')) return;
     
     try {
+        showLoading();
         await apiDelete(`/perros/${id}`);
         perros = perros.filter(p => p.id !== id);
-        cargarGestion();
+        llenarSelectPerros();
+        document.getElementById('gestion-perro-select').value = '';
+        document.getElementById('gestion-perro-form').classList.add('hidden');
+        hideLoading();
         showToast('Perro eliminado', 'success');
     } catch (error) {
+        hideLoading();
         showToast(error.message, 'error');
     }
 }
 
-async function editarPropietario(id) {
-    const prop = propietarios.find(p => p.id === id);
-    if (!prop) return;
+function cargarFormularioCliente() {
+    const clienteId = document.getElementById('gestion-cliente-select').value;
+    const container = document.getElementById('gestion-cliente-form');
     
-    const nombre = prompt('Nombre:', prop.nombre);
-    if (nombre === null) return;
+    if (!clienteId) {
+        container.classList.add('hidden');
+        return;
+    }
     
-    const telefono = prompt('Teléfono:', prop.telefono);
+    const cliente = propietarios.find(p => p.id === clienteId);
+    if (!cliente) return;
+    
+    container.innerHTML = `
+    <div class="card mt-2" style="background: var(--color-bg-input);">
+        <div class="form-group">
+            <label class="form-label">Nombre</label>
+            <input type="text" id="edit-cliente-nombre" class="form-input" value="${cliente.nombre || ''}">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Teléfono</label>
+            <input type="tel" id="edit-cliente-telefono" class="form-input" value="${cliente.telefono || ''}">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Email</label>
+            <input type="email" id="edit-cliente-email" class="form-input" value="${cliente.email || ''}">
+        </div>
+        <div class="btn-group mt-2">
+            <button type="button" class="btn btn-primary" onclick="guardarEdicionCliente('${clienteId}')">Guardar Cambios</button>
+            <button type="button" class="btn btn-danger" onclick="eliminarCliente('${clienteId}')">Eliminar Cliente</button>
+        </div>
+    </div>`;
+    
+    container.classList.remove('hidden');
+}
+
+async function guardarEdicionCliente(id) {
+    const data = {
+        nombre: document.getElementById('edit-cliente-nombre').value,
+        telefono: document.getElementById('edit-cliente-telefono').value,
+        email: document.getElementById('edit-cliente-email').value
+    };
     
     try {
-        const actualizado = await apiPut(`/propietarios/${id}`, { nombre, telefono });
+        showLoading();
+        await apiPut(`/propietarios/${id}`, data);
         const index = propietarios.findIndex(p => p.id === id);
-        propietarios[index] = { ...propietarios[index], ...actualizado };
-        cargarGestion();
+        if (index > -1) propietarios[index] = { ...propietarios[index], ...data };
         llenarSelectPropietarios();
-        showToast('Propietario actualizado', 'success');
+        hideLoading();
+        showToast('Cliente actualizado', 'success');
     } catch (error) {
+        hideLoading();
         showToast(error.message, 'error');
     }
 }
 
-async function eliminarPropietario(id) {
-    if (!confirm('¿Eliminar este propietario? Se eliminarán también sus perros.')) return;
+async function eliminarCliente(id) {
+    if (!confirm('¿Seguro? Se eliminarán también todos los perros de este cliente.')) return;
     
     try {
+        showLoading();
         await apiDelete(`/propietarios/${id}`);
         propietarios = propietarios.filter(p => p.id !== id);
         perros = perros.filter(p => p.propietario_id !== id);
-        cargarGestion();
         llenarSelectPropietarios();
-        showToast('Propietario eliminado', 'success');
+        llenarSelectPerros();
+        document.getElementById('gestion-cliente-select').value = '';
+        document.getElementById('gestion-cliente-form').classList.add('hidden');
+        hideLoading();
+        showToast('Cliente eliminado', 'success');
     } catch (error) {
+        hideLoading();
         showToast(error.message, 'error');
     }
 }
 
 // ============================================
-// CONFIGURACIÓN - CATÁLOGOS
+// CONFIGURACIÓN
 // ============================================
-async function cargarConfiguracion() {
-    renderCatalogoServicios();
-    renderCatalogoPaseos();
-}
-
-function renderCatalogoServicios() {
-    const container = document.getElementById('listaServicios');
-    if (!container) return;
+function renderTablaServicios() {
+    const tbody = document.getElementById('tabla-servicios');
+    if (!tbody) return;
     
-    let html = '';
-    catalogoServicios.forEach(s => {
-        html += `
-        <div class="catalogo-item">
-            <span class="nombre">${s.nombre}</span>
-            <span class="precio">$${s.precio}/día</span>
-            <div class="actions">
-                <button class="btn btn-sm btn-primary" onclick="editarServicio('${s.id}')">✏️</button>
+    if (catalogoServicios.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">Sin servicios</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = catalogoServicios.map(s => `
+        <tr>
+            <td>${s.nombre}</td>
+            <td>$${(s.precio||0).toFixed(2)}</td>
+            <td>
                 <button class="btn btn-sm btn-danger" onclick="eliminarServicio('${s.id}')">🗑</button>
-            </div>
-        </div>`;
-    });
-    container.innerHTML = html;
+            </td>
+        </tr>
+    `).join('');
 }
 
-function renderCatalogoPaseos() {
-    const container = document.getElementById('listaPaseosConfig');
-    if (!container) return;
+function renderTablaPaseos() {
+    const tbody = document.getElementById('tabla-tipos-paseo');
+    if (!tbody) return;
     
-    let html = '';
-    catalogoPaseos.forEach(p => {
-        html += `
-        <div class="catalogo-item">
-            <span class="nombre">${p.nombre}</span>
-            <span class="precio">$${p.precio}</span>
-            <div class="actions">
-                <button class="btn btn-sm btn-primary" onclick="editarTipoPaseo('${p.id}')">✏️</button>
+    if (catalogoPaseos.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">Sin tipos de paseo</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = catalogoPaseos.map(p => `
+        <tr>
+            <td>${p.nombre}</td>
+            <td>$${(p.precio||0).toFixed(2)}</td>
+            <td>
                 <button class="btn btn-sm btn-danger" onclick="eliminarTipoPaseo('${p.id}')">🗑</button>
-            </div>
-        </div>`;
-    });
-    container.innerHTML = html;
+            </td>
+        </tr>
+    `).join('');
 }
 
-async function handleGuardarServicio(e) {
-    e.preventDefault();
+async function handleNuevoServicio() {
+    const nombre = document.getElementById('nuevo-servicio-nombre').value;
+    const precio = parseFloat(document.getElementById('nuevo-servicio-precio').value);
     
-    const nombre = document.getElementById('nombreServicio').value;
-    const precio = parseFloat(document.getElementById('precioServicio').value);
+    if (!nombre || !precio) {
+        showToast('Ingresa nombre y precio', 'error');
+        return;
+    }
     
     try {
+        showLoading();
         const nuevo = await apiPost('/catalogo-servicios/', { nombre, precio, activo: true });
         catalogoServicios.push(nuevo);
-        renderCatalogoServicios();
+        renderTablaServicios();
         llenarSelectServicios();
-        e.target.reset();
+        document.getElementById('nuevo-servicio-nombre').value = '';
+        document.getElementById('nuevo-servicio-precio').value = '';
+        hideLoading();
         showToast('Servicio agregado', 'success');
     } catch (error) {
-        showToast(error.message, 'error');
-    }
-}
-
-async function editarServicio(id) {
-    const servicio = catalogoServicios.find(s => s.id === id);
-    if (!servicio) return;
-    
-    const nombre = prompt('Nombre del servicio:', servicio.nombre);
-    if (nombre === null) return;
-    
-    const precio = prompt('Precio por día:', servicio.precio);
-    if (precio === null) return;
-    
-    try {
-        await apiPut(`/catalogo-servicios/${id}`, { nombre, precio: parseFloat(precio) });
-        const index = catalogoServicios.findIndex(s => s.id === id);
-        catalogoServicios[index] = { ...catalogoServicios[index], nombre, precio: parseFloat(precio) };
-        renderCatalogoServicios();
-        llenarSelectServicios();
-        showToast('Servicio actualizado', 'success');
-    } catch (error) {
+        hideLoading();
         showToast(error.message, 'error');
     }
 }
@@ -1292,7 +1227,7 @@ async function eliminarServicio(id) {
     try {
         await apiDelete(`/catalogo-servicios/${id}`);
         catalogoServicios = catalogoServicios.filter(s => s.id !== id);
-        renderCatalogoServicios();
+        renderTablaServicios();
         llenarSelectServicios();
         showToast('Servicio eliminado', 'success');
     } catch (error) {
@@ -1300,42 +1235,29 @@ async function eliminarServicio(id) {
     }
 }
 
-async function handleGuardarPaseo(e) {
-    e.preventDefault();
+async function handleNuevoTipoPaseo() {
+    const nombre = document.getElementById('nuevo-paseo-nombre').value;
+    const duracion = parseInt(document.getElementById('nuevo-paseo-duracion').value) || null;
+    const precio = parseFloat(document.getElementById('nuevo-paseo-precio').value);
     
-    const nombre = document.getElementById('nombreTipoPaseo').value;
-    const precio = parseFloat(document.getElementById('precioTipoPaseo').value);
+    if (!nombre || !precio) {
+        showToast('Ingresa nombre y precio', 'error');
+        return;
+    }
     
     try {
-        const nuevo = await apiPost('/catalogo-paseos/', { nombre, precio, activo: true });
+        showLoading();
+        const nuevo = await apiPost('/catalogo-paseos/', { nombre, duracion_minutos: duracion, precio, activo: true });
         catalogoPaseos.push(nuevo);
-        renderCatalogoPaseos();
+        renderTablaPaseos();
         llenarSelectPaseos();
-        e.target.reset();
+        document.getElementById('nuevo-paseo-nombre').value = '';
+        document.getElementById('nuevo-paseo-duracion').value = '';
+        document.getElementById('nuevo-paseo-precio').value = '';
+        hideLoading();
         showToast('Tipo de paseo agregado', 'success');
     } catch (error) {
-        showToast(error.message, 'error');
-    }
-}
-
-async function editarTipoPaseo(id) {
-    const paseo = catalogoPaseos.find(p => p.id === id);
-    if (!paseo) return;
-    
-    const nombre = prompt('Nombre del tipo de paseo:', paseo.nombre);
-    if (nombre === null) return;
-    
-    const precio = prompt('Precio:', paseo.precio);
-    if (precio === null) return;
-    
-    try {
-        await apiPut(`/catalogo-paseos/${id}`, { nombre, precio: parseFloat(precio) });
-        const index = catalogoPaseos.findIndex(p => p.id === id);
-        catalogoPaseos[index] = { ...catalogoPaseos[index], nombre, precio: parseFloat(precio) };
-        renderCatalogoPaseos();
-        llenarSelectPaseos();
-        showToast('Tipo de paseo actualizado', 'success');
-    } catch (error) {
+        hideLoading();
         showToast(error.message, 'error');
     }
 }
@@ -1346,7 +1268,7 @@ async function eliminarTipoPaseo(id) {
     try {
         await apiDelete(`/catalogo-paseos/${id}`);
         catalogoPaseos = catalogoPaseos.filter(p => p.id !== id);
-        renderCatalogoPaseos();
+        renderTablaPaseos();
         llenarSelectPaseos();
         showToast('Tipo de paseo eliminado', 'success');
     } catch (error) {
@@ -1359,37 +1281,29 @@ async function eliminarTipoPaseo(id) {
 // ============================================
 function formatDate(dateString) {
     if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('es-MX', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
+    return new Date(dateString).toLocaleDateString('es-MX', {
+        year: 'numeric', month: 'short', day: 'numeric'
     });
 }
 
+function showLoading() {
+    document.getElementById('loading')?.classList.remove('hidden');
+}
+
+function hideLoading() {
+    document.getElementById('loading')?.classList.add('hidden');
+}
+
 function showToast(message, type = 'info') {
+    const container = document.getElementById('toast-container');
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     toast.textContent = message;
-    
-    document.body.appendChild(toast);
+    container.appendChild(toast);
     
     setTimeout(() => toast.classList.add('show'), 100);
     setTimeout(() => {
         toast.classList.remove('show');
         setTimeout(() => toast.remove(), 300);
     }, 3000);
-}
-
-function showLoading() {
-    document.getElementById('loadingOverlay')?.classList.add('active');
-}
-
-function hideLoading() {
-    document.getElementById('loadingOverlay')?.classList.remove('active');
-}
-
-// Toggle sidebar en móvil
-function toggleSidebar() {
-    document.querySelector('.sidebar')?.classList.toggle('open');
 }
