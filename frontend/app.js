@@ -1,1175 +1,1395 @@
-/**
- * ComfortCan México - Aplicación Frontend
- * Sistema ERP para gestión de paseos caninos
- */
-
 // ============================================
-// CONFIGURACIÓN
+// COMFORTCAN MÉXICO - APP.JS
 // ============================================
 
-const API_URL = 'https://comfortcan-api.onrender.com'; // Cambiar a URL de Render en producción
+const API_URL = 'https://comfortcan-api.onrender.com'; // Cambiar por tu URL de Render
 
 // ============================================
 // ESTADO GLOBAL
 // ============================================
-
-const State = {
-    token: localStorage.getItem('comfortcan_token'),
-    user: JSON.parse(localStorage.getItem('comfortcan_user') || 'null'),
-    propietarios: [],
-    perros: [],
-    catalogoPaseos: [],
-    paseos: [],
-    cargos: [],
-    reservas: [],
-    selectedPaseos: new Set(),
-    currentSection: 'dashboard'
-};
+let authToken = localStorage.getItem('authToken');
+let currentUser = null;
+let catalogoServicios = [];
+let catalogoPaseos = [];
+let propietarios = [];
+let perros = [];
+let cargosPendientes = [];
 
 // ============================================
-// UTILIDADES
+// INICIALIZACIÓN
 // ============================================
-
-const Utils = {
-    // Formatear moneda
-    formatMoney(amount) {
-        return new Intl.NumberFormat('es-MX', {
-            style: 'currency',
-            currency: 'MXN'
-        }).format(amount);
-    },
-
-    // Formatear fecha
-    formatDate(dateStr) {
-        if (!dateStr) return '-';
-        const date = new Date(dateStr + 'T00:00:00');
-        return date.toLocaleDateString('es-MX', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric'
-        });
-    },
-
-    // Formatear fecha y hora
-    formatDateTime(dateStr) {
-        if (!dateStr) return '-';
-        const date = new Date(dateStr);
-        return date.toLocaleDateString('es-MX', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    },
-
-    // Mostrar loading
-    showLoading() {
-        document.getElementById('loading-overlay').classList.remove('hidden');
-    },
-
-    // Ocultar loading
-    hideLoading() {
-        document.getElementById('loading-overlay').classList.add('hidden');
-    },
-
-    // Mostrar toast
-    showToast(message, type = 'success') {
-        const container = document.getElementById('toast-container');
-        const toast = document.createElement('div');
-        toast.className = `toast toast-${type}`;
-        toast.innerHTML = message;
-        container.appendChild(toast);
-        
-        setTimeout(() => {
-            toast.style.animation = 'slideIn 0.3s ease reverse';
-            setTimeout(() => toast.remove(), 300);
-        }, 3000);
-    },
-
-    // Obtener fecha actual en formato YYYY-MM-DD
-    getTodayDate() {
-        return new Date().toISOString().split('T')[0];
+document.addEventListener('DOMContentLoaded', () => {
+    if (authToken) {
+        showApp();
+        loadInitialData();
+    } else {
+        showLogin();
     }
-};
+    setupEventListeners();
+});
 
-// ============================================
-// API CLIENT
-// ============================================
-
-const API = {
-    async request(endpoint, options = {}) {
-        const headers = {
-            'Content-Type': 'application/json',
-            ...options.headers
-        };
-
-        if (State.token) {
-            headers['Authorization'] = `Bearer ${State.token}`;
-        }
-
-        try {
-            const response = await fetch(`${API_URL}${endpoint}`, {
-                ...options,
-                headers
-            });
-
-            if (response.status === 401) {
-                Auth.logout();
-                throw new Error('Sesión expirada');
-            }
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.detail || 'Error en la solicitud');
-            }
-
-            return data;
-        } catch (error) {
-            console.error('API Error:', error);
-            throw error;
-        }
-    },
-
-    // Métodos convenientes
-    get(endpoint) {
-        return this.request(endpoint);
-    },
-
-    post(endpoint, body) {
-        return this.request(endpoint, {
-            method: 'POST',
-            body: JSON.stringify(body)
+function setupEventListeners() {
+    // Login form
+    document.getElementById('loginForm')?.addEventListener('submit', handleLogin);
+    
+    // Navegación sidebar
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const section = item.dataset.section;
+            navigateToSection(section);
         });
-    },
-
-    put(endpoint, body) {
-        return this.request(endpoint, {
-            method: 'PUT',
-            body: JSON.stringify(body)
+    });
+    
+    // Tabs dentro de secciones
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tab = btn.dataset.tab;
+            const container = btn.closest('.section');
+            switchTab(container, tab);
         });
-    },
-
-    delete(endpoint) {
-        return this.request(endpoint, {
-            method: 'DELETE'
-        });
-    }
-};
+    });
+    
+    // Logout
+    document.getElementById('logoutBtn')?.addEventListener('click', handleLogout);
+    
+    // Forms
+    document.getElementById('formNuevoDueno')?.addEventListener('submit', handleNuevoDueno);
+    document.getElementById('formNuevoPerro')?.addEventListener('submit', handleNuevoPerro);
+    document.getElementById('formCheckIn')?.addEventListener('submit', handleCheckIn);
+    document.getElementById('formNuevoPaseo')?.addEventListener('submit', handleNuevoPaseo);
+    document.getElementById('formNuevoCargo')?.addEventListener('submit', handleNuevoCargo);
+    document.getElementById('formServicio')?.addEventListener('submit', handleGuardarServicio);
+    document.getElementById('formPaseo')?.addEventListener('submit', handleGuardarPaseo);
+    
+    // Búsquedas
+    document.getElementById('buscarExpediente')?.addEventListener('input', buscarExpedientes);
+    document.getElementById('buscarGestion')?.addEventListener('input', buscarGestion);
+    
+    // Selects dinámicos
+    document.getElementById('selectDuenoPerro')?.addEventListener('change', cargarPerrosDueno);
+    document.getElementById('selectDuenoCheckIn')?.addEventListener('change', cargarPerrosCheckIn);
+    document.getElementById('selectDuenoPaseo')?.addEventListener('change', cargarPerrosPaseo);
+    document.getElementById('selectDuenoCargo')?.addEventListener('change', cargarPerrosCargo);
+    
+    // Calcular total check-in
+    document.getElementById('diasEstancia')?.addEventListener('input', calcularTotalCheckIn);
+    document.getElementById('selectServicioCheckIn')?.addEventListener('change', calcularTotalCheckIn);
+    
+    // Foto upload preview
+    document.getElementById('fotoPerro')?.addEventListener('change', previewFoto);
+}
 
 // ============================================
 // AUTENTICACIÓN
 // ============================================
-
-const Auth = {
-    async login(email, password) {
-        Utils.showLoading();
-        try {
-            const data = await API.post('/login', { email, password });
-            
-            State.token = data.access_token;
-            State.user = { id: data.user_id, email: data.email };
-            
-            localStorage.setItem('comfortcan_token', data.access_token);
-            localStorage.setItem('comfortcan_user', JSON.stringify(State.user));
-            
-            App.showApp();
-            Utils.showToast('Bienvenido a ComfortCan');
-        } catch (error) {
-            document.getElementById('login-error').textContent = error.message;
-            document.getElementById('login-error').classList.remove('hidden');
-        } finally {
-            Utils.hideLoading();
-        }
-    },
-
-    logout() {
-        State.token = null;
-        State.user = null;
-        localStorage.removeItem('comfortcan_token');
-        localStorage.removeItem('comfortcan_user');
+async function handleLogin(e) {
+    e.preventDefault();
+    const email = document.getElementById('loginEmail').value;
+    const password = document.getElementById('loginPassword').value;
+    const errorDiv = document.getElementById('loginError');
+    
+    try {
+        const response = await fetch(`${API_URL}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
         
-        document.getElementById('login-screen').classList.remove('hidden');
-        document.getElementById('app-screen').classList.add('hidden');
-        document.getElementById('login-form').reset();
-    },
-
-    isAuthenticated() {
-        return !!State.token;
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.detail || 'Error de autenticación');
+        }
+        
+        authToken = data.access_token;
+        localStorage.setItem('authToken', authToken);
+        currentUser = data.user;
+        
+        showApp();
+        loadInitialData();
+        
+    } catch (error) {
+        errorDiv.textContent = error.message;
+        errorDiv.style.display = 'block';
     }
-};
+}
+
+function handleLogout() {
+    localStorage.removeItem('authToken');
+    authToken = null;
+    currentUser = null;
+    showLogin();
+}
+
+function showLogin() {
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('appContainer').style.display = 'none';
+}
+
+function showApp() {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('appContainer').style.display = 'flex';
+}
 
 // ============================================
-// APLICACIÓN PRINCIPAL
+// NAVEGACIÓN
 // ============================================
-
-const App = {
-    // Inicializar app
-    async init() {
-        // Event listeners
-        this.setupEventListeners();
-        
-        // Verificar autenticación
-        if (Auth.isAuthenticated()) {
-            this.showApp();
-        } else {
-            document.getElementById('login-screen').classList.remove('hidden');
+function navigateToSection(sectionId) {
+    // Actualizar nav items
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.classList.remove('active');
+        if (item.dataset.section === sectionId) {
+            item.classList.add('active');
         }
-    },
+    });
+    
+    // Mostrar sección
+    document.querySelectorAll('.section').forEach(section => {
+        section.classList.remove('active');
+    });
+    document.getElementById(sectionId)?.classList.add('active');
+    
+    // Cargar datos según sección
+    switch(sectionId) {
+        case 'paseos':
+            cargarPaseos();
+            break;
+        case 'caja':
+            cargarCargos();
+            break;
+        case 'expedientes':
+            cargarExpedientes();
+            break;
+        case 'gestion':
+            cargarGestion();
+            break;
+        case 'configuracion':
+            cargarConfiguracion();
+            break;
+    }
+    
+    // Cerrar sidebar en móvil
+    document.querySelector('.sidebar')?.classList.remove('open');
+}
 
-    // Configurar event listeners
-    setupEventListeners() {
-        // Login form
-        document.getElementById('login-form').addEventListener('submit', (e) => {
-            e.preventDefault();
-            const email = document.getElementById('login-email').value;
-            const password = document.getElementById('login-password').value;
-            Auth.login(email, password);
-        });
+function switchTab(container, tabId) {
+    container.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.tab === tabId) btn.classList.add('active');
+    });
+    
+    container.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    container.querySelector(`#${tabId}`)?.classList.add('active');
+}
 
-        // Logout
-        document.getElementById('logout-btn').addEventListener('click', () => {
-            Auth.logout();
-        });
+// ============================================
+// API HELPERS
+// ============================================
+async function apiGet(endpoint) {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+        headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+    if (!response.ok) {
+        if (response.status === 401) handleLogout();
+        throw new Error('Error en la petición');
+    }
+    return response.json();
+}
 
-        // Sidebar toggle (mobile)
-        document.getElementById('sidebar-toggle').addEventListener('click', () => {
-            document.getElementById('sidebar').classList.toggle('open');
-        });
+async function apiPost(endpoint, data) {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    });
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Error en la petición');
+    }
+    return response.json();
+}
 
-        // Navegación sidebar
-        document.querySelectorAll('.nav-item').forEach(item => {
-            item.addEventListener('click', () => {
-                const section = item.dataset.section;
-                this.navigateTo(section);
-                
-                // Cerrar sidebar en móvil
-                if (window.innerWidth < 1024) {
-                    document.getElementById('sidebar').classList.remove('open');
-                }
+async function apiPut(endpoint, data) {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+        method: 'PUT',
+        headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    });
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Error en la petición');
+    }
+    return response.json();
+}
+
+async function apiDelete(endpoint) {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+    if (!response.ok) throw new Error('Error al eliminar');
+    return true;
+}
+
+// ============================================
+// CARGA INICIAL DE DATOS
+// ============================================
+async function loadInitialData() {
+    try {
+        showLoading();
+        
+        // Cargar catálogos y datos base en paralelo
+        const [servicios, paseos, props, dogs] = await Promise.all([
+            apiGet('/catalogo-servicios/'),
+            apiGet('/catalogo-paseos/'),
+            apiGet('/propietarios/'),
+            apiGet('/perros/')
+        ]);
+        
+        catalogoServicios = servicios;
+        catalogoPaseos = paseos;
+        propietarios = props;
+        perros = dogs;
+        
+        // Llenar selects
+        llenarSelectPropietarios();
+        llenarSelectServicios();
+        llenarSelectPaseos();
+        
+        hideLoading();
+    } catch (error) {
+        console.error('Error cargando datos:', error);
+        hideLoading();
+        showToast('Error cargando datos', 'error');
+    }
+}
+
+function llenarSelectPropietarios() {
+    const selects = [
+        'selectDuenoPerro',
+        'selectDuenoCheckIn', 
+        'selectDuenoPaseo',
+        'selectDuenoCargo'
+    ];
+    
+    selects.forEach(selectId => {
+        const select = document.getElementById(selectId);
+        if (select) {
+            select.innerHTML = '<option value="">Seleccionar dueño...</option>';
+            propietarios.forEach(p => {
+                select.innerHTML += `<option value="${p.id}">${p.nombre} - ${p.telefono}</option>`;
             });
-        });
-
-        // Búsquedas
-        document.getElementById('search-propietarios').addEventListener('input', (e) => {
-            this.filterPropietarios(e.target.value);
-        });
-
-        document.getElementById('search-perros').addEventListener('input', (e) => {
-            this.filterPerros(e.target.value);
-        });
-    },
-
-    // Mostrar aplicación
-    async showApp() {
-        document.getElementById('login-screen').classList.add('hidden');
-        document.getElementById('app-screen').classList.remove('hidden');
-        
-        // Cargar datos iniciales
-        await this.loadInitialData();
-        this.navigateTo('dashboard');
-    },
-
-    // Cargar datos iniciales
-    async loadInitialData() {
-        Utils.showLoading();
-        try {
-            // Cargar en paralelo
-            const [propietarios, perros, catalogo] = await Promise.all([
-                API.get('/propietarios?activo=true'),
-                API.get('/perros?activo=true'),
-                API.get('/catalogo-paseos')
-            ]);
-
-            State.propietarios = propietarios;
-            State.perros = perros;
-            State.catalogoPaseos = catalogo;
-
-            // Poblar selects
-            this.populatePropietarioSelects();
-            this.populatePerroSelects();
-            this.populateCatalogoSelects();
-        } catch (error) {
-            Utils.showToast('Error cargando datos: ' + error.message, 'error');
-        } finally {
-            Utils.hideLoading();
         }
-    },
+    });
+}
 
-    // Navegar a sección
-    navigateTo(section) {
-        State.currentSection = section;
-        
-        // Actualizar navegación activa
-        document.querySelectorAll('.nav-item').forEach(item => {
-            item.classList.toggle('active', item.dataset.section === section);
+function llenarSelectServicios() {
+    const select = document.getElementById('selectServicioCheckIn');
+    if (select) {
+        select.innerHTML = '<option value="">Seleccionar servicio...</option>';
+        catalogoServicios.forEach(s => {
+            select.innerHTML += `<option value="${s.id}" data-precio="${s.precio}">${s.nombre} - $${s.precio}/día</option>`;
         });
-        
-        // Mostrar sección
-        document.querySelectorAll('.section').forEach(sec => {
-            sec.classList.add('hidden');
+    }
+}
+
+function llenarSelectPaseos() {
+    const select = document.getElementById('selectTipoPaseo');
+    if (select) {
+        select.innerHTML = '<option value="">Seleccionar tipo...</option>';
+        catalogoPaseos.forEach(p => {
+            select.innerHTML += `<option value="${p.id}" data-precio="${p.precio}">${p.nombre} - $${p.precio}</option>`;
         });
-        document.getElementById(`section-${section}`).classList.remove('hidden');
+    }
+}
+
+// ============================================
+// RECEPCIÓN - NUEVO DUEÑO
+// ============================================
+async function handleNuevoDueno(e) {
+    e.preventDefault();
+    
+    const data = {
+        nombre: document.getElementById('nombreDueno').value,
+        telefono: document.getElementById('telefonoDueno').value,
+        email: document.getElementById('emailDueno').value || null,
+        direccion: document.getElementById('direccionDueno').value || null,
+        notas: document.getElementById('notasDueno').value || null
+    };
+    
+    try {
+        const nuevo = await apiPost('/propietarios/', data);
+        propietarios.push(nuevo);
+        llenarSelectPropietarios();
         
-        // Cargar datos de la sección
-        switch (section) {
-            case 'dashboard':
-                this.loadDashboard();
-                break;
-            case 'propietarios':
-                this.loadPropietarios();
-                break;
-            case 'perros':
-                this.loadPerros();
-                break;
-            case 'paseos':
-                this.loadPaseos();
-                break;
-            case 'caja':
-                this.loadCaja();
-                break;
-            case 'reservas':
-                this.loadReservas();
-                break;
-        }
-    },
+        e.target.reset();
+        showToast('Dueño registrado exitosamente', 'success');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
 
-    // ============================================
-    // DASHBOARD
-    // ============================================
+// ============================================
+// RECEPCIÓN - NUEVO PERRO
+// ============================================
+async function cargarPerrosDueno() {
+    // Solo para mostrar perros existentes del dueño si se necesita
+}
 
-    async loadDashboard() {
+function previewFoto(e) {
+    const file = e.target.files[0];
+    const preview = document.getElementById('previewFoto');
+    
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            preview.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
+        };
+        reader.readAsDataURL(file);
+    } else {
+        preview.innerHTML = '<span>📷 Sin foto</span>';
+    }
+}
+
+async function handleNuevoPerro(e) {
+    e.preventDefault();
+    
+    const propietarioId = document.getElementById('selectDuenoPerro').value;
+    if (!propietarioId) {
+        showToast('Selecciona un dueño', 'error');
+        return;
+    }
+    
+    let fotoUrl = null;
+    const fotoInput = document.getElementById('fotoPerro');
+    
+    // Subir foto si existe
+    if (fotoInput.files[0]) {
         try {
-            const resumen = await API.get('/reportes/resumen');
+            const formData = new FormData();
+            formData.append('file', fotoInput.files[0]);
             
-            document.getElementById('stat-propietarios').textContent = resumen.total_propietarios;
-            document.getElementById('stat-perros').textContent = resumen.total_perros;
-            document.getElementById('stat-paseos-mes').textContent = resumen.paseos_mes;
-            document.getElementById('stat-ingresos').textContent = Utils.formatMoney(resumen.ingresos_mes);
-            document.getElementById('badge-pendientes').textContent = resumen.paseos_pendientes;
-            document.getElementById('stat-monto-pendiente').textContent = Utils.formatMoney(resumen.monto_pendiente);
+            const response = await fetch(`${API_URL}/upload/foto`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${authToken}` },
+                body: formData
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                fotoUrl = result.url;
+            }
         } catch (error) {
-            console.error('Error loading dashboard:', error);
+            console.error('Error subiendo foto:', error);
         }
-    },
-
-    // ============================================
-    // PROPIETARIOS
-    // ============================================
-
-    async loadPropietarios() {
-        try {
-            State.propietarios = await API.get('/propietarios?activo=true');
-            this.renderPropietarios(State.propietarios);
-        } catch (error) {
-            Utils.showToast('Error cargando propietarios', 'error');
-        }
-    },
-
-    renderPropietarios(propietarios) {
-        const tbody = document.getElementById('tabla-propietarios');
+    }
+    
+    const data = {
+        propietario_id: propietarioId,
+        nombre: document.getElementById('nombrePerro').value,
+        raza: document.getElementById('razaPerro').value || null,
+        peso: parseFloat(document.getElementById('pesoPerro').value) || null,
+        edad_anos: parseInt(document.getElementById('edadPerro').value) || null,
+        sexo: document.getElementById('sexoPerro').value || null,
+        color: document.getElementById('colorPerro').value || null,
+        esterilizado: document.getElementById('esterilizadoPerro').checked,
+        foto_url: fotoUrl,
+        vacuna_rabia: document.getElementById('vacunaRabia').checked,
+        vacuna_rabia_fecha: document.getElementById('fechaRabia').value || null,
+        vacuna_multiple: document.getElementById('vacunaMultiple').checked,
+        vacuna_multiple_fecha: document.getElementById('fechaMultiple').value || null,
+        desparasitado: document.getElementById('desparasitado').checked,
+        desparasitado_fecha: document.getElementById('fechaDesparasitado').value || null,
+        condiciones_medicas: document.getElementById('condicionesMedicas').value || null,
+        notas: document.getElementById('notasPerro').value || null
+    };
+    
+    try {
+        const nuevo = await apiPost('/perros/', data);
+        perros.push(nuevo);
         
-        if (propietarios.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No hay propietarios registrados</td></tr>';
-            return;
-        }
+        e.target.reset();
+        document.getElementById('previewFoto').innerHTML = '<span>📷 Sin foto</span>';
+        showToast('Perro registrado exitosamente', 'success');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
 
-        tbody.innerHTML = propietarios.map(p => {
-            const perrosCount = State.perros.filter(pe => pe.propietario_id === p.id).length;
-            return `
+// ============================================
+// RECEPCIÓN - CHECK-IN
+// ============================================
+async function cargarPerrosCheckIn() {
+    const propietarioId = document.getElementById('selectDuenoCheckIn').value;
+    const selectPerro = document.getElementById('selectPerroCheckIn');
+    
+    selectPerro.innerHTML = '<option value="">Seleccionar perro...</option>';
+    
+    if (propietarioId) {
+        const perrosDueno = perros.filter(p => p.propietario_id === propietarioId);
+        perrosDueno.forEach(p => {
+            selectPerro.innerHTML += `<option value="${p.id}">${p.nombre} (${p.raza || 'Sin raza'})</option>`;
+        });
+    }
+}
+
+function calcularTotalCheckIn() {
+    const dias = parseInt(document.getElementById('diasEstancia').value) || 0;
+    const selectServicio = document.getElementById('selectServicioCheckIn');
+    const precio = parseFloat(selectServicio.selectedOptions[0]?.dataset.precio) || 0;
+    
+    const total = dias * precio;
+    document.getElementById('totalCheckIn').textContent = `$${total.toFixed(2)}`;
+}
+
+async function handleCheckIn(e) {
+    e.preventDefault();
+    
+    const perroId = document.getElementById('selectPerroCheckIn').value;
+    const servicioId = document.getElementById('selectServicioCheckIn').value;
+    const dias = parseInt(document.getElementById('diasEstancia').value);
+    
+    if (!perroId || !servicioId || !dias) {
+        showToast('Completa todos los campos', 'error');
+        return;
+    }
+    
+    const servicio = catalogoServicios.find(s => s.id === servicioId);
+    const fechaEntrada = document.getElementById('fechaEntrada').value || new Date().toISOString().split('T')[0];
+    
+    // Calcular fecha salida
+    const entrada = new Date(fechaEntrada);
+    entrada.setDate(entrada.getDate() + dias);
+    const fechaSalida = entrada.toISOString().split('T')[0];
+    
+    const data = {
+        perro_id: perroId,
+        servicio_id: servicioId,
+        fecha_entrada: fechaEntrada,
+        fecha_salida: fechaSalida,
+        dias_reservados: dias,
+        precio_total: dias * servicio.precio,
+        notas: document.getElementById('notasCheckIn').value || null
+    };
+    
+    try {
+        await apiPost('/estancias/', data);
+        e.target.reset();
+        document.getElementById('totalCheckIn').textContent = '$0.00';
+        showToast('Check-in realizado exitosamente', 'success');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+// ============================================
+// PASEOS Y AGENDA
+// ============================================
+async function cargarPerrosPaseo() {
+    const propietarioId = document.getElementById('selectDuenoPaseo').value;
+    const selectPerro = document.getElementById('selectPerroPaseo');
+    
+    selectPerro.innerHTML = '<option value="">Seleccionar perro...</option>';
+    
+    if (propietarioId) {
+        const perrosDueno = perros.filter(p => p.propietario_id === propietarioId);
+        perrosDueno.forEach(p => {
+            selectPerro.innerHTML += `<option value="${p.id}">${p.nombre}</option>`;
+        });
+    }
+}
+
+async function handleNuevoPaseo(e) {
+    e.preventDefault();
+    
+    const perroId = document.getElementById('selectPerroPaseo').value;
+    const tipoPaseoId = document.getElementById('selectTipoPaseo').value;
+    
+    if (!perroId || !tipoPaseoId) {
+        showToast('Selecciona perro y tipo de paseo', 'error');
+        return;
+    }
+    
+    const tipoPaseo = catalogoPaseos.find(p => p.id === tipoPaseoId);
+    
+    const data = {
+        perro_id: perroId,
+        tipo_paseo_id: tipoPaseoId,
+        fecha: document.getElementById('fechaPaseo').value || new Date().toISOString().split('T')[0],
+        hora: document.getElementById('horaPaseo').value || null,
+        precio: tipoPaseo.precio,
+        pagado: document.getElementById('paseoPagado').checked,
+        notas: document.getElementById('notasPaseo').value || null
+    };
+    
+    try {
+        await apiPost('/paseos/', data);
+        e.target.reset();
+        cargarPaseos();
+        showToast('Paseo registrado', 'success');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function cargarPaseos() {
+    try {
+        const paseos = await apiGet('/paseos/');
+        renderPaseos(paseos);
+    } catch (error) {
+        console.error('Error cargando paseos:', error);
+    }
+}
+
+function renderPaseos(paseos) {
+    const container = document.getElementById('listaPaseos');
+    if (!container) return;
+    
+    if (paseos.length === 0) {
+        container.innerHTML = '<p class="empty-state">No hay paseos registrados</p>';
+        return;
+    }
+    
+    // Agrupar por fecha
+    const porFecha = {};
+    paseos.forEach(p => {
+        const fecha = p.fecha;
+        if (!porFecha[fecha]) porFecha[fecha] = [];
+        porFecha[fecha].push(p);
+    });
+    
+    let html = '';
+    Object.keys(porFecha).sort().reverse().forEach(fecha => {
+        html += `<div class="paseo-grupo">
+            <h4 class="fecha-grupo">${formatDate(fecha)}</h4>`;
+        
+        porFecha[fecha].forEach(paseo => {
+            const perro = perros.find(p => p.id === paseo.perro_id);
+            const tipo = catalogoPaseos.find(t => t.id === paseo.tipo_paseo_id);
+            
+            html += `
+            <div class="paseo-card ${paseo.pagado ? 'pagado' : 'pendiente'}">
+                <div class="paseo-info">
+                    <span class="perro-nombre">${perro?.nombre || 'Desconocido'}</span>
+                    <span class="paseo-tipo">${tipo?.nombre || paseo.tipo_paseo_id}</span>
+                    ${paseo.hora ? `<span class="paseo-hora">🕐 ${paseo.hora}</span>` : ''}
+                </div>
+                <div class="paseo-precio">
+                    <span>$${paseo.precio}</span>
+                    <span class="status-badge ${paseo.pagado ? 'pagado' : 'pendiente'}">
+                        ${paseo.pagado ? '✓ Pagado' : 'Pendiente'}
+                    </span>
+                </div>
+                <div class="paseo-actions">
+                    ${!paseo.pagado ? `<button class="btn btn-sm btn-success" onclick="marcarPaseoPagado('${paseo.id}')">Marcar pagado</button>` : ''}
+                    <button class="btn btn-sm btn-danger" onclick="eliminarPaseo('${paseo.id}')">🗑</button>
+                </div>
+            </div>`;
+        });
+        
+        html += '</div>';
+    });
+    
+    container.innerHTML = html;
+}
+
+async function marcarPaseoPagado(id) {
+    try {
+        await apiPut(`/paseos/${id}`, { pagado: true });
+        cargarPaseos();
+        showToast('Paseo marcado como pagado', 'success');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function eliminarPaseo(id) {
+    if (!confirm('¿Eliminar este paseo?')) return;
+    
+    try {
+        await apiDelete(`/paseos/${id}`);
+        cargarPaseos();
+        showToast('Paseo eliminado', 'success');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+// ============================================
+// CAJA Y TICKET
+// ============================================
+async function cargarPerrosCargo() {
+    const propietarioId = document.getElementById('selectDuenoCargo').value;
+    const selectPerro = document.getElementById('selectPerroCargo');
+    
+    selectPerro.innerHTML = '<option value="">Seleccionar perro...</option>';
+    
+    if (propietarioId) {
+        const perrosDueno = perros.filter(p => p.propietario_id === propietarioId);
+        perrosDueno.forEach(p => {
+            selectPerro.innerHTML += `<option value="${p.id}">${p.nombre}</option>`;
+        });
+    }
+}
+
+async function handleNuevoCargo(e) {
+    e.preventDefault();
+    
+    const perroId = document.getElementById('selectPerroCargo').value;
+    const concepto = document.getElementById('conceptoCargo').value;
+    const monto = parseFloat(document.getElementById('montoCargo').value);
+    
+    if (!perroId || !concepto || !monto) {
+        showToast('Completa todos los campos', 'error');
+        return;
+    }
+    
+    const data = {
+        perro_id: perroId,
+        concepto: concepto,
+        monto: monto,
+        pagado: false
+    };
+    
+    try {
+        await apiPost('/cargos/', data);
+        e.target.reset();
+        cargarCargos();
+        showToast('Cargo agregado', 'success');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function cargarCargos() {
+    try {
+        const cargos = await apiGet('/cargos/?pagado=false');
+        cargosPendientes = cargos;
+        renderCargos(cargos);
+    } catch (error) {
+        console.error('Error cargando cargos:', error);
+    }
+}
+
+function renderCargos(cargos) {
+    const container = document.getElementById('listaCargos');
+    if (!container) return;
+    
+    if (cargos.length === 0) {
+        container.innerHTML = '<p class="empty-state">No hay cargos pendientes</p>';
+        document.getElementById('totalCargos').textContent = '$0.00';
+        return;
+    }
+    
+    let total = 0;
+    let html = '<div class="cargos-list">';
+    
+    cargos.forEach(cargo => {
+        const perro = perros.find(p => p.id === cargo.perro_id);
+        total += cargo.monto;
+        
+        html += `
+        <div class="cargo-item">
+            <div class="cargo-info">
+                <span class="cargo-perro">${perro?.nombre || 'Desconocido'}</span>
+                <span class="cargo-concepto">${cargo.concepto}</span>
+            </div>
+            <div class="cargo-monto">$${cargo.monto.toFixed(2)}</div>
+            <div class="cargo-actions">
+                <button class="btn btn-sm btn-danger" onclick="eliminarCargo('${cargo.id}')">🗑</button>
+            </div>
+        </div>`;
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
+    document.getElementById('totalCargos').textContent = `$${total.toFixed(2)}`;
+}
+
+async function eliminarCargo(id) {
+    if (!confirm('¿Eliminar este cargo?')) return;
+    
+    try {
+        await apiDelete(`/cargos/${id}`);
+        cargarCargos();
+        showToast('Cargo eliminado', 'success');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+// ============================================
+// GENERAR TICKET
+// ============================================
+async function generarTicket() {
+    if (cargosPendientes.length === 0) {
+        showToast('No hay cargos para generar ticket', 'error');
+        return;
+    }
+    
+    // Agrupar cargos por perro/propietario
+    const perroId = cargosPendientes[0].perro_id;
+    const perro = perros.find(p => p.id === perroId);
+    const propietario = propietarios.find(p => p.id === perro?.propietario_id);
+    
+    const ticketData = {
+        perro_id: perroId,
+        cargos_ids: cargosPendientes.map(c => c.id),
+        subtotal: cargosPendientes.reduce((sum, c) => sum + c.monto, 0),
+        descuento: 0,
+        total: cargosPendientes.reduce((sum, c) => sum + c.monto, 0)
+    };
+    
+    try {
+        const ticket = await apiPost('/tickets/', ticketData);
+        mostrarTicket(ticket, perro, propietario, cargosPendientes);
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+function mostrarTicket(ticket, perro, propietario, cargos) {
+    const modal = document.getElementById('modalTicket');
+    const contenido = document.getElementById('ticketContenido');
+    
+    const fecha = new Date().toLocaleDateString('es-MX', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+    
+    let itemsHtml = '';
+    cargos.forEach(c => {
+        itemsHtml += `
+        <tr>
+            <td>${c.concepto}</td>
+            <td class="text-right">$${c.monto.toFixed(2)}</td>
+        </tr>`;
+    });
+    
+    contenido.innerHTML = `
+    <div class="ticket" id="ticketParaImprimir">
+        <div class="ticket-header">
+            <img src="logo.png" alt="ComfortCan" class="ticket-logo">
+            <h2>ComfortCan México</h2>
+            <p>Hotel & Guardería Canina</p>
+            <p class="ticket-fecha">${fecha}</p>
+            <p class="ticket-folio">Folio: ${ticket.folio}</p>
+        </div>
+        
+        <div class="ticket-cliente">
+            <p><strong>Cliente:</strong> ${propietario?.nombre || 'N/A'}</p>
+            <p><strong>Mascota:</strong> ${perro?.nombre || 'N/A'}</p>
+        </div>
+        
+        <table class="ticket-items">
+            <thead>
                 <tr>
-                    <td><strong>${p.nombre} ${p.apellido}</strong></td>
-                    <td>${p.telefono || '-'}</td>
-                    <td>${p.email || '-'}</td>
-                    <td><span class="badge badge-info">${perrosCount}</span></td>
-                    <td>
-                        <div class="btn-group">
-                            <button class="btn btn-sm btn-secondary btn-icon" onclick="App.editPropietario('${p.id}')" title="Editar">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                            </button>
-                            <button class="btn btn-sm btn-danger btn-icon" onclick="App.deletePropietario('${p.id}')" title="Eliminar">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                            </button>
-                        </div>
-                    </td>
+                    <th>Concepto</th>
+                    <th class="text-right">Monto</th>
                 </tr>
-            `;
-        }).join('');
-    },
-
-    filterPropietarios(query) {
-        const filtered = State.propietarios.filter(p => {
-            const searchStr = `${p.nombre} ${p.apellido} ${p.telefono || ''}`.toLowerCase();
-            return searchStr.includes(query.toLowerCase());
-        });
-        this.renderPropietarios(filtered);
-    },
-
-    async savePropietario(event) {
-        event.preventDefault();
-        Utils.showLoading();
-
-        const id = document.getElementById('propietario-id').value;
-        const data = {
-            nombre: document.getElementById('propietario-nombre').value,
-            apellido: document.getElementById('propietario-apellido').value,
-            telefono: document.getElementById('propietario-telefono').value || null,
-            email: document.getElementById('propietario-email').value || null,
-            direccion: document.getElementById('propietario-direccion').value || null,
-            notas: document.getElementById('propietario-notas').value || null
-        };
-
-        try {
-            if (id) {
-                await API.put(`/propietarios/${id}`, data);
-                Utils.showToast('Propietario actualizado');
-            } else {
-                await API.post('/propietarios', data);
-                Utils.showToast('Propietario creado');
-            }
-            
-            this.closeModal('propietario');
-            await this.loadInitialData();
-            this.loadPropietarios();
-        } catch (error) {
-            Utils.showToast('Error: ' + error.message, 'error');
-        } finally {
-            Utils.hideLoading();
-        }
-    },
-
-    editPropietario(id) {
-        const p = State.propietarios.find(x => x.id === id);
-        if (!p) return;
-
-        document.getElementById('modal-propietario-title').textContent = 'Editar Propietario';
-        document.getElementById('propietario-id').value = p.id;
-        document.getElementById('propietario-nombre').value = p.nombre;
-        document.getElementById('propietario-apellido').value = p.apellido;
-        document.getElementById('propietario-telefono').value = p.telefono || '';
-        document.getElementById('propietario-email').value = p.email || '';
-        document.getElementById('propietario-direccion').value = p.direccion || '';
-        document.getElementById('propietario-notas').value = p.notas || '';
-
-        this.openModal('propietario');
-    },
-
-    deletePropietario(id) {
-        this.showConfirm(
-            'Eliminar Propietario',
-            '¿Está seguro de eliminar este propietario? También se eliminarán sus perros asociados.',
-            async () => {
-                try {
-                    await API.delete(`/propietarios/${id}`);
-                    Utils.showToast('Propietario eliminado');
-                    await this.loadInitialData();
-                    this.loadPropietarios();
-                } catch (error) {
-                    Utils.showToast('Error: ' + error.message, 'error');
-                }
-            }
-        );
-    },
-
-    // ============================================
-    // PERROS
-    // ============================================
-
-    async loadPerros() {
-        try {
-            State.perros = await API.get('/perros?activo=true');
-            this.renderPerros(State.perros);
-            this.populateFilterPropietarios();
-        } catch (error) {
-            Utils.showToast('Error cargando perros', 'error');
-        }
-    },
-
-    renderPerros(perros) {
-        const container = document.getElementById('grid-perros');
+            </thead>
+            <tbody>
+                ${itemsHtml}
+            </tbody>
+        </table>
         
-        if (perros.length === 0) {
-            container.innerHTML = '<div class="empty-state"><p>No hay perros registrados</p></div>';
-            return;
-        }
+        <div class="ticket-total">
+            <div class="total-row">
+                <span>Subtotal:</span>
+                <span>$${ticket.subtotal.toFixed(2)}</span>
+            </div>
+            ${ticket.descuento > 0 ? `
+            <div class="total-row descuento">
+                <span>Descuento:</span>
+                <span>-$${ticket.descuento.toFixed(2)}</span>
+            </div>` : ''}
+            <div class="total-row total-final">
+                <span>TOTAL:</span>
+                <span>$${ticket.total.toFixed(2)}</span>
+            </div>
+        </div>
+        
+        <div class="ticket-footer">
+            <p>¡Gracias por su preferencia!</p>
+            <p>🐕 ComfortCan México 🐕</p>
+        </div>
+    </div>`;
+    
+    modal.classList.add('active');
+}
 
-        container.innerHTML = perros.map(p => {
-            const propietario = p.propietarios || {};
-            return `
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title">${p.nombre}</h3>
-                        <span class="badge badge-info">${p.raza || 'Sin raza'}</span>
-                    </div>
-                    <div class="card-body">
-                        <p><strong>Dueño:</strong> ${propietario.nombre || ''} ${propietario.apellido || ''}</p>
-                        <p><strong>Teléfono:</strong> ${propietario.telefono || '-'}</p>
-                        <p><strong>Sexo:</strong> ${p.sexo || '-'} | <strong>Peso:</strong> ${p.peso_kg ? p.peso_kg + ' kg' : '-'}</p>
-                        ${p.esterilizado ? '<span class="badge badge-success">Esterilizado</span>' : ''}
-                    </div>
-                    <div class="btn-group mt-md">
-                        <button class="btn btn-sm btn-secondary" onclick="App.editPerro('${p.id}')">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                            Editar
-                        </button>
-                        <button class="btn btn-sm btn-danger" onclick="App.deletePerro('${p.id}')">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                            Eliminar
-                        </button>
-                    </div>
+function cerrarModalTicket() {
+    document.getElementById('modalTicket').classList.remove('active');
+}
+
+function imprimirTicket() {
+    const contenido = document.getElementById('ticketParaImprimir').innerHTML;
+    const ventana = window.open('', '_blank');
+    
+    ventana.document.write(`
+    <html>
+    <head>
+        <title>Ticket ComfortCan</title>
+        <style>
+            body { font-family: 'Courier New', monospace; padding: 10px; max-width: 300px; margin: 0 auto; }
+            .ticket-header { text-align: center; border-bottom: 1px dashed #000; padding-bottom: 10px; }
+            .ticket-logo { max-width: 100px; }
+            .ticket-header h2 { margin: 10px 0 5px; font-size: 18px; }
+            .ticket-header p { margin: 2px 0; font-size: 12px; }
+            .ticket-cliente { padding: 10px 0; border-bottom: 1px dashed #000; font-size: 12px; }
+            .ticket-items { width: 100%; border-collapse: collapse; font-size: 12px; }
+            .ticket-items th, .ticket-items td { padding: 5px 0; text-align: left; }
+            .text-right { text-align: right; }
+            .ticket-total { border-top: 1px dashed #000; padding-top: 10px; margin-top: 10px; }
+            .total-row { display: flex; justify-content: space-between; font-size: 12px; }
+            .total-final { font-weight: bold; font-size: 16px; margin-top: 5px; }
+            .ticket-footer { text-align: center; margin-top: 15px; font-size: 11px; border-top: 1px dashed #000; padding-top: 10px; }
+        </style>
+    </head>
+    <body>${contenido}</body>
+    </html>`);
+    
+    ventana.document.close();
+    ventana.print();
+}
+
+function descargarTicket() {
+    // Usar html2canvas si está disponible, sino solo imprimir
+    imprimirTicket();
+}
+
+async function confirmarPago() {
+    if (!confirm('¿Confirmar pago de todos los cargos?')) return;
+    
+    try {
+        // Marcar todos los cargos como pagados
+        for (const cargo of cargosPendientes) {
+            await apiPut(`/cargos/${cargo.id}`, { pagado: true });
+        }
+        
+        cerrarModalTicket();
+        cargarCargos();
+        showToast('Pago confirmado exitosamente', 'success');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+// ============================================
+// EXPEDIENTES
+// ============================================
+async function cargarExpedientes() {
+    renderExpedientes(perros);
+}
+
+function buscarExpedientes(e) {
+    const busqueda = e.target.value.toLowerCase();
+    
+    const filtrados = perros.filter(p => {
+        const propietario = propietarios.find(prop => prop.id === p.propietario_id);
+        return p.nombre.toLowerCase().includes(busqueda) ||
+               propietario?.nombre.toLowerCase().includes(busqueda);
+    });
+    
+    renderExpedientes(filtrados);
+}
+
+function renderExpedientes(lista) {
+    const container = document.getElementById('listaExpedientes');
+    if (!container) return;
+    
+    if (lista.length === 0) {
+        container.innerHTML = '<p class="empty-state">No se encontraron expedientes</p>';
+        return;
+    }
+    
+    let html = '<div class="expedientes-grid">';
+    
+    lista.forEach(perro => {
+        const propietario = propietarios.find(p => p.id === perro.propietario_id);
+        
+        html += `
+        <div class="expediente-card" onclick="verExpediente('${perro.id}')">
+            <div class="expediente-foto">
+                ${perro.foto_url ? 
+                    `<img src="${perro.foto_url}" alt="${perro.nombre}">` : 
+                    '<span class="no-foto">🐕</span>'}
+            </div>
+            <div class="expediente-info">
+                <h4>${perro.nombre}</h4>
+                <p class="raza">${perro.raza || 'Sin raza'}</p>
+                <p class="dueno">👤 ${propietario?.nombre || 'Sin dueño'}</p>
+            </div>
+            <div class="expediente-vacunas">
+                <span class="${perro.vacuna_rabia ? 'ok' : 'pending'}">🦠 Rabia</span>
+                <span class="${perro.vacuna_multiple ? 'ok' : 'pending'}">💉 Múltiple</span>
+            </div>
+        </div>`;
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+async function verExpediente(perroId) {
+    const perro = perros.find(p => p.id === perroId);
+    const propietario = propietarios.find(p => p.id === perro?.propietario_id);
+    
+    if (!perro) return;
+    
+    // Cargar historial
+    let estancias = [];
+    let paseos = [];
+    let tickets = [];
+    
+    try {
+        [estancias, paseos, tickets] = await Promise.all([
+            apiGet(`/estancias/?perro_id=${perroId}`),
+            apiGet(`/paseos/?perro_id=${perroId}`),
+            apiGet(`/tickets/?perro_id=${perroId}`)
+        ]);
+    } catch (error) {
+        console.error('Error cargando historial:', error);
+    }
+    
+    const modal = document.getElementById('modalExpediente');
+    const contenido = document.getElementById('expedienteContenido');
+    
+    contenido.innerHTML = `
+    <div class="expediente-detalle">
+        <div class="expediente-header">
+            <div class="foto-grande">
+                ${perro.foto_url ? 
+                    `<img src="${perro.foto_url}" alt="${perro.nombre}">` : 
+                    '<span class="no-foto">🐕</span>'}
+            </div>
+            <div class="info-principal">
+                <h2>${perro.nombre}</h2>
+                <p><strong>Raza:</strong> ${perro.raza || 'No especificada'}</p>
+                <p><strong>Edad:</strong> ${perro.edad_anos ? perro.edad_anos + ' años' : 'No especificada'}</p>
+                <p><strong>Peso:</strong> ${perro.peso ? perro.peso + ' kg' : 'No especificado'}</p>
+                <p><strong>Sexo:</strong> ${perro.sexo || 'No especificado'}</p>
+                <p><strong>Color:</strong> ${perro.color || 'No especificado'}</p>
+                <p><strong>Esterilizado:</strong> ${perro.esterilizado ? 'Sí' : 'No'}</p>
+            </div>
+        </div>
+        
+        <div class="seccion-expediente">
+            <h3>👤 Propietario</h3>
+            <p><strong>Nombre:</strong> ${propietario?.nombre || 'N/A'}</p>
+            <p><strong>Teléfono:</strong> ${propietario?.telefono || 'N/A'}</p>
+            <p><strong>Email:</strong> ${propietario?.email || 'N/A'}</p>
+        </div>
+        
+        <div class="seccion-expediente">
+            <h3>💉 Vacunas y Salud</h3>
+            <div class="vacunas-grid">
+                <div class="vacuna-item ${perro.vacuna_rabia ? 'ok' : 'pending'}">
+                    <span class="vacuna-nombre">Rabia</span>
+                    <span class="vacuna-status">${perro.vacuna_rabia ? '✓' : '✗'}</span>
+                    ${perro.vacuna_rabia_fecha ? `<span class="vacuna-fecha">${formatDate(perro.vacuna_rabia_fecha)}</span>` : ''}
                 </div>
-            `;
-        }).join('');
-    },
-
-    filterPerros(query) {
-        const propietarioFilter = document.getElementById('filter-propietario-perros').value;
-        let filtered = State.perros;
-        
-        if (query) {
-            filtered = filtered.filter(p => p.nombre.toLowerCase().includes(query.toLowerCase()));
-        }
-        
-        if (propietarioFilter) {
-            filtered = filtered.filter(p => p.propietario_id === propietarioFilter);
-        }
-        
-        this.renderPerros(filtered);
-    },
-
-    populateFilterPropietarios() {
-        const select = document.getElementById('filter-propietario-perros');
-        select.innerHTML = '<option value="">Todos los propietarios</option>' +
-            State.propietarios.map(p => 
-                `<option value="${p.id}">${p.nombre} ${p.apellido}</option>`
-            ).join('');
-        
-        select.onchange = () => this.filterPerros(document.getElementById('search-perros').value);
-    },
-
-    async savePerro(event) {
-        event.preventDefault();
-        Utils.showLoading();
-
-        const id = document.getElementById('perro-id').value;
-        const data = {
-            propietario_id: document.getElementById('perro-propietario').value,
-            nombre: document.getElementById('perro-nombre').value,
-            raza: document.getElementById('perro-raza').value || null,
-            fecha_nacimiento: document.getElementById('perro-nacimiento').value || null,
-            peso_kg: document.getElementById('perro-peso').value ? parseFloat(document.getElementById('perro-peso').value) : null,
-            sexo: document.getElementById('perro-sexo').value || null,
-            color: document.getElementById('perro-color').value || null,
-            esterilizado: document.getElementById('perro-esterilizado').checked,
-            alergias: document.getElementById('perro-alergias').value || null,
-            veterinario_contacto: document.getElementById('perro-veterinario').value || null,
-            notas: document.getElementById('perro-notas').value || null
-        };
-
-        try {
-            if (id) {
-                await API.put(`/perros/${id}`, data);
-                Utils.showToast('Perro actualizado');
-            } else {
-                await API.post('/perros', data);
-                Utils.showToast('Perro registrado');
-            }
-            
-            this.closeModal('perro');
-            await this.loadInitialData();
-            this.loadPerros();
-        } catch (error) {
-            Utils.showToast('Error: ' + error.message, 'error');
-        } finally {
-            Utils.hideLoading();
-        }
-    },
-
-    editPerro(id) {
-        const p = State.perros.find(x => x.id === id);
-        if (!p) return;
-
-        document.getElementById('modal-perro-title').textContent = 'Editar Perro';
-        document.getElementById('perro-id').value = p.id;
-        document.getElementById('perro-propietario').value = p.propietario_id;
-        document.getElementById('perro-nombre').value = p.nombre;
-        document.getElementById('perro-raza').value = p.raza || '';
-        document.getElementById('perro-nacimiento').value = p.fecha_nacimiento || '';
-        document.getElementById('perro-peso').value = p.peso_kg || '';
-        document.getElementById('perro-sexo').value = p.sexo || '';
-        document.getElementById('perro-color').value = p.color || '';
-        document.getElementById('perro-esterilizado').checked = p.esterilizado;
-        document.getElementById('perro-alergias').value = p.alergias || '';
-        document.getElementById('perro-veterinario').value = p.veterinario_contacto || '';
-        document.getElementById('perro-notas').value = p.notas || '';
-
-        this.openModal('perro');
-    },
-
-    deletePerro(id) {
-        this.showConfirm(
-            'Eliminar Perro',
-            '¿Está seguro de eliminar este perro?',
-            async () => {
-                try {
-                    await API.delete(`/perros/${id}`);
-                    Utils.showToast('Perro eliminado');
-                    await this.loadInitialData();
-                    this.loadPerros();
-                } catch (error) {
-                    Utils.showToast('Error: ' + error.message, 'error');
-                }
-            }
-        );
-    },
-
-    // ============================================
-    // PASEOS
-    // ============================================
-
-    async loadPaseos() {
-        try {
-            const fechaInicio = document.getElementById('filter-fecha-inicio').value;
-            const fechaFin = document.getElementById('filter-fecha-fin').value;
-            const pagado = document.getElementById('filter-pagado').value;
-
-            let url = '/paseos?';
-            if (fechaInicio) url += `fecha_inicio=${fechaInicio}&`;
-            if (fechaFin) url += `fecha_fin=${fechaFin}&`;
-            if (pagado !== '') url += `pagado=${pagado}&`;
-
-            State.paseos = await API.get(url);
-            this.renderPaseos(State.paseos);
-        } catch (error) {
-            Utils.showToast('Error cargando paseos', 'error');
-        }
-    },
-
-    renderPaseos(paseos) {
-        const tbody = document.getElementById('tabla-paseos');
-        
-        if (paseos.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No hay paseos registrados</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = paseos.map(p => {
-            const perro = p.perros || {};
-            const propietario = perro.propietarios || {};
-            const tipo = p.catalogo_paseos || {};
-            
-            return `
-                <tr>
-                    <td>${Utils.formatDate(p.fecha)}</td>
-                    <td><strong>${perro.nombre || '-'}</strong></td>
-                    <td>${propietario.nombre || ''} ${propietario.apellido || ''}</td>
-                    <td>${tipo.nombre || '-'}</td>
-                    <td>${Utils.formatMoney(p.precio_cobrado)}</td>
-                    <td>
-                        ${p.pagado 
-                            ? '<span class="badge badge-success">Pagado</span>' 
-                            : '<span class="badge badge-warning">Pendiente</span>'}
-                    </td>
-                    <td>
-                        <button class="btn btn-sm btn-danger btn-icon" onclick="App.deletePaseo('${p.id}')" title="Eliminar">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                        </button>
-                    </td>
-                </tr>
-            `;
-        }).join('');
-    },
-
-    async savePaseo(event) {
-        event.preventDefault();
-        Utils.showLoading();
-
-        const data = {
-            perro_id: document.getElementById('paseo-perro').value,
-            catalogo_paseo_id: document.getElementById('paseo-tipo').value,
-            fecha: document.getElementById('paseo-fecha').value,
-            precio_cobrado: parseFloat(document.getElementById('paseo-precio').value),
-            hora_inicio: document.getElementById('paseo-hora-inicio').value || null,
-            hora_fin: document.getElementById('paseo-hora-fin').value || null,
-            notas: document.getElementById('paseo-notas').value || null
-        };
-
-        try {
-            await API.post('/paseos', data);
-            Utils.showToast('Paseo registrado');
-            this.closeModal('paseo');
-            this.loadPaseos();
-        } catch (error) {
-            Utils.showToast('Error: ' + error.message, 'error');
-        } finally {
-            Utils.hideLoading();
-        }
-    },
-
-    deletePaseo(id) {
-        this.showConfirm(
-            'Eliminar Paseo',
-            '¿Está seguro de eliminar este paseo?',
-            async () => {
-                try {
-                    await API.delete(`/paseos/${id}`);
-                    Utils.showToast('Paseo eliminado');
-                    this.loadPaseos();
-                } catch (error) {
-                    Utils.showToast('Error: ' + error.message, 'error');
-                }
-            }
-        );
-    },
-
-    updatePrecioPaseo() {
-        const tipoId = document.getElementById('paseo-tipo').value;
-        const tipo = State.catalogoPaseos.find(c => c.id === tipoId);
-        if (tipo) {
-            document.getElementById('paseo-precio').value = tipo.precio;
-        }
-    },
-
-    // ============================================
-    // CAJA (COBROS)
-    // ============================================
-
-    async loadCaja() {
-        this.populateCajaPropietarios();
-        await this.loadCargos();
-        document.getElementById('ticket-container').style.display = 'none';
-    },
-
-    populateCajaPropietarios() {
-        const select = document.getElementById('caja-propietario');
-        select.innerHTML = '<option value="">-- Seleccione --</option>' +
-            State.propietarios.map(p => 
-                `<option value="${p.id}">${p.nombre} ${p.apellido}</option>`
-            ).join('');
-    },
-
-    async loadPaseosPendientes() {
-        const propietarioId = document.getElementById('caja-propietario').value;
-        const container = document.getElementById('caja-paseos-container');
-        const lista = document.getElementById('caja-paseos-lista');
-        
-        if (!propietarioId) {
-            container.classList.add('hidden');
-            return;
-        }
-
-        try {
-            const paseos = await API.get(`/paseos/pendientes/${propietarioId}`);
-            
-            if (paseos.length === 0) {
-                lista.innerHTML = '<p class="text-muted text-center" style="padding: 1rem;">No hay paseos pendientes</p>';
-                container.classList.remove('hidden');
-                State.selectedPaseos.clear();
-                this.updateCajaTotal();
-                return;
-            }
-
-            lista.innerHTML = paseos.map(p => {
-                const perro = p.perros || {};
-                const tipo = p.catalogo_paseos || {};
-                return `
-                    <label class="selection-item" data-id="${p.id}" data-precio="${p.precio_cobrado}">
-                        <input type="checkbox" onchange="App.togglePaseoSelection('${p.id}', ${p.precio_cobrado})">
-                        <div class="selection-info">
-                            <div class="selection-title">${perro.nombre} - ${tipo.nombre}</div>
-                            <div class="selection-subtitle">${Utils.formatDate(p.fecha)}</div>
-                        </div>
-                        <div class="selection-amount">${Utils.formatMoney(p.precio_cobrado)}</div>
-                    </label>
-                `;
-            }).join('');
-
-            container.classList.remove('hidden');
-            State.selectedPaseos.clear();
-            this.updateCajaTotal();
-        } catch (error) {
-            Utils.showToast('Error cargando paseos pendientes', 'error');
-        }
-    },
-
-    togglePaseoSelection(id, precio) {
-        if (State.selectedPaseos.has(id)) {
-            State.selectedPaseos.delete(id);
-        } else {
-            State.selectedPaseos.set(id, precio);
-        }
-        this.updateCajaTotal();
-    },
-
-    updateCajaTotal() {
-        let total = 0;
-        State.selectedPaseos.forEach(precio => {
-            total += precio;
-        });
-        document.getElementById('caja-total').textContent = Utils.formatMoney(total);
-        document.getElementById('btn-cobrar').disabled = State.selectedPaseos.size === 0;
-    },
-
-    async procesarCobro() {
-        if (State.selectedPaseos.size === 0) {
-            Utils.showToast('Seleccione al menos un paseo', 'error');
-            return;
-        }
-
-        Utils.showLoading();
-
-        const data = {
-            paseos_ids: Array.from(State.selectedPaseos.keys()),
-            propietario_id: document.getElementById('caja-propietario').value,
-            metodo_pago: document.getElementById('caja-metodo').value
-        };
-
-        try {
-            const result = await API.post('/caja/cobrar', data);
-            Utils.showToast('Cobro procesado exitosamente');
-            
-            this.generarTicket(result);
-            await this.loadPaseosPendientes();
-            await this.loadCargos();
-        } catch (error) {
-            Utils.showToast('Error procesando cobro: ' + error.message, 'error');
-        } finally {
-            Utils.hideLoading();
-        }
-    },
-
-    generarTicket(result) {
-        const container = document.getElementById('ticket-container');
-        const content = document.getElementById('ticket-content');
-        const propietario = result.propietario;
-        const cargo = result.cargo;
-        const paseos = result.paseos_cobrados;
-
-        const ahora = new Date();
-        const fechaStr = ahora.toLocaleDateString('es-MX');
-        const horaStr = ahora.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
-
-        content.innerHTML = `
-            <div class="ticket">
-                <div class="ticket-header">
-                    <img src="assets/logo.png" alt="ComfortCan" class="ticket-logo">
-                    <div class="ticket-title">COMFORTCAN MÉXICO</div>
-                    <div class="ticket-subtitle">Train & Care</div>
+                <div class="vacuna-item ${perro.vacuna_multiple ? 'ok' : 'pending'}">
+                    <span class="vacuna-nombre">Múltiple</span>
+                    <span class="vacuna-status">${perro.vacuna_multiple ? '✓' : '✗'}</span>
+                    ${perro.vacuna_multiple_fecha ? `<span class="vacuna-fecha">${formatDate(perro.vacuna_multiple_fecha)}</span>` : ''}
                 </div>
-                
-                <div class="ticket-body">
-                    <div class="ticket-row">
-                        <span>Fecha:</span>
-                        <span>${fechaStr}</span>
-                    </div>
-                    <div class="ticket-row">
-                        <span>Hora:</span>
-                        <span>${horaStr}</span>
-                    </div>
-                    <div class="ticket-row">
-                        <span>Cliente:</span>
-                        <span>${propietario.nombre} ${propietario.apellido}</span>
-                    </div>
-                    
-                    <div class="ticket-divider"></div>
-                    
-                    <div style="margin-bottom: 8px;"><strong>SERVICIOS:</strong></div>
-                    ${paseos.map(p => `
-                        <div class="ticket-row">
-                            <span>${Utils.formatDate(p.fecha)}</span>
-                            <span>${Utils.formatMoney(p.precio_cobrado)}</span>
-                        </div>
-                    `).join('')}
-                    
-                    <div class="ticket-divider"></div>
-                    
-                    <div class="ticket-row ticket-total">
-                        <span>TOTAL:</span>
-                        <span>${Utils.formatMoney(result.monto_total)}</span>
-                    </div>
-                    <div class="ticket-row">
-                        <span>Método:</span>
-                        <span>${cargo.metodo_pago}</span>
-                    </div>
-                </div>
-                
-                <div class="ticket-footer">
-                    <p>¡Gracias por su preferencia!</p>
-                    <p>ComfortCan México</p>
+                <div class="vacuna-item ${perro.desparasitado ? 'ok' : 'pending'}">
+                    <span class="vacuna-nombre">Desparasitado</span>
+                    <span class="vacuna-status">${perro.desparasitado ? '✓' : '✗'}</span>
+                    ${perro.desparasitado_fecha ? `<span class="vacuna-fecha">${formatDate(perro.desparasitado_fecha)}</span>` : ''}
                 </div>
             </div>
-        `;
-
-        container.style.display = 'block';
-    },
-
-    async loadCargos() {
-        try {
-            State.cargos = await API.get('/cargos');
-            this.renderCargos(State.cargos);
-        } catch (error) {
-            console.error('Error loading cargos:', error);
-        }
-    },
-
-    renderCargos(cargos) {
-        const tbody = document.getElementById('tabla-cargos');
+            ${perro.condiciones_medicas ? `<p><strong>Condiciones médicas:</strong> ${perro.condiciones_medicas}</p>` : ''}
+        </div>
         
-        if (cargos.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No hay cobros registrados</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = cargos.map(c => {
-            const propietario = c.propietarios || {};
-            return `
-                <tr>
-                    <td>${Utils.formatDateTime(c.created_at)}</td>
-                    <td>${propietario.nombre || ''} ${propietario.apellido || ''}</td>
-                    <td><strong>${Utils.formatMoney(c.monto_total)}</strong></td>
-                    <td>${c.metodo_pago}</td>
-                    <td><span class="badge badge-info">${c.paseos_ids.length}</span></td>
-                    <td>
-                        <button class="btn btn-sm btn-danger btn-icon" onclick="App.deleteCargo('${c.id}')" title="Anular">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                        </button>
-                    </td>
-                </tr>
-            `;
-        }).join('');
-    },
-
-    deleteCargo(id) {
-        this.showConfirm(
-            'Anular Cobro',
-            '¿Está seguro de anular este cobro? Los paseos volverán a estado pendiente.',
-            async () => {
-                try {
-                    await API.delete(`/cargos/${id}`);
-                    Utils.showToast('Cobro anulado');
-                    await this.loadCaja();
-                } catch (error) {
-                    Utils.showToast('Error: ' + error.message, 'error');
-                }
-            }
-        );
-    },
-
-    // ============================================
-    // RESERVAS
-    // ============================================
-
-    async loadReservas() {
-        try {
-            const fecha = document.getElementById('filter-fecha-reserva').value;
-            const estado = document.getElementById('filter-estado-reserva').value;
-
-            let url = '/reservas?';
-            if (fecha) url += `fecha=${fecha}&`;
-            if (estado) url += `estado=${estado}&`;
-
-            State.reservas = await API.get(url);
-            this.renderReservas(State.reservas);
-        } catch (error) {
-            Utils.showToast('Error cargando reservas', 'error');
-        }
-    },
-
-    renderReservas(reservas) {
-        const tbody = document.getElementById('tabla-reservas');
+        <div class="seccion-expediente">
+            <h3>🏨 Historial de Estancias (${estancias.length})</h3>
+            ${estancias.length > 0 ? `
+            <div class="historial-lista">
+                ${estancias.slice(0, 5).map(e => `
+                    <div class="historial-item">
+                        <span>${formatDate(e.fecha_entrada)} - ${formatDate(e.fecha_salida)}</span>
+                        <span>${e.dias_reservados} días</span>
+                        <span>$${e.precio_total}</span>
+                    </div>
+                `).join('')}
+            </div>` : '<p class="empty-state">Sin estancias registradas</p>'}
+        </div>
         
-        if (reservas.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No hay reservas</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = reservas.map(r => {
-            const perro = r.perros || {};
-            const propietario = perro.propietarios || {};
-            const servicio = r.catalogo_paseos || {};
-            
-            const estadoBadge = {
-                'Pendiente': 'badge-warning',
-                'Confirmada': 'badge-info',
-                'Completada': 'badge-success',
-                'Cancelada': 'badge-danger'
-            };
-            
-            return `
-                <tr>
-                    <td>${Utils.formatDate(r.fecha_reserva)}</td>
-                    <td>${r.hora_inicio || '-'}</td>
-                    <td><strong>${perro.nombre || '-'}</strong></td>
-                    <td>${propietario.nombre || ''} ${propietario.apellido || ''}</td>
-                    <td>${servicio.nombre || '-'}</td>
-                    <td><span class="badge ${estadoBadge[r.estado] || 'badge-info'}">${r.estado}</span></td>
-                    <td>
-                        <div class="btn-group">
-                            <select class="form-select" style="width: auto; padding: 4px 8px; font-size: 12px;" onchange="App.updateEstadoReserva('${r.id}', this.value)">
-                                <option value="Pendiente" ${r.estado === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
-                                <option value="Confirmada" ${r.estado === 'Confirmada' ? 'selected' : ''}>Confirmada</option>
-                                <option value="Completada" ${r.estado === 'Completada' ? 'selected' : ''}>Completada</option>
-                                <option value="Cancelada" ${r.estado === 'Cancelada' ? 'selected' : ''}>Cancelada</option>
-                            </select>
-                            <button class="btn btn-sm btn-danger btn-icon" onclick="App.deleteReserva('${r.id}')" title="Eliminar">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-            `;
-        }).join('');
-    },
-
-    async saveReserva(event) {
-        event.preventDefault();
-        Utils.showLoading();
-
-        const data = {
-            perro_id: document.getElementById('reserva-perro').value,
-            catalogo_paseo_id: document.getElementById('reserva-servicio').value,
-            fecha_reserva: document.getElementById('reserva-fecha').value,
-            hora_inicio: document.getElementById('reserva-hora').value || null,
-            notas: document.getElementById('reserva-notas').value || null
-        };
-
-        try {
-            await API.post('/reservas', data);
-            Utils.showToast('Reserva creada');
-            this.closeModal('reserva');
-            this.loadReservas();
-        } catch (error) {
-            Utils.showToast('Error: ' + error.message, 'error');
-        } finally {
-            Utils.hideLoading();
-        }
-    },
-
-    async updateEstadoReserva(id, estado) {
-        try {
-            await API.put(`/reservas/${id}/estado?estado=${estado}`);
-            Utils.showToast('Estado actualizado');
-        } catch (error) {
-            Utils.showToast('Error: ' + error.message, 'error');
-            this.loadReservas();
-        }
-    },
-
-    deleteReserva(id) {
-        this.showConfirm(
-            'Eliminar Reserva',
-            '¿Está seguro de eliminar esta reserva?',
-            async () => {
-                try {
-                    await API.delete(`/reservas/${id}`);
-                    Utils.showToast('Reserva eliminada');
-                    this.loadReservas();
-                } catch (error) {
-                    Utils.showToast('Error: ' + error.message, 'error');
-                }
-            }
-        );
-    },
-
-    // ============================================
-    // MODALES Y UTILIDADES
-    // ============================================
-
-    openModal(name) {
-        // Limpiar formulario si es nuevo
-        const form = document.getElementById(`form-${name}`);
-        if (form && !document.getElementById(`${name}-id`)?.value) {
-            form.reset();
-            const titleEl = document.getElementById(`modal-${name}-title`);
-            if (titleEl) {
-                titleEl.textContent = `Nuevo ${name.charAt(0).toUpperCase() + name.slice(1)}`;
-            }
-        }
-
-        // Establecer fecha actual para paseos/reservas
-        if (name === 'paseo') {
-            document.getElementById('paseo-fecha').value = Utils.getTodayDate();
-        }
-        if (name === 'reserva') {
-            document.getElementById('reserva-fecha').value = Utils.getTodayDate();
-        }
-
-        document.getElementById(`modal-${name}`).classList.add('active');
-    },
-
-    closeModal(name) {
-        document.getElementById(`modal-${name}`).classList.remove('active');
+        <div class="seccion-expediente">
+            <h3>🦮 Historial de Paseos (${paseos.length})</h3>
+            ${paseos.length > 0 ? `
+            <div class="historial-lista">
+                ${paseos.slice(0, 5).map(p => `
+                    <div class="historial-item">
+                        <span>${formatDate(p.fecha)}</span>
+                        <span>$${p.precio}</span>
+                        <span class="status-badge ${p.pagado ? 'pagado' : 'pendiente'}">${p.pagado ? 'Pagado' : 'Pendiente'}</span>
+                    </div>
+                `).join('')}
+            </div>` : '<p class="empty-state">Sin paseos registrados</p>'}
+        </div>
         
-        // Limpiar ID oculto
-        const idField = document.getElementById(`${name}-id`);
-        if (idField) idField.value = '';
-    },
-
-    showConfirm(title, message, onConfirm) {
-        document.getElementById('confirm-title').textContent = title;
-        document.getElementById('confirm-message').textContent = message;
+        <div class="seccion-expediente">
+            <h3>🧾 Tickets (${tickets.length})</h3>
+            ${tickets.length > 0 ? `
+            <div class="historial-lista">
+                ${tickets.slice(0, 5).map(t => `
+                    <div class="historial-item">
+                        <span>Folio: ${t.folio}</span>
+                        <span>${formatDate(t.created_at)}</span>
+                        <span>$${t.total}</span>
+                    </div>
+                `).join('')}
+            </div>` : '<p class="empty-state">Sin tickets registrados</p>'}
+        </div>
         
-        const btn = document.getElementById('confirm-btn');
-        btn.onclick = async () => {
-            this.closeModal('confirm');
-            await onConfirm();
-        };
-        
-        this.openModal('confirm');
-    },
+        ${perro.notas ? `
+        <div class="seccion-expediente">
+            <h3>📝 Notas</h3>
+            <p>${perro.notas}</p>
+        </div>` : ''}
+    </div>`;
+    
+    modal.classList.add('active');
+}
 
-    // Poblar selects con datos
-    populatePropietarioSelects() {
-        const selects = [
-            document.getElementById('perro-propietario'),
-            document.getElementById('caja-propietario')
-        ];
+function cerrarModalExpediente() {
+    document.getElementById('modalExpediente').classList.remove('active');
+}
 
-        const options = '<option value="">-- Seleccione --</option>' +
-            State.propietarios.map(p => 
-                `<option value="${p.id}">${p.nombre} ${p.apellido}</option>`
-            ).join('');
+// ============================================
+// GESTIÓN DE DATOS
+// ============================================
+async function cargarGestion() {
+    renderGestion(perros, propietarios);
+}
 
-        selects.forEach(select => {
-            if (select) select.innerHTML = options;
+function buscarGestion(e) {
+    const busqueda = e.target.value.toLowerCase();
+    
+    const perrosFiltrados = perros.filter(p => 
+        p.nombre.toLowerCase().includes(busqueda)
+    );
+    
+    const propietariosFiltrados = propietarios.filter(p => 
+        p.nombre.toLowerCase().includes(busqueda) ||
+        p.telefono.includes(busqueda)
+    );
+    
+    renderGestion(perrosFiltrados, propietariosFiltrados);
+}
+
+function renderGestion(listaPerros, listaPropietarios) {
+    const containerPerros = document.getElementById('gestionPerros');
+    const containerDuenos = document.getElementById('gestionDuenos');
+    
+    // Renderizar perros
+    if (containerPerros) {
+        let html = '<h3>🐕 Perros</h3><div class="gestion-lista">';
+        listaPerros.forEach(p => {
+            html += `
+            <div class="gestion-item">
+                <span class="nombre">${p.nombre}</span>
+                <span class="detalle">${p.raza || 'Sin raza'}</span>
+                <div class="actions">
+                    <button class="btn btn-sm btn-primary" onclick="editarPerro('${p.id}')">✏️</button>
+                    <button class="btn btn-sm btn-danger" onclick="eliminarPerro('${p.id}')">🗑</button>
+                </div>
+            </div>`;
         });
-    },
-
-    populatePerroSelects() {
-        const selects = [
-            document.getElementById('paseo-perro'),
-            document.getElementById('reserva-perro')
-        ];
-
-        const options = '<option value="">-- Seleccione --</option>' +
-            State.perros.map(p => {
-                const prop = State.propietarios.find(pr => pr.id === p.propietario_id);
-                const propName = prop ? ` (${prop.nombre})` : '';
-                return `<option value="${p.id}">${p.nombre}${propName}</option>`;
-            }).join('');
-
-        selects.forEach(select => {
-            if (select) select.innerHTML = options;
-        });
-    },
-
-    populateCatalogoSelects() {
-        const selects = [
-            document.getElementById('paseo-tipo'),
-            document.getElementById('reserva-servicio')
-        ];
-
-        const options = '<option value="">-- Seleccione --</option>' +
-            State.catalogoPaseos.map(c => 
-                `<option value="${c.id}">${c.nombre} - ${Utils.formatMoney(c.precio)}</option>`
-            ).join('');
-
-        selects.forEach(select => {
-            if (select) select.innerHTML = options;
-        });
+        html += '</div>';
+        containerPerros.innerHTML = html;
     }
-};
+    
+    // Renderizar propietarios
+    if (containerDuenos) {
+        let html = '<h3>👤 Propietarios</h3><div class="gestion-lista">';
+        listaPropietarios.forEach(p => {
+            html += `
+            <div class="gestion-item">
+                <span class="nombre">${p.nombre}</span>
+                <span class="detalle">${p.telefono}</span>
+                <div class="actions">
+                    <button class="btn btn-sm btn-primary" onclick="editarPropietario('${p.id}')">✏️</button>
+                    <button class="btn btn-sm btn-danger" onclick="eliminarPropietario('${p.id}')">🗑</button>
+                </div>
+            </div>`;
+        });
+        html += '</div>';
+        containerDuenos.innerHTML = html;
+    }
+}
 
-// Inicializar al cargar
-document.addEventListener('DOMContentLoaded', () => App.init());
+async function editarPerro(id) {
+    const perro = perros.find(p => p.id === id);
+    if (!perro) return;
+    
+    const nombre = prompt('Nombre del perro:', perro.nombre);
+    if (nombre === null) return;
+    
+    const raza = prompt('Raza:', perro.raza || '');
+    
+    try {
+        const actualizado = await apiPut(`/perros/${id}`, { nombre, raza });
+        const index = perros.findIndex(p => p.id === id);
+        perros[index] = { ...perros[index], ...actualizado };
+        cargarGestion();
+        showToast('Perro actualizado', 'success');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function eliminarPerro(id) {
+    if (!confirm('¿Eliminar este perro? Esta acción no se puede deshacer.')) return;
+    
+    try {
+        await apiDelete(`/perros/${id}`);
+        perros = perros.filter(p => p.id !== id);
+        cargarGestion();
+        showToast('Perro eliminado', 'success');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function editarPropietario(id) {
+    const prop = propietarios.find(p => p.id === id);
+    if (!prop) return;
+    
+    const nombre = prompt('Nombre:', prop.nombre);
+    if (nombre === null) return;
+    
+    const telefono = prompt('Teléfono:', prop.telefono);
+    
+    try {
+        const actualizado = await apiPut(`/propietarios/${id}`, { nombre, telefono });
+        const index = propietarios.findIndex(p => p.id === id);
+        propietarios[index] = { ...propietarios[index], ...actualizado };
+        cargarGestion();
+        llenarSelectPropietarios();
+        showToast('Propietario actualizado', 'success');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function eliminarPropietario(id) {
+    if (!confirm('¿Eliminar este propietario? Se eliminarán también sus perros.')) return;
+    
+    try {
+        await apiDelete(`/propietarios/${id}`);
+        propietarios = propietarios.filter(p => p.id !== id);
+        perros = perros.filter(p => p.propietario_id !== id);
+        cargarGestion();
+        llenarSelectPropietarios();
+        showToast('Propietario eliminado', 'success');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+// ============================================
+// CONFIGURACIÓN - CATÁLOGOS
+// ============================================
+async function cargarConfiguracion() {
+    renderCatalogoServicios();
+    renderCatalogoPaseos();
+}
+
+function renderCatalogoServicios() {
+    const container = document.getElementById('listaServicios');
+    if (!container) return;
+    
+    let html = '';
+    catalogoServicios.forEach(s => {
+        html += `
+        <div class="catalogo-item">
+            <span class="nombre">${s.nombre}</span>
+            <span class="precio">$${s.precio}/día</span>
+            <div class="actions">
+                <button class="btn btn-sm btn-primary" onclick="editarServicio('${s.id}')">✏️</button>
+                <button class="btn btn-sm btn-danger" onclick="eliminarServicio('${s.id}')">🗑</button>
+            </div>
+        </div>`;
+    });
+    container.innerHTML = html;
+}
+
+function renderCatalogoPaseos() {
+    const container = document.getElementById('listaPaseosConfig');
+    if (!container) return;
+    
+    let html = '';
+    catalogoPaseos.forEach(p => {
+        html += `
+        <div class="catalogo-item">
+            <span class="nombre">${p.nombre}</span>
+            <span class="precio">$${p.precio}</span>
+            <div class="actions">
+                <button class="btn btn-sm btn-primary" onclick="editarTipoPaseo('${p.id}')">✏️</button>
+                <button class="btn btn-sm btn-danger" onclick="eliminarTipoPaseo('${p.id}')">🗑</button>
+            </div>
+        </div>`;
+    });
+    container.innerHTML = html;
+}
+
+async function handleGuardarServicio(e) {
+    e.preventDefault();
+    
+    const nombre = document.getElementById('nombreServicio').value;
+    const precio = parseFloat(document.getElementById('precioServicio').value);
+    
+    try {
+        const nuevo = await apiPost('/catalogo-servicios/', { nombre, precio, activo: true });
+        catalogoServicios.push(nuevo);
+        renderCatalogoServicios();
+        llenarSelectServicios();
+        e.target.reset();
+        showToast('Servicio agregado', 'success');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function editarServicio(id) {
+    const servicio = catalogoServicios.find(s => s.id === id);
+    if (!servicio) return;
+    
+    const nombre = prompt('Nombre del servicio:', servicio.nombre);
+    if (nombre === null) return;
+    
+    const precio = prompt('Precio por día:', servicio.precio);
+    if (precio === null) return;
+    
+    try {
+        await apiPut(`/catalogo-servicios/${id}`, { nombre, precio: parseFloat(precio) });
+        const index = catalogoServicios.findIndex(s => s.id === id);
+        catalogoServicios[index] = { ...catalogoServicios[index], nombre, precio: parseFloat(precio) };
+        renderCatalogoServicios();
+        llenarSelectServicios();
+        showToast('Servicio actualizado', 'success');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function eliminarServicio(id) {
+    if (!confirm('¿Eliminar este servicio?')) return;
+    
+    try {
+        await apiDelete(`/catalogo-servicios/${id}`);
+        catalogoServicios = catalogoServicios.filter(s => s.id !== id);
+        renderCatalogoServicios();
+        llenarSelectServicios();
+        showToast('Servicio eliminado', 'success');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function handleGuardarPaseo(e) {
+    e.preventDefault();
+    
+    const nombre = document.getElementById('nombreTipoPaseo').value;
+    const precio = parseFloat(document.getElementById('precioTipoPaseo').value);
+    
+    try {
+        const nuevo = await apiPost('/catalogo-paseos/', { nombre, precio, activo: true });
+        catalogoPaseos.push(nuevo);
+        renderCatalogoPaseos();
+        llenarSelectPaseos();
+        e.target.reset();
+        showToast('Tipo de paseo agregado', 'success');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function editarTipoPaseo(id) {
+    const paseo = catalogoPaseos.find(p => p.id === id);
+    if (!paseo) return;
+    
+    const nombre = prompt('Nombre del tipo de paseo:', paseo.nombre);
+    if (nombre === null) return;
+    
+    const precio = prompt('Precio:', paseo.precio);
+    if (precio === null) return;
+    
+    try {
+        await apiPut(`/catalogo-paseos/${id}`, { nombre, precio: parseFloat(precio) });
+        const index = catalogoPaseos.findIndex(p => p.id === id);
+        catalogoPaseos[index] = { ...catalogoPaseos[index], nombre, precio: parseFloat(precio) };
+        renderCatalogoPaseos();
+        llenarSelectPaseos();
+        showToast('Tipo de paseo actualizado', 'success');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+async function eliminarTipoPaseo(id) {
+    if (!confirm('¿Eliminar este tipo de paseo?')) return;
+    
+    try {
+        await apiDelete(`/catalogo-paseos/${id}`);
+        catalogoPaseos = catalogoPaseos.filter(p => p.id !== id);
+        renderCatalogoPaseos();
+        llenarSelectPaseos();
+        showToast('Tipo de paseo eliminado', 'success');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+// ============================================
+// UTILIDADES
+// ============================================
+function formatDate(dateString) {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('es-MX', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+    });
+}
+
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    
+    document.body.appendChild(toast);
+    
+    setTimeout(() => toast.classList.add('show'), 100);
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+function showLoading() {
+    document.getElementById('loadingOverlay')?.classList.add('active');
+}
+
+function hideLoading() {
+    document.getElementById('loadingOverlay')?.classList.remove('active');
+}
+
+// Toggle sidebar en móvil
+function toggleSidebar() {
+    document.querySelector('.sidebar')?.classList.toggle('open');
+}
