@@ -1,4 +1,3 @@
-cat > ~/comfortcan-app/backend/main.py << 'ENDOFFILE'
 """
 ComfortCan México - API Backend
 FastAPI + Supabase (via REST API)
@@ -8,7 +7,7 @@ from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
-from datetime import date
+from datetime import datetime
 import os
 from dotenv import load_dotenv
 import httpx
@@ -33,7 +32,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Cliente HTTP para Supabase
 def get_headers(token: str = None):
     headers = {
         "apikey": SUPABASE_KEY,
@@ -57,7 +55,6 @@ async def supabase_request(method: str, endpoint: str, data: dict = None, token:
             raise HTTPException(status_code=response.status_code, detail=response.text)
         return response.json() if response.text else None
 
-# Modelos
 class LoginRequest(BaseModel):
     email: str
     password: str
@@ -104,13 +101,10 @@ class ReservaCreate(BaseModel):
     hora_inicio: Optional[str] = None
     notas: Optional[str] = None
 
-# Auth helper
 async def verify_token(authorization: str = Header(None)):
     if not authorization:
         raise HTTPException(status_code=401, detail="Token requerido")
     return authorization.replace("Bearer ", "")
-
-# ENDPOINTS
 
 @app.get("/")
 async def root():
@@ -138,7 +132,6 @@ async def login(request: LoginRequest):
             "email": data["user"]["email"]
         }
 
-# PROPIETARIOS
 @app.get("/propietarios")
 async def listar_propietarios(activo: Optional[bool] = True, authorization: str = Header(None)):
     token = await verify_token(authorization)
@@ -173,7 +166,6 @@ async def eliminar_propietario(id: str, authorization: str = Header(None)):
     await supabase_request("PATCH", f"propietarios?id=eq.{id}", {"activo": False}, token=token)
     return {"message": "Propietario desactivado"}
 
-# PERROS
 @app.get("/perros")
 async def listar_perros(propietario_id: Optional[str] = None, activo: Optional[bool] = True, authorization: str = Header(None)):
     token = await verify_token(authorization)
@@ -210,13 +202,11 @@ async def eliminar_perro(id: str, authorization: str = Header(None)):
     await supabase_request("PATCH", f"perros?id=eq.{id}", {"activo": False}, token=token)
     return {"message": "Perro desactivado"}
 
-# CATALOGO PASEOS
 @app.get("/catalogo-paseos")
 async def listar_catalogo(authorization: str = Header(None)):
     token = await verify_token(authorization)
     return await supabase_request("GET", "catalogo_paseos?select=*&activo=eq.true&order=precio", token=token)
 
-# PASEOS
 @app.get("/paseos")
 async def listar_paseos(pagado: Optional[bool] = None, authorization: str = Header(None)):
     token = await verify_token(authorization)
@@ -247,25 +237,16 @@ async def eliminar_paseo(id: str, authorization: str = Header(None)):
     await supabase_request("DELETE", f"paseos?id=eq.{id}", token=token)
     return {"message": "Paseo eliminado"}
 
-# CAJA
 @app.post("/caja/cobrar")
 async def cobrar(data: CobrarRequest, authorization: str = Header(None)):
     token = await verify_token(authorization)
-    
-    # Obtener paseos
     ids = ",".join([f'"{id}"' for id in data.paseos_ids])
     paseos = await supabase_request("GET", f"paseos?id=in.({ids})&select=*", token=token)
-    
     if not paseos:
         raise HTTPException(status_code=404, detail="No se encontraron paseos")
-    
     monto_total = sum(float(p["precio_cobrado"]) for p in paseos)
-    
-    # Marcar como pagados
     for paseo_id in data.paseos_ids:
         await supabase_request("PATCH", f"paseos?id=eq.{paseo_id}", {"pagado": True}, token=token)
-    
-    # Crear cargo
     cargo_data = {
         "propietario_id": data.propietario_id,
         "monto_total": monto_total,
@@ -274,10 +255,7 @@ async def cobrar(data: CobrarRequest, authorization: str = Header(None)):
         "notas": data.notas
     }
     cargo = await supabase_request("POST", "cargos", cargo_data, token=token)
-    
-    # Obtener propietario
     propietario = await supabase_request("GET", f"propietarios?id=eq.{data.propietario_id}", token=token)
-    
     return {
         "cargo": cargo[0] if cargo else None,
         "paseos_cobrados": paseos,
@@ -300,7 +278,6 @@ async def eliminar_cargo(id: str, authorization: str = Header(None)):
     await supabase_request("DELETE", f"cargos?id=eq.{id}", token=token)
     return {"message": "Cargo eliminado"}
 
-# RESERVAS
 @app.get("/reservas")
 async def listar_reservas(authorization: str = Header(None)):
     token = await verify_token(authorization)
@@ -324,19 +301,14 @@ async def eliminar_reserva(id: str, authorization: str = Header(None)):
     await supabase_request("DELETE", f"reservas?id=eq.{id}", token=token)
     return {"message": "Reserva eliminada"}
 
-# REPORTES
 @app.get("/reportes/resumen")
 async def resumen(authorization: str = Header(None)):
     token = await verify_token(authorization)
-    
     propietarios = await supabase_request("GET", "propietarios?activo=eq.true&select=id", token=token)
     perros = await supabase_request("GET", "perros?activo=eq.true&select=id", token=token)
     paseos_pendientes = await supabase_request("GET", "paseos?pagado=eq.false&select=precio_cobrado", token=token)
-    
-    from datetime import datetime
     primer_dia = datetime.now().replace(day=1).strftime("%Y-%m-%d")
     paseos_mes = await supabase_request("GET", f"paseos?fecha=gte.{primer_dia}&select=precio_cobrado", token=token)
-    
     return {
         "total_propietarios": len(propietarios) if propietarios else 0,
         "total_perros": len(perros) if perros else 0,
@@ -345,4 +317,3 @@ async def resumen(authorization: str = Header(None)):
         "paseos_pendientes": len(paseos_pendientes) if paseos_pendientes else 0,
         "monto_pendiente": sum(float(p["precio_cobrado"]) for p in paseos_pendientes) if paseos_pendientes else 0
     }
-ENDOFFILE
