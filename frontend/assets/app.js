@@ -7,7 +7,7 @@
 // CONFIGURACIÓN
 // ============================================
 
-const API_URL = 'http://localhost:8000'; // Cambiar a URL de Render en producción
+const API_URL = 'https://comfortcan-api.onrender.com'; // Cambiar a URL de Render en producción
 
 // ============================================
 // ESTADO GLOBAL
