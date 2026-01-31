@@ -31,6 +31,22 @@ function showLogin() {
     document.getElementById('app-screen').classList.add('hidden');
 }
 
+// ==================== LOADING SPINNER ====================
+
+function showLoading() {
+    const loader = document.getElementById('loading');
+    if (loader) {
+        loader.style.display = 'flex';
+    }
+}
+
+function hideLoading() {
+    const loader = document.getElementById('loading');
+    if (loader) {
+        loader.style.display = 'none';
+    }
+}
+
 function showApp() {
     document.getElementById('login-screen').classList.add('hidden');
     document.getElementById('app-screen').classList.remove('hidden');
@@ -67,7 +83,8 @@ function setupEventListeners() {
     // Forms
     document.getElementById('form-propietario')?.addEventListener('submit', handleNuevoPropietario);
     document.getElementById('form-perro')?.addEventListener('submit', handleNuevoPerro);
-    document.getElementById('form-paseo')?.addEventListener('submit', handleNuevoPaseo);
+    document.getElementById('paseoForm')?.addEventListener('submit', handlePaseo);
+
     
     // Botones
     document.getElementById('btn-confirmar-estancia')?.addEventListener('click', handleCheckIn);
