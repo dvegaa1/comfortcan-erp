@@ -577,14 +577,24 @@ async def upload_foto_perro(perro_id: str, file: UploadFile = File(...), authori
     # URL publica
     foto_url = f"{SUPABASE_URL}/storage/v1/object/public/fotos/{filename}"
 
-    # Actualizar perro con la URL (usar service key para evitar problemas de permisos)
+    # Actualizar perro con la URL directamente usando service key
     print(f"Actualizando perro {perro_id} con foto_url: {foto_url}")
-    try:
-        await supabase_request("PATCH", f"perros?id=eq.{perro_id}", {"foto_perro_url": foto_url}, token=SUPABASE_KEY)
-        print(f"Perro actualizado correctamente")
-    except Exception as e:
-        print(f"Error actualizando perro: {e}")
-        raise e
+    update_url = f"{SUPABASE_URL}/rest/v1/perros?id=eq.{perro_id}"
+    async with httpx.AsyncClient() as client:
+        update_response = await client.patch(
+            update_url,
+            headers={
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "Content-Type": "application/json",
+                "Prefer": "return=representation"
+            },
+            json={"foto_perro_url": foto_url},
+            timeout=30.0
+        )
+        print(f"Update response: {update_response.status_code} - {update_response.text}")
+        if update_response.status_code >= 400:
+            print(f"Error actualizando perro: {update_response.text}")
 
     print(f"Foto de perro subida: {foto_url}")
     return {"url": foto_url, "message": "Foto subida correctamente"}
