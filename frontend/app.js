@@ -11,6 +11,7 @@ let perros = [];
 let catalogoServicios = [];
 let catalogoPaseos = [];
 let cargosActuales = [];
+let serviciosSeleccionados = [];
 
 // ============================================
 // INICIALIZACIÓN
@@ -37,10 +38,10 @@ function showApp() {
 
 function setupEventListeners() {
     // Login
-    document.getElementById('login-form').addEventListener('submit', handleLogin);
+    document.getElementById('login-form')?.addEventListener('submit', handleLogin);
     
     // Logout
-    document.getElementById('logout-btn').addEventListener('click', handleLogout);
+    document.getElementById('logout-btn')?.addEventListener('click', handleLogout);
     
     // Sidebar toggle mobile
     document.getElementById('sidebar-toggle')?.addEventListener('click', () => {
@@ -77,7 +78,7 @@ function setupEventListeners() {
     document.getElementById('btn-descargar')?.addEventListener('click', descargarTicket);
     document.getElementById('btn-guardar-servicio')?.addEventListener('click', handleNuevoServicio);
     document.getElementById('btn-guardar-tipo-paseo')?.addEventListener('click', handleNuevoTipoPaseo);
-    document.getElementById('btn-enviar-caja')?.addEventListener('click', enviarPaseosCaja);
+    document.getElementById('btn-agregar-servicio')?.addEventListener('click', agregarServicioCheckIn);
     
     // Selects dinámicos
     document.getElementById('caja-perro')?.addEventListener('change', cargarCargosPerro);
@@ -85,20 +86,22 @@ function setupEventListeners() {
     document.getElementById('paseo-tipo')?.addEventListener('change', mostrarPrecioPaseo);
     document.getElementById('checkin-entrada')?.addEventListener('change', calcularTotalCheckIn);
     document.getElementById('checkin-salida')?.addEventListener('change', calcularTotalCheckIn);
-    document.getElementById('checkin-servicio')?.addEventListener('change', calcularTotalCheckIn);
+    
+    // Filtros
+    document.getElementById('filtro-expediente')?.addEventListener('input', filtrarExpedientes);
+    document.getElementById('filtro-paseo-perro')?.addEventListener('change', filtrarPaseos);
     
     // Desparasitación dinámica
     document.getElementById('perro-desparasitacion-tipo')?.addEventListener('change', toggleDesparasitacion);
     
-    // Filtros de búsqueda
-    document.getElementById('filtro-expediente')?.addEventListener('input', filtrarExpedientes);
-    document.getElementById('filtro-paseo-perro')?.addEventListener('change', filtrarPaseos);
-    
-    // Gestión radio buttons
+    // Gestión
     document.querySelectorAll('input[name="gestion-tipo"]').forEach(radio => {
         radio.addEventListener('change', toggleGestionTipo);
     });
-    document.getElementById('gestion-perro-select')?.addEventListener('change', cargarFormularioPerroCompleto);
+    document.getElementById('gestion-perro-select')?.addEventListener('change', () => {
+        const id = document.getElementById('gestion-perro-select').value;
+        if (id) editarExpedienteCompleto(id);
+    });
     document.getElementById('gestion-cliente-select')?.addEventListener('change', cargarFormularioCliente);
     
     // File uploads
@@ -106,9 +109,6 @@ function setupEventListeners() {
     document.getElementById('foto-cartilla-input')?.addEventListener('change', (e) => previewImage(e, 'foto-cartilla-preview'));
 }
 
-// ============================================
-// DESPARASITACIÓN DINÁMICA
-// ============================================
 function toggleDesparasitacion() {
     const tipo = document.getElementById('perro-desparasitacion-tipo').value;
     const internaDiv = document.getElementById('desparasitacion-interna');
@@ -282,11 +282,10 @@ function llenarSelectPerros() {
     });
 }
 
-// SERVICIOS EN SELECT DESPLEGABLE (no checkboxes regados)
 function llenarSelectServicios() {
     const select = document.getElementById('checkin-servicio');
     if (select) {
-        select.innerHTML = '<option value="">-- Agregar servicio --</option>';
+        select.innerHTML = '<option value="">-- Seleccionar servicio --</option>';
         catalogoServicios.forEach(s => {
             const tipoCobro = s.tipo_cobro === 'unico' ? '(único)' : '(por día)';
             select.innerHTML += `<option value="${s.id}" data-precio="${s.precio}" data-tipo="${s.tipo_cobro || 'por_dia'}" data-nombre="${s.nombre}">${s.nombre} - $${s.precio} ${tipoCobro}</option>`;
@@ -321,7 +320,6 @@ function navigateToSection(sectionId) {
     document.getElementById('sidebar').classList.remove('open');
     
     if (sectionId === 'paseos') cargarPaseos();
-    if (sectionId === 'caja') cargarCargosPerro();
     if (sectionId === 'expedientes') renderListaExpedientes();
     if (sectionId === 'configuracion') {
         renderTablaServicios();
@@ -394,7 +392,6 @@ async function handleNuevoPerro(e) {
     
     showLoading();
     
-    // Subir fotos si existen
     let fotoPerroUrl = null;
     let fotoCartillaUrl = null;
     
@@ -487,1375 +484,1229 @@ async function handleNuevoPerro(e) {
         showToast(error.message, 'error');
     }
 }
+// ==================== PARTE 3: CHECK-IN, PASEOS Y CAJA ====================
 
-// ============================================
-// CHECK-IN CON SERVICIOS MEJORADOS
-// ============================================
-let serviciosSeleccionados = [];
+// Variables globales para check-in
+let perroSeleccionadoCheckIn = null;
 
+// Cargar perros en el select de check-in
+async function cargarPerrosCheckIn() {
+    try {
+        const perros = await apiRequest('/perros/');
+        const select = document.getElementById('checkInPerro');
+        if (!select) return;
+        
+        select.innerHTML = '<option value="">Seleccionar perro...</option>';
+        perros.forEach(p => {
+            select.innerHTML += `<option value="${p.id}" data-propietario="${p.propietario_id}">${p.nombre} (${p.propietario_nombre || 'Sin dueño'})</option>`;
+        });
+    } catch (error) {
+        console.error('Error cargando perros para check-in:', error);
+    }
+}
+
+// Cargar servicios disponibles en el dropdown
+async function cargarServiciosDropdown() {
+    try {
+        const servicios = await apiRequest('/catalogo-servicios/');
+        const select = document.getElementById('servicioDropdown');
+        if (!select) return;
+        
+        select.innerHTML = '<option value="">Agregar servicio...</option>';
+        servicios.forEach(s => {
+            const tipoCobro = s.tipo_cobro || 'por_dia';
+            select.innerHTML += `<option value="${s.id}" data-nombre="${s.nombre}" data-precio="${s.precio}" data-tipo="${tipoCobro}">${s.nombre} - $${s.precio} (${tipoCobro === 'unico' ? 'único' : 'por día'})</option>`;
+        });
+    } catch (error) {
+        console.error('Error cargando servicios:', error);
+    }
+}
+
+// Agregar servicio al check-in
 function agregarServicioCheckIn() {
-    const select = document.getElementById('checkin-servicio');
-    const option = select.selectedOptions[0];
+    const select = document.getElementById('servicioDropdown');
+    if (!select || !select.value) return;
     
-    if (!option || !option.value) return;
+    const option = select.options[select.selectedIndex];
+    const servicioId = parseInt(select.value);
     
-    const servicio = {
-        id: option.value,
-        nombre: option.dataset.nombre,
-        precio: parseFloat(option.dataset.precio),
-        tipo: option.dataset.tipo // 'por_dia' o 'unico'
-    };
-    
-    // Evitar duplicados
-    if (serviciosSeleccionados.find(s => s.id === servicio.id)) {
-        showToast('Servicio ya agregado', 'error');
+    // Verificar si ya está agregado
+    if (serviciosSeleccionados.find(s => s.id === servicioId)) {
+        alert('Este servicio ya está agregado');
+        select.value = '';
         return;
     }
     
-    serviciosSeleccionados.push(servicio);
+    serviciosSeleccionados.push({
+        id: servicioId,
+        nombre: option.dataset.nombre,
+        precio: parseFloat(option.dataset.precio),
+        tipo_cobro: option.dataset.tipo
+    });
+    
+    select.value = '';
     renderServiciosSeleccionados();
     calcularTotalCheckIn();
-    select.value = '';
 }
 
+// Quitar servicio del check-in
 function quitarServicioCheckIn(servicioId) {
     serviciosSeleccionados = serviciosSeleccionados.filter(s => s.id !== servicioId);
     renderServiciosSeleccionados();
     calcularTotalCheckIn();
 }
 
+// Renderizar servicios seleccionados como tags
 function renderServiciosSeleccionados() {
-    const container = document.getElementById('servicios-seleccionados');
+    const container = document.getElementById('serviciosSeleccionados');
     if (!container) return;
     
     if (serviciosSeleccionados.length === 0) {
-        container.innerHTML = '<p class="text-muted">No hay servicios seleccionados</p>';
+        container.innerHTML = '<span class="text-muted">No hay servicios seleccionados</span>';
         return;
     }
     
     container.innerHTML = serviciosSeleccionados.map(s => `
-        <div class="servicio-tag">
-            <span>${s.nombre} - $${s.precio} ${s.tipo === 'unico' ? '(único)' : '(por día)'}</span>
-            <button type="button" class="btn-remove" onclick="quitarServicioCheckIn('${s.id}')">&times;</button>
-        </div>
+        <span class="servicio-tag">
+            ${s.nombre} - $${s.precio} (${s.tipo_cobro === 'unico' ? 'único' : 'por día'})
+            <button type="button" onclick="quitarServicioCheckIn(${s.id})" class="btn-quitar">&times;</button>
+        </span>
     `).join('');
 }
 
+// Calcular total del check-in
 function calcularTotalCheckIn() {
-    const entrada = document.getElementById('checkin-entrada').value;
-    const salida = document.getElementById('checkin-salida').value;
+    const fechaEntrada = document.getElementById('checkInFechaEntrada')?.value;
+    const fechaSalida = document.getElementById('checkInFechaSalida')?.value;
+    const totalSpan = document.getElementById('checkInTotal');
     
-    let dias = 1;
-    if (entrada && salida) {
-        const fechaEntrada = new Date(entrada);
-        const fechaSalida = new Date(salida);
-        dias = Math.max(1, Math.ceil((fechaSalida - fechaEntrada) / (1000 * 60 * 60 * 24)));
-    }
+    if (!fechaEntrada || !fechaSalida || !totalSpan) return;
+    
+    const entrada = new Date(fechaEntrada);
+    const salida = new Date(fechaSalida);
+    const dias = Math.max(1, Math.ceil((salida - entrada) / (1000 * 60 * 60 * 24)));
     
     let total = 0;
     serviciosSeleccionados.forEach(s => {
-        if (s.tipo === 'unico') {
-            total += s.precio; // Solo se cobra una vez
+        if (s.tipo_cobro === 'unico') {
+            total += s.precio; // Cobro único
         } else {
-            total += s.precio * dias; // Se cobra por día
+            total += s.precio * dias; // Cobro por día
         }
     });
     
-    document.getElementById('checkin-dias')?.textContent = `${dias} día(s)`;
-    document.getElementById('checkin-total').textContent = `$${total.toFixed(2)}`;
+    totalSpan.textContent = `$${total.toFixed(2)} (${dias} día${dias > 1 ? 's' : ''})`;
+    
+    // Mostrar desglose
+    const desglose = document.getElementById('checkInDesglose');
+    if (desglose) {
+        desglose.innerHTML = serviciosSeleccionados.map(s => {
+            if (s.tipo_cobro === 'unico') {
+                return `<div>${s.nombre}: $${s.precio} (único)</div>`;
+            } else {
+                return `<div>${s.nombre}: $${s.precio} x ${dias} días = $${(s.precio * dias).toFixed(2)}</div>`;
+            }
+        }).join('');
+    }
 }
 
-async function handleCheckIn() {
-    const perroId = document.getElementById('checkin-perro').value;
-    if (!perroId) {
-        showToast('Selecciona un perro', 'error');
-        return;
-    }
+// Manejar check-in
+async function handleCheckIn(e) {
+    e.preventDefault();
     
-    const entrada = document.getElementById('checkin-entrada').value;
-    const salida = document.getElementById('checkin-salida').value;
+    const perroId = document.getElementById('checkInPerro')?.value;
+    const fechaEntrada = document.getElementById('checkInFechaEntrada')?.value;
+    const fechaSalida = document.getElementById('checkInFechaSalida')?.value;
+    const notas = document.getElementById('checkInNotas')?.value || '';
     
-    if (!entrada || !salida) {
-        showToast('Selecciona fechas de entrada y salida', 'error');
+    if (!perroId || !fechaEntrada || !fechaSalida) {
+        alert('Por favor completa todos los campos requeridos');
         return;
     }
     
     if (serviciosSeleccionados.length === 0) {
-        showToast('Agrega al menos un servicio', 'error');
+        alert('Por favor selecciona al menos un servicio');
         return;
     }
     
-    const dias = Math.max(1, Math.ceil((new Date(salida) - new Date(entrada)) / (1000 * 60 * 60 * 24)));
+    // Calcular días y total
+    const entrada = new Date(fechaEntrada);
+    const salida = new Date(fechaSalida);
+    const dias = Math.max(1, Math.ceil((salida - entrada) / (1000 * 60 * 60 * 24)));
     
-    // Calcular total
-    let totalEstimado = 0;
-    serviciosSeleccionados.forEach(s => {
-        if (s.tipo === 'unico') {
-            totalEstimado += s.precio;
+    let total = 0;
+    const serviciosConCosto = serviciosSeleccionados.map(s => {
+        let costoServicio;
+        if (s.tipo_cobro === 'unico') {
+            costoServicio = s.precio;
         } else {
-            totalEstimado += s.precio * dias;
+            costoServicio = s.precio * dias;
         }
+        total += costoServicio;
+        return {
+            servicio_id: s.id,
+            nombre: s.nombre,
+            precio_unitario: s.precio,
+            tipo_cobro: s.tipo_cobro,
+            dias: s.tipo_cobro === 'unico' ? 1 : dias,
+            subtotal: costoServicio
+        };
     });
     
-    const data = {
-        perro_id: perroId,
-        fecha_entrada: entrada,
-        fecha_salida: salida,
-        habitacion: document.getElementById('checkin-habitacion')?.value || null,
-        servicios_ids: serviciosSeleccionados.map(s => s.id),
-        servicios_nombres: serviciosSeleccionados.map(s => s.nombre),
-        total_estimado: totalEstimado,
-        color_etiqueta: document.getElementById('checkin-color')?.value || '#45BF4D'
-    };
-    
     try {
-        showLoading();
-        const estancia = await apiPost('/estancias', data);
+        const checkIn = await apiRequest('/checkin/', 'POST', {
+            perro_id: parseInt(perroId),
+            fecha_entrada: fechaEntrada,
+            fecha_salida: fechaSalida,
+            servicios: serviciosConCosto,
+            notas: notas,
+            total: total,
+            estado: 'activo'
+        });
         
-        // CREAR CARGOS AUTOMÁTICAMENTE para cada servicio
-        for (const servicio of serviciosSeleccionados) {
-            const monto = servicio.tipo === 'unico' ? servicio.precio : servicio.precio * dias;
-            const cargoData = {
-                perro_id: perroId,
-                fecha_cargo: new Date().toISOString().split('T')[0],
-                fecha_servicio: entrada,
-                concepto: `${servicio.nombre} ${servicio.tipo === 'unico' ? '' : `(${dias} días)`}`,
-                monto: monto
-            };
-            await apiPost('/cargos', cargoData);
-        }
+        alert('Check-in registrado exitosamente');
         
-        hideLoading();
-        showToast('Check-in registrado y cargos creados', 'success');
-        
-        // Reset
-        document.getElementById('checkin-perro').value = '';
-        document.getElementById('checkin-entrada').value = '';
-        document.getElementById('checkin-salida').value = '';
+        // Limpiar formulario
+        document.getElementById('checkInForm')?.reset();
         serviciosSeleccionados = [];
         renderServiciosSeleccionados();
-        document.getElementById('checkin-total').textContent = '$0.00';
-        document.getElementById('checkin-dias').textContent = '0 día(s)';
+        document.getElementById('checkInTotal').textContent = '$0.00';
+        document.getElementById('checkInDesglose').innerHTML = '';
+        
+        // Recargar lista
+        await cargarCheckIns();
         
     } catch (error) {
-        hideLoading();
-        showToast(error.message, 'error');
+        console.error('Error en check-in:', error);
+        alert('Error al registrar check-in: ' + error.message);
     }
 }
 
-// ============================================
-// PASEOS
-// ============================================
-function mostrarPrecioPaseo() {
-    const select = document.getElementById('paseo-tipo');
-    const precio = select.selectedOptions[0]?.dataset.precio || 0;
-    document.getElementById('paseo-precio-info').textContent = `Precio del paseo: $${precio}`;
+// Cargar lista de check-ins activos
+async function cargarCheckIns() {
+    try {
+        const checkins = await apiRequest('/checkins/');
+        const lista = document.getElementById('listaCheckIns');
+        if (!lista) return;
+        
+        if (checkins.length === 0) {
+            lista.innerHTML = '<p class="text-muted">No hay check-ins activos</p>';
+            return;
+        }
+        
+        lista.innerHTML = checkins.map(c => `
+            <div class="checkin-card ${c.estado === 'activo' ? 'activo' : ''}">
+                <div class="checkin-header">
+                    <strong>${c.perro_nombre || 'Perro'}</strong>
+                    <span class="badge ${c.estado === 'activo' ? 'badge-success' : 'badge-secondary'}">${c.estado}</span>
+                </div>
+                <div class="checkin-body">
+                    <p>Entrada: ${formatDate(c.fecha_entrada)}</p>
+                    <p>Salida: ${formatDate(c.fecha_salida)}</p>
+                    <p>Total: $${c.total?.toFixed(2) || '0.00'}</p>
+                </div>
+                <div class="checkin-actions">
+                    ${c.estado === 'activo' ? `<button onclick="checkOut(${c.id})" class="btn btn-warning btn-sm">Check-out</button>` : ''}
+                    <button onclick="verDetalleCheckIn(${c.id})" class="btn btn-info btn-sm">Ver</button>
+                </div>
+            </div>
+        `).join('');
+        
+    } catch (error) {
+        console.error('Error cargando check-ins:', error);
+    }
 }
 
-async function handleNuevoPaseo(e) {
+// Realizar check-out
+async function checkOut(checkinId) {
+    if (!confirm('¿Confirmar check-out?')) return;
+    
+    try {
+        await apiRequest(`/checkin/${checkinId}/checkout`, 'POST');
+        alert('Check-out realizado');
+        await cargarCheckIns();
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+// ==================== PASEOS ====================
+
+async function cargarPerrosPaseos() {
+    try {
+        const perros = await apiRequest('/perros/');
+        const select = document.getElementById('paseoPerro');
+        if (!select) return;
+        
+        select.innerHTML = '<option value="">Seleccionar perro...</option>';
+        perros.forEach(p => {
+            select.innerHTML += `<option value="${p.id}">${p.nombre}</option>`;
+        });
+    } catch (error) {
+        console.error('Error cargando perros para paseos:', error);
+    }
+}
+
+async function handlePaseo(e) {
     e.preventDefault();
     
-    const perroId = document.getElementById('paseo-perro').value;
-    const tipoPaseoId = document.getElementById('paseo-tipo').value;
+    const perroId = document.getElementById('paseoPerro')?.value;
+    const fecha = document.getElementById('paseoFecha')?.value;
+    const duracion = document.getElementById('paseoDuracion')?.value;
+    const precio = document.getElementById('paseoPrecio')?.value;
+    const notas = document.getElementById('paseoNotas')?.value || '';
     
-    if (!perroId || !tipoPaseoId) {
-        showToast('Selecciona perro y tipo de paseo', 'error');
+    if (!perroId || !fecha || !duracion || !precio) {
+        alert('Por favor completa todos los campos requeridos');
         return;
     }
     
-    const tipoPaseo = catalogoPaseos.find(p => p.id === tipoPaseoId);
-    const fecha = document.getElementById('paseo-fecha').value || new Date().toISOString().split('T')[0];
-    
-    const data = {
-        perro_id: perroId,
-        catalogo_paseo_id: tipoPaseoId,
-        fecha: fecha,
-        tipo_paseo: tipoPaseo?.nombre || '',
-        hora_salida: document.getElementById('paseo-salida').value || null,
-        hora_regreso: document.getElementById('paseo-regreso').value || null,
-        precio: tipoPaseo?.precio || 0
-    };
-    
     try {
-        showLoading();
-        await apiPost('/paseos', data);
+        await apiRequest('/paseos/', 'POST', {
+            perro_id: parseInt(perroId),
+            fecha: fecha,
+            duracion: parseInt(duracion),
+            precio: parseFloat(precio),
+            notas: notas
+        });
         
-        // CREAR CARGO AUTOMÁTICAMENTE para el paseo
-        const cargoData = {
-            perro_id: perroId,
-            fecha_cargo: new Date().toISOString().split('T')[0],
-            fecha_servicio: fecha,
-            concepto: `Paseo: ${tipoPaseo?.nombre || 'N/A'}`,
-            monto: tipoPaseo?.precio || 0
-        };
-        await apiPost('/cargos', cargoData);
+        alert('Paseo registrado exitosamente');
+        document.getElementById('paseoForm')?.reset();
+        await cargarPaseos();
         
-        hideLoading();
-        showToast('Paseo registrado y cargo creado', 'success');
-        e.target.reset();
-        document.getElementById('paseo-precio-info').textContent = 'Precio del paseo: $0.00';
-        cargarPaseos();
     } catch (error) {
-        hideLoading();
-        showToast(error.message, 'error');
+        alert('Error: ' + error.message);
     }
 }
 
 async function cargarPaseos() {
     try {
-        const paseos = await apiGet('/paseos');
-        renderTablaPaseosHistorial(paseos);
+        const paseos = await apiRequest('/paseos/');
+        const lista = document.getElementById('listaPaseos');
+        if (!lista) return;
+        
+        if (paseos.length === 0) {
+            lista.innerHTML = '<p class="text-muted">No hay paseos registrados</p>';
+            return;
+        }
+        
+        lista.innerHTML = paseos.map(p => `
+            <div class="paseo-card">
+                <strong>${p.perro_nombre || 'Perro'}</strong>
+                <p>Fecha: ${formatDate(p.fecha)}</p>
+                <p>Duración: ${p.duracion} min</p>
+                <p>Precio: $${p.precio?.toFixed(2)}</p>
+            </div>
+        `).join('');
+        
     } catch (error) {
         console.error('Error cargando paseos:', error);
     }
 }
 
-function filtrarPaseos() {
-    const perroId = document.getElementById('filtro-paseo-perro').value;
-    const desde = document.getElementById('filtro-paseo-desde')?.value;
-    const hasta = document.getElementById('filtro-paseo-hasta')?.value;
-    
-    // Recargar con filtros
-    let endpoint = '/paseos?';
-    if (perroId) endpoint += `perro_id=${perroId}&`;
-    if (desde) endpoint += `fecha_inicio=${desde}&`;
-    if (hasta) endpoint += `fecha_fin=${hasta}&`;
-    
-    apiGet(endpoint).then(paseos => {
-        renderTablaPaseosHistorial(paseos);
-    }).catch(err => console.error(err));
-}
+// ==================== CAJA ====================
 
-function renderTablaPaseosHistorial(paseos) {
-    const tbody = document.getElementById('tabla-paseos');
-    if (!tbody) return;
-    
-    if (!paseos || paseos.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Sin paseos registrados</td></tr>';
-        document.getElementById('paseos-pendiente-total').textContent = '$0.00';
-        return;
-    }
-    
-    // Ordenar por fecha (más reciente primero)
-    paseos.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
-    
-    let pendienteTotal = 0;
-    let html = '';
-    
-    paseos.forEach(p => {
-        const perro = perros.find(dog => dog.id === p.perro_id);
-        const tipo = catalogoPaseos.find(t => t.id === p.catalogo_paseo_id);
-        
-        if (!p.pagado) pendienteTotal += p.precio || 0;
-        
-        html += `
-        <tr>
-            <td>${formatDate(p.fecha)}</td>
-            <td>${perro?.nombre || 'Desconocido'}</td>
-            <td>${tipo?.nombre || p.tipo_paseo || 'N/A'}</td>
-            <td>$${(p.precio || 0).toFixed(2)}</td>
-            <td>
-                ${p.pagado 
-                    ? '<span class="badge badge-success">Pagado</span>' 
-                    : `<span class="badge badge-warning">Pendiente</span>
-                       <button class="btn btn-sm btn-success ml-1" onclick="marcarPaseoPagado('${p.id}')">✓</button>`
-                }
-            </td>
-        </tr>`;
-    });
-    
-    tbody.innerHTML = html;
-    document.getElementById('paseos-pendiente-total').textContent = `$${pendienteTotal.toFixed(2)}`;
-}
-
-async function marcarPaseoPagado(id) {
+async function cargarMovimientosCaja() {
     try {
-        await apiPut(`/paseos/${id}/pagar`, {});
-        showToast('Paseo marcado como pagado', 'success');
-        cargarPaseos();
-    } catch (error) {
-        showToast(error.message, 'error');
-    }
-}
-
-async function enviarPaseosCaja() {
-    showToast('Los paseos ya se agregan automáticamente a caja', 'info');
-    navigateToSection('caja');
-}
-
-// ============================================
-// CAJA Y TICKET
-// ============================================
-async function cargarCargosPerro() {
-    const perroId = document.getElementById('caja-perro').value;
-    const tbody = document.getElementById('tabla-cargos');
-    
-    if (!perroId) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Selecciona un cliente</td></tr>';
-        document.getElementById('caja-total').textContent = '$0.00';
-        cargosActuales = [];
-        return;
-    }
-    
-    try {
-        showLoading();
-        const cargos = await apiGet(`/cargos?perro_id=${perroId}&pagado=false`);
-        cargosActuales = cargos || [];
-        renderTablaCargos();
-        hideLoading();
-    } catch (error) {
-        hideLoading();
-        showToast(error.message, 'error');
-    }
-}
-
-function renderTablaCargos() {
-    const tbody = document.getElementById('tabla-cargos');
-    
-    if (!cargosActuales || cargosActuales.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Sin cargos pendientes</td></tr>';
-        document.getElementById('caja-total').textContent = '$0.00';
-        return;
-    }
-    
-    // Ordenar por fecha de servicio (más antigua primero)
-    cargosActuales.sort((a, b) => new Date(a.fecha_servicio || a.fecha_cargo) - new Date(b.fecha_servicio || b.fecha_cargo));
-    
-    let total = 0;
-    let html = '';
-    
-    cargosActuales.forEach((c, index) => {
-        const perro = perros.find(p => p.id === c.perro_id);
-        total += c.monto || 0;
-        
-        html += `
-        <tr id="cargo-row-${index}">
-            <td>${formatDate(c.fecha_servicio || c.fecha_cargo)}</td>
-            <td>${perro?.nombre || 'N/A'}</td>
-            <td>${c.concepto}</td>
-            <td>$${(c.monto || 0).toFixed(2)}</td>
-            <td>
-                <input type="checkbox" class="cargo-borrar" data-index="${index}" data-id="${c.id}">
-            </td>
-        </tr>`;
-    });
-    
-    tbody.innerHTML = html;
-    document.getElementById('caja-total').textContent = `$${total.toFixed(2)}`;
-    
-    // Listeners para borrar
-    document.querySelectorAll('.cargo-borrar').forEach(checkbox => {
-        checkbox.addEventListener('change', async (e) => {
-            if (e.target.checked) {
-                if (confirm('¿Eliminar este cargo?')) {
-                    try {
-                        await apiDelete(`/cargos/${e.target.dataset.id}`);
-                        cargosActuales.splice(e.target.dataset.index, 1);
-                        renderTablaCargos();
-                        showToast('Cargo eliminado', 'success');
-                    } catch (error) {
-                        showToast(error.message, 'error');
-                        e.target.checked = false;
-                    }
-                } else {
-                    e.target.checked = false;
-                }
-            }
-        });
-    });
-}
-
-async function handleAgregarCargo() {
-    const perroId = document.getElementById('caja-perro').value;
-    if (!perroId) {
-        showToast('Selecciona un perro primero', 'error');
-        return;
-    }
-    
-    const concepto = document.getElementById('cargo-concepto').value;
-    const monto = parseFloat(document.getElementById('cargo-monto').value);
-    
-    if (!concepto || !monto) {
-        showToast('Ingresa concepto y monto', 'error');
-        return;
-    }
-    
-    const data = {
-        perro_id: perroId,
-        fecha_cargo: new Date().toISOString().split('T')[0],
-        fecha_servicio: document.getElementById('cargo-fecha').value || new Date().toISOString().split('T')[0],
-        concepto: concepto,
-        monto: monto
-    };
-    
-    try {
-        showLoading();
-        const nuevo = await apiPost('/cargos', data);
-        cargosActuales.push(nuevo);
-        renderTablaCargos();
-        
-        document.getElementById('cargo-concepto').value = '';
-        document.getElementById('cargo-monto').value = '';
-        
-        hideLoading();
-        showToast('Cargo agregado', 'success');
-    } catch (error) {
-        hideLoading();
-        showToast(error.message, 'error');
-    }
-}
-
-function generarTicket() {
-    if (cargosActuales.length === 0) {
-        showToast('No hay cargos para generar ticket', 'error');
-        return;
-    }
-    
-    const perroId = document.getElementById('caja-perro').value;
-    const perro = perros.find(p => p.id === perroId);
-    const propietario = propietarios.find(p => p.id === perro?.propietario_id);
-    
-    const fecha = new Date().toLocaleDateString('es-MX', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-    
-    const folio = 'TK-' + Date.now().toString().slice(-8);
-    
-    // Ordenar cargos por fecha de servicio
-    const cargosOrdenados = [...cargosActuales].sort((a, b) => 
-        new Date(a.fecha_servicio || a.fecha_cargo) - new Date(b.fecha_servicio || b.fecha_cargo)
-    );
-    
-    let itemsHtml = '';
-    let total = 0;
-    
-    cargosOrdenados.forEach(c => {
-        total += c.monto;
-        itemsHtml += `
-        <tr>
-            <td style="text-align:left; padding: 4px 0; font-size: 10px;">${formatDate(c.fecha_servicio || c.fecha_cargo)}</td>
-            <td style="text-align:left; padding: 4px 0;">${c.concepto}</td>
-            <td style="text-align:right; padding: 4px 0;">$${c.monto.toFixed(2)}</td>
-        </tr>`;
-    });
-    
-    const ticketHtml = `
-    <div class="ticket" id="ticket-para-imprimir">
-        <div class="ticket-header">
-            <img src="assets/logo.png" alt="ComfortCan" class="ticket-logo">
-            <h2 style="margin: 5px 0; font-size: 16px;">ComfortCan México</h2>
-            <p style="margin: 2px 0; font-size: 11px;">Hotel & Guardería Canina</p>
-            <p style="margin: 2px 0; font-size: 10px;">${fecha}</p>
-            <p style="margin: 2px 0; font-size: 10px;">Folio: ${folio}</p>
-        </div>
-        
-        <div style="border-bottom: 1px dashed #000; padding: 10px 0; font-size: 12px;">
-            <p style="margin: 2px 0;"><strong>Cliente:</strong> ${propietario?.nombre || 'N/A'}</p>
-            <p style="margin: 2px 0;"><strong>Tel:</strong> ${propietario?.telefono || 'N/A'}</p>
-            <p style="margin: 2px 0;"><strong>Mascota:</strong> ${perro?.nombre || 'N/A'}</p>
-        </div>
-        
-        <table style="width: 100%; font-size: 11px; border-collapse: collapse; margin: 10px 0;">
-            <thead>
-                <tr style="border-bottom: 1px solid #000;">
-                    <th style="text-align:left; padding: 4px 0;">Fecha</th>
-                    <th style="text-align:left; padding: 4px 0;">Concepto</th>
-                    <th style="text-align:right; padding: 4px 0;">Monto</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${itemsHtml}
-            </tbody>
-        </table>
-        
-        <div style="border-top: 2px dashed #000; padding-top: 10px;">
-            <div style="display: flex; justify-content: space-between; font-size: 16px; font-weight: bold;">
-                <span>TOTAL:</span>
-                <span>$${total.toFixed(2)}</span>
-            </div>
-        </div>
-        
-        <div class="ticket-footer">
-            <p style="margin: 2px 0;">¡Gracias por su preferencia!</p>
-            <p style="margin: 2px 0;">🐕 ComfortCan México 🐕</p>
-        </div>
-    </div>`;
-    
-    document.getElementById('ticket-content').innerHTML = ticketHtml;
-    document.getElementById('ticket-container').style.display = 'block';
-    
-    // Guardar datos del ticket para confirmar pago
-    window.ticketActual = {
-        folio: folio,
-        perro_id: perroId,
-        propietario_id: propietario?.id,
-        cargos: cargosOrdenados,
-        total: total
-    };
-}
-
-function imprimirTicket() {
-    const contenido = document.getElementById('ticket-para-imprimir');
-    if (!contenido) return;
-    
-    const ventana = window.open('', '_blank', 'width=350,height=600');
-    
-    ventana.document.write(`
-    <html>
-    <head>
-        <title>Ticket ComfortCan</title>
-        <style>
-            body { font-family: 'Courier New', monospace; margin: 0; padding: 10px; }
-            .ticket { background: white; color: black; max-width: 300px; margin: 0 auto; }
-            .ticket-header { text-align: center; border-bottom: 2px dashed #000; padding-bottom: 10px; }
-            .ticket-logo { width: 80px; }
-            .ticket-footer { text-align: center; margin-top: 15px; font-size: 11px; border-top: 1px dashed #000; padding-top: 10px; }
-        </style>
-    </head>
-    <body>
-        ${contenido.outerHTML}
-        <script>window.onload = function() { window.print(); }<\/script>
-    </body>
-    </html>`);
-    ventana.document.close();
-}
-
-function descargarTicket() {
-    const contenido = document.getElementById('ticket-para-imprimir');
-    if (!contenido) return;
-    
-    // Crear canvas para convertir a imagen
-    const ticketElement = contenido.cloneNode(true);
-    ticketElement.style.background = 'white';
-    ticketElement.style.color = 'black';
-    ticketElement.style.padding = '20px';
-    ticketElement.style.width = '300px';
-    
-    // Usar html2canvas si está disponible, sino descargar como HTML
-    if (typeof html2canvas !== 'undefined') {
-        html2canvas(contenido).then(canvas => {
-            const link = document.createElement('a');
-            link.download = `ticket-${window.ticketActual?.folio || 'comfortcan'}.png`;
-            link.href = canvas.toDataURL();
-            link.click();
-        });
-    } else {
-        // Fallback: descargar como archivo HTML
-        const blob = new Blob([`
-            <html>
-            <head>
-                <style>
-                    body { font-family: 'Courier New', monospace; margin: 0; padding: 10px; background: white; }
-                    .ticket { max-width: 300px; margin: 0 auto; }
-                    .ticket-header { text-align: center; border-bottom: 2px dashed #000; padding-bottom: 10px; }
-                    .ticket-footer { text-align: center; margin-top: 15px; font-size: 11px; border-top: 1px dashed #000; padding-top: 10px; }
-                </style>
-            </head>
-            <body>${contenido.outerHTML}</body>
-            </html>
-        `], { type: 'text/html' });
-        
-        const link = document.createElement('a');
-        link.download = `ticket-${window.ticketActual?.folio || 'comfortcan'}.html`;
-        link.href = URL.createObjectURL(blob);
-        link.click();
-    }
-}
-
-async function confirmarPago() {
-    if (!confirm('¿Confirmar que se recibió el pago?')) return;
-    
-    if (!window.ticketActual) {
-        showToast('Genera el ticket primero', 'error');
-        return;
-    }
-    
-    try {
-        showLoading();
-        
-        // Crear ticket en BD con detalles
-        const ticketData = {
-            perro_id: window.ticketActual.perro_id,
-            propietario_id: window.ticketActual.propietario_id,
-            cargos_ids: cargosActuales.map(c => c.id),
-            subtotal: window.ticketActual.total,
-            total: window.ticketActual.total,
-            detalles: JSON.stringify(window.ticketActual.cargos)
-        };
-        
-        await apiPost('/tickets', ticketData);
-        
-        hideLoading();
-        showToast('¡Pago confirmado exitosamente!', 'success');
-        
-        // Limpiar
-        cargosActuales = [];
-        window.ticketActual = null;
-        document.getElementById('caja-perro').value = '';
-        document.getElementById('tabla-cargos').innerHTML = '<tr><td colspan="5" class="text-center text-muted">Selecciona un cliente</td></tr>';
-        document.getElementById('caja-total').textContent = '$0.00';
-        document.getElementById('ticket-container').style.display = 'none';
-        
-    } catch (error) {
-        hideLoading();
-        showToast(error.message, 'error');
-    }
-}
-
-// ============================================
-// EXPEDIENTES CON BÚSQUEDA Y FOTOS
-// ============================================
-function renderListaExpedientes() {
-    const container = document.getElementById('lista-expedientes');
-    if (!container) return;
-    
-    if (perros.length === 0) {
-        container.innerHTML = '<p class="text-muted">No hay perros registrados</p>';
-        return;
-    }
-    
-    let html = '<div class="expedientes-grid">';
-    perros.forEach(p => {
-        const dueno = propietarios.find(prop => prop.id === p.propietario_id);
-        html += `
-        <div class="expediente-card" onclick="cargarExpedienteDirecto('${p.id}')">
-            <div class="expediente-foto">
-                ${p.foto_perro_url 
-                    ? `<img src="${p.foto_perro_url}" alt="${p.nombre}">` 
-                    : '<span class="no-foto">🐕</span>'}
-            </div>
-            <div class="expediente-info">
-                <h4>${p.nombre}</h4>
-                <p>${p.raza || 'Sin raza'}</p>
-                <p class="text-muted">${dueno?.nombre || 'Sin dueño'}</p>
-            </div>
-        </div>`;
-    });
-    html += '</div>';
-    container.innerHTML = html;
-}
-
-function filtrarExpedientes() {
-    const busqueda = document.getElementById('filtro-expediente').value.toLowerCase();
-    const container = document.getElementById('lista-expedientes');
-    
-    const filtrados = perros.filter(p => {
-        const dueno = propietarios.find(prop => prop.id === p.propietario_id);
-        return p.nombre.toLowerCase().includes(busqueda) ||
-               (p.raza && p.raza.toLowerCase().includes(busqueda)) ||
-               (dueno?.nombre && dueno.nombre.toLowerCase().includes(busqueda));
-    });
-    
-    if (filtrados.length === 0) {
-        container.innerHTML = '<p class="text-muted">No se encontraron resultados</p>';
-        return;
-    }
-    
-    let html = '<div class="expedientes-grid">';
-    filtrados.forEach(p => {
-        const dueno = propietarios.find(prop => prop.id === p.propietario_id);
-        html += `
-        <div class="expediente-card" onclick="cargarExpedienteDirecto('${p.id}')">
-            <div class="expediente-foto">
-                ${p.foto_perro_url 
-                    ? `<img src="${p.foto_perro_url}" alt="${p.nombre}">` 
-                    : '<span class="no-foto">🐕</span>'}
-            </div>
-            <div class="expediente-info">
-                <h4>${p.nombre}</h4>
-                <p>${p.raza || 'Sin raza'}</p>
-                <p class="text-muted">${dueno?.nombre || 'Sin dueño'}</p>
-            </div>
-        </div>`;
-    });
-    html += '</div>';
-    container.innerHTML = html;
-}
-
-function cargarExpedienteDirecto(perroId) {
-    document.getElementById('expediente-perro').value = perroId;
-    cargarExpediente();
-}
-
-async function cargarExpediente() {
-    const perroId = document.getElementById('expediente-perro').value;
-    const contenedor = document.getElementById('expediente-contenido');
-    
-    if (!perroId) {
-        contenedor.classList.add('hidden');
-        return;
-    }
-    
-    const perro = perros.find(p => p.id === perroId);
-    const propietario = propietarios.find(p => p.id === perro?.propietario_id);
-    
-    if (!perro) return;
-    
-    showLoading();
-    
-    // Cargar historial
-    let estancias = [], paseosList = [], tickets = [];
-    try {
-        [estancias, paseosList, tickets] = await Promise.all([
-            apiGet(`/estancias?perro_id=${perroId}`).catch(() => []),
-            apiGet(`/paseos?perro_id=${perroId}`).catch(() => []),
-            apiGet(`/tickets?perro_id=${perroId}`).catch(() => [])
+        // Cargar todos los movimientos (check-ins, paseos, otros)
+        const [checkins, paseos, movimientos] = await Promise.all([
+            apiRequest('/checkins/?estado=completado'),
+            apiRequest('/paseos/'),
+            apiRequest('/movimientos-caja/')
         ]);
-    } catch (e) {}
-    
-    hideLoading();
-    
-    // HTML de desparasitación
-    let desparasitacionHtml = '<p><strong>Desparasitación:</strong> No registrada</p>';
-    if (perro.desparasitacion_tipo) {
-        desparasitacionHtml = `<p><strong>Desparasitación:</strong> ${perro.desparasitacion_tipo}</p>`;
-        if (perro.desparasitacion_tipo === 'Interna' || perro.desparasitacion_tipo === 'Dual') {
-            desparasitacionHtml += `<p><strong>Producto Interno:</strong> ${perro.desparasitacion_producto_int || 'N/A'} - ${perro.desparasitacion_fecha_int ? formatDate(perro.desparasitacion_fecha_int) : 'Sin fecha'}</p>`;
+        
+        const lista = document.getElementById('listaMovimientos');
+        if (!lista) return;
+        
+        // Combinar todos los movimientos
+        let todosMovimientos = [];
+        
+        // Agregar check-ins
+        checkins.forEach(c => {
+            todosMovimientos.push({
+                tipo: 'Check-in',
+                descripcion: `Hospedaje - ${c.perro_nombre}`,
+                fecha: c.fecha_salida || c.fecha_entrada,
+                monto: c.total || 0,
+                estado: c.pagado ? 'Pagado' : 'Pendiente'
+            });
+        });
+        
+        // Agregar paseos
+        paseos.forEach(p => {
+            todosMovimientos.push({
+                tipo: 'Paseo',
+                descripcion: `Paseo - ${p.perro_nombre}`,
+                fecha: p.fecha,
+                monto: p.precio || 0,
+                estado: p.pagado ? 'Pagado' : 'Pendiente'
+            });
+        });
+        
+        // Agregar otros movimientos
+        movimientos.forEach(m => {
+            todosMovimientos.push({
+                tipo: m.tipo,
+                descripcion: m.descripcion,
+                fecha: m.fecha,
+                monto: m.monto,
+                estado: 'Registrado'
+            });
+        });
+        
+        // Ordenar por fecha descendente
+        todosMovimientos.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+        
+        if (todosMovimientos.length === 0) {
+            lista.innerHTML = '<p class="text-muted">No hay movimientos registrados</p>';
+            return;
         }
-        if (perro.desparasitacion_tipo === 'Externa' || perro.desparasitacion_tipo === 'Dual') {
-            desparasitacionHtml += `<p><strong>Producto Externo:</strong> ${perro.desparasitacion_producto_ext || 'N/A'} - ${perro.desparasitacion_fecha_ext ? formatDate(perro.desparasitacion_fecha_ext) : 'Sin fecha'}</p>`;
-        }
-    }
-    
-    // HTML de tickets con visual
-    let ticketsHtml = '<p class="text-muted">Sin tickets registrados</p>';
-    if (tickets && tickets.length > 0) {
-        ticketsHtml = `
-        <div class="tickets-grid">
-            ${tickets.slice(0, 10).map(t => `
-                <div class="ticket-mini" onclick="verTicketDetalle('${t.id}')">
-                    <div class="ticket-mini-header">
-                        <span class="folio">${t.folio || 'Sin folio'}</span>
-                        <span class="fecha">${formatDate(t.fecha || t.created_at)}</span>
-                    </div>
-                    <div class="ticket-mini-total">$${(t.total || 0).toFixed(2)}</div>
-                    <div class="ticket-mini-status">
-                        <span class="badge badge-success">Pagado</span>
-                    </div>
-                </div>
-            `).join('')}
-        </div>`;
-    }
-    
-    contenedor.innerHTML = `
-    <div class="card mt-2">
-        <div class="flex gap-3" style="flex-wrap: wrap;">
-            <div style="flex: 0 0 150px;">
-                ${perro.foto_perro_url 
-                    ? `<img src="${perro.foto_perro_url}" alt="${perro.nombre}" style="width:150px; height:150px; object-fit:cover; border-radius:12px; cursor:pointer;" onclick="verImagenGrande('${perro.foto_perro_url}')">` 
-                    : `<div style="width:150px; height:150px; background:var(--color-bg-input); border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:60px;">🐕</div>`
-                }
-            </div>
-            <div style="flex:1; min-width:200px;">
-                <h2 style="margin:0 0 10px 0;">${perro.nombre}</h2>
-                <p><strong>Raza:</strong> ${perro.raza || 'No especificada'}</p>
-                <p><strong>Edad:</strong> ${perro.edad || 'No especificada'}</p>
-                <p><strong>Peso:</strong> ${perro.peso_kg ? perro.peso_kg + ' kg' : 'No especificado'}</p>
-                <p><strong>Género:</strong> ${perro.genero || 'No especificado'}</p>
-                <p><strong>Esterilizado:</strong> ${perro.esterilizado ? 'Sí' : 'No'}</p>
-            </div>
-            ${perro.foto_cartilla_url ? `
-            <div style="flex: 0 0 150px;">
-                <p class="text-muted mb-1">Cartilla de Vacunación:</p>
-                <img src="${perro.foto_cartilla_url}" alt="Cartilla" style="width:150px; height:150px; object-fit:cover; border-radius:12px; cursor:pointer;" onclick="verImagenGrande('${perro.foto_cartilla_url}')">
-            </div>` : ''}
-        </div>
-        <div class="mt-2">
-            <button class="btn btn-primary btn-sm" onclick="editarExpedienteCompleto('${perro.id}')">✏️ Editar Expediente</button>
-        </div>
-    </div>
-    
-    <div class="card mt-2">
-        <h3>👤 Propietario</h3>
-        <p><strong>Nombre:</strong> ${propietario?.nombre || 'N/A'}</p>
-        <p><strong>Teléfono:</strong> ${propietario?.telefono || 'N/A'}</p>
-        <p><strong>Email:</strong> ${propietario?.email || 'N/A'}</p>
-        <p><strong>Dirección:</strong> ${propietario?.direccion || 'N/A'}</p>
-    </div>
-    
-    <div class="card mt-2">
-        <h3>💉 Vacunas</h3>
-        <div class="vacunas-grid">
-            <div class="vacuna-card ${perro.vacuna_rabia_estado === 'Vigente' ? 'vigente' : perro.vacuna_rabia_estado === 'Vencida' ? 'vencida' : ''}">
-                <div class="vacuna-title">Rabia</div>
-                <div class="vacuna-status">${perro.vacuna_rabia_estado || 'Pendiente'}</div>
-                ${perro.vacuna_rabia_vence ? `<div class="vacuna-fecha">Vence: ${formatDate(perro.vacuna_rabia_vence)}</div>` : ''}
-            </div>
-            <div class="vacuna-card ${perro.vacuna_sextuple_estado === 'Vigente' ? 'vigente' : perro.vacuna_sextuple_estado === 'Vencida' ? 'vencida' : ''}">
-                <div class="vacuna-title">Séxtuple</div>
-                <div class="vacuna-status">${perro.vacuna_sextuple_estado || 'Pendiente'}</div>
-                ${perro.vacuna_sextuple_vence ? `<div class="vacuna-fecha">Vence: ${formatDate(perro.vacuna_sextuple_vence)}</div>` : ''}
-            </div>
-            <div class="vacuna-card ${perro.vacuna_bordetella_estado === 'Vigente' ? 'vigente' : perro.vacuna_bordetella_estado === 'Vencida' ? 'vencida' : ''}">
-                <div class="vacuna-title">Bordetella</div>
-                <div class="vacuna-status">${perro.vacuna_bordetella_estado || 'Pendiente'}</div>
-                ${perro.vacuna_bordetella_vence ? `<div class="vacuna-fecha">Vence: ${formatDate(perro.vacuna_bordetella_vence)}</div>` : ''}
-            </div>
-            <div class="vacuna-card ${perro.vacuna_giardia_estado === 'Vigente' ? 'vigente' : perro.vacuna_giardia_estado === 'Vencida' ? 'vencida' : ''}">
-                <div class="vacuna-title">Giardia</div>
-                <div class="vacuna-status">${perro.vacuna_giardia_estado || 'Pendiente'}</div>
-                ${perro.vacuna_giardia_vence ? `<div class="vacuna-fecha">Vence: ${formatDate(perro.vacuna_giardia_vence)}</div>` : ''}
-            </div>
-            ${perro.vacuna_extra_nombre ? `
-            <div class="vacuna-card ${perro.vacuna_extra_estado === 'Vigente' ? 'vigente' : perro.vacuna_extra_estado === 'Vencida' ? 'vencida' : ''}">
-                <div class="vacuna-title">${perro.vacuna_extra_nombre}</div>
-                <div class="vacuna-status">${perro.vacuna_extra_estado || 'Pendiente'}</div>
-                ${perro.vacuna_extra_vence ? `<div class="vacuna-fecha">Vence: ${formatDate(perro.vacuna_extra_vence)}</div>` : ''}
-            </div>` : ''}
-        </div>
-    </div>
-    
-    <div class="card mt-2">
-        <h3>🏥 Información Médica</h3>
-        <p><strong>Medicamentos:</strong> ${perro.medicamentos || 'Ninguno'}</p>
-        <p><strong>Alergias/Condiciones:</strong> ${perro.alergias || 'Ninguna'}</p>
-        <p><strong>Veterinario:</strong> ${perro.veterinario || 'No especificado'}</p>
-        ${desparasitacionHtml}
-    </div>
-    
-    <div class="card mt-2">
-        <h3>🏨 Historial de Estancias (${estancias?.length || 0})</h3>
-        ${estancias && estancias.length > 0 ? `
-        <div class="table-container">
+        
+        // Calcular totales
+        const totalIngresos = todosMovimientos.reduce((sum, m) => sum + (m.monto > 0 ? m.monto : 0), 0);
+        const totalPendiente = todosMovimientos.filter(m => m.estado === 'Pendiente').reduce((sum, m) => sum + m.monto, 0);
+        
+        // Mostrar totales
+        document.getElementById('totalIngresos').textContent = `$${totalIngresos.toFixed(2)}`;
+        document.getElementById('totalPendiente').textContent = `$${totalPendiente.toFixed(2)}`;
+        
+        lista.innerHTML = `
             <table class="table">
-                <thead><tr><th>Entrada</th><th>Salida</th><th>Habitación</th><th>Total</th></tr></thead>
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Tipo</th>
+                        <th>Descripción</th>
+                        <th>Monto</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
                 <tbody>
-                    ${estancias.slice(0,10).map(e => `
+                    ${todosMovimientos.map(m => `
                         <tr>
-                            <td>${formatDate(e.fecha_entrada)}</td>
-                            <td>${formatDate(e.fecha_salida)}</td>
-                            <td>${e.habitacion || 'N/A'}</td>
-                            <td>$${(e.total_estimado || 0).toFixed(2)}</td>
+                            <td>${formatDate(m.fecha)}</td>
+                            <td>${m.tipo}</td>
+                            <td>${m.descripcion}</td>
+                            <td>$${m.monto.toFixed(2)}</td>
+                            <td><span class="badge ${m.estado === 'Pagado' ? 'badge-success' : 'badge-warning'}">${m.estado}</span></td>
                         </tr>
                     `).join('')}
                 </tbody>
             </table>
-        </div>` : '<p class="text-muted">Sin estancias registradas</p>'}
-    </div>
-    
-    <div class="card mt-2">
-        <h3>🦮 Historial de Paseos (${paseosList?.length || 0})</h3>
-        ${paseosList && paseosList.length > 0 ? `
-        <div class="table-container">
-            <table class="table">
-                <thead><tr><th>Fecha</th><th>Tipo</th><th>Precio</th><th>Estado</th></tr></thead>
-                <tbody>
-                    ${paseosList.slice(0,10).map(p => {
-                        const tipo = catalogoPaseos.find(t => t.id === p.catalogo_paseo_id);
-                        return `
-                        <tr>
-                            <td>${formatDate(p.fecha)}</td>
-                            <td>${tipo?.nombre || p.tipo_paseo || 'N/A'}</td>
-                            <td>$${(p.precio||0).toFixed(2)}</td>
-                            <td>${p.pagado ? '<span class="badge badge-success">Pagado</span>' : '<span class="badge badge-warning">Pendiente</span>'}</td>
-                        </tr>`;
-                    }).join('')}
-                </tbody>
-            </table>
-        </div>` : '<p class="text-muted">Sin paseos registrados</p>'}
-    </div>
-    
-    <div class="card mt-2">
-        <h3>🧾 Tickets Pagados (${tickets?.length || 0})</h3>
-        ${ticketsHtml}
-    </div>`;
-    
-    contenedor.classList.remove('hidden');
+        `;
+        
+    } catch (error) {
+        console.error('Error cargando movimientos de caja:', error);
+    }
 }
 
-function verImagenGrande(url) {
-    const modal = document.createElement('div');
-    modal.className = 'modal-overlay active';
-    modal.onclick = () => modal.remove();
-    modal.innerHTML = `
-        <div class="modal" style="max-width: 90vw; max-height: 90vh; padding: 10px;" onclick="event.stopPropagation()">
-            <img src="${url}" style="max-width: 100%; max-height: 80vh; object-fit: contain;">
-            <button class="btn btn-secondary btn-block mt-2" onclick="this.closest('.modal-overlay').remove()">Cerrar</button>
-        </div>
-    `;
-    document.body.appendChild(modal);
-}
-
-function verTicketDetalle(ticketId) {
-    // Por ahora solo mostrar alerta, se puede expandir
-    showToast('Ticket ID: ' + ticketId, 'info');
-}
-
-// ============================================
-// EDICIÓN COMPLETA DE EXPEDIENTE
-// ============================================
-function editarExpedienteCompleto(perroId) {
-    const perro = perros.find(p => p.id === perroId);
-    if (!perro) return;
+// Filtrar caja por fechas
+async function filtrarCaja() {
+    const fechaInicio = document.getElementById('cajaFechaInicio')?.value;
+    const fechaFin = document.getElementById('cajaFechaFin')?.value;
     
-    const modal = document.createElement('div');
-    modal.className = 'modal-overlay active';
-    modal.id = 'modal-editar-expediente';
-    
-    modal.innerHTML = `
-    <div class="modal modal-lg" onclick="event.stopPropagation()">
-        <div class="modal-header">
-            <h3 class="modal-title">Editar Expediente: ${perro.nombre}</h3>
-            <button class="modal-close" onclick="cerrarModalEdicion()">&times;</button>
-        </div>
-        <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
-            <form id="form-editar-expediente">
-                <h4 class="mb-2">Datos Básicos</h4>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label">Nombre</label>
-                        <input type="text" id="edit-nombre" class="form-input" value="${perro.nombre || ''}">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Raza</label>
-                        <input type="text" id="edit-raza" class="form-input" value="${perro.raza || ''}">
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label">Edad</label>
-                        <input type="text" id="edit-edad" class="form-input" value="${perro.edad || ''}">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Peso (kg)</label>
-                        <input type="number" step="0.1" id="edit-peso" class="form-input" value="${perro.peso_kg || ''}">
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label">Género</label>
-                        <select id="edit-genero" class="form-select">
-                            <option value="">Seleccionar</option>
-                            <option value="Macho" ${perro.genero === 'Macho' ? 'selected' : ''}>Macho</option>
-                            <option value="Hembra" ${perro.genero === 'Hembra' ? 'selected' : ''}>Hembra</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-checkbox">
-                            <input type="checkbox" id="edit-esterilizado" ${perro.esterilizado ? 'checked' : ''}>
-                            Esterilizado
-                        </label>
-                    </div>
-                </div>
-                
-                <h4 class="mb-2 mt-3">Información Médica</h4>
-                <div class="form-group">
-                    <label class="form-label">Medicamentos</label>
-                    <input type="text" id="edit-medicamentos" class="form-input" value="${perro.medicamentos || ''}">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Alergias/Condiciones</label>
-                    <input type="text" id="edit-alergias" class="form-input" value="${perro.alergias || ''}">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Veterinario</label>
-                    <input type="text" id="edit-veterinario" class="form-input" value="${perro.veterinario || ''}">
-                </div>
-                
-                <h4 class="mb-2 mt-3">Vacunas</h4>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label">Rabia - Estado</label>
-                        <select id="edit-rabia-estado" class="form-select">
-                            <option value="Pendiente" ${perro.vacuna_rabia_estado === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
-                            <option value="Vigente" ${perro.vacuna_rabia_estado === 'Vigente' ? 'selected' : ''}>Vigente</option>
-                            <option value="Vencida" ${perro.vacuna_rabia_estado === 'Vencida' ? 'selected' : ''}>Vencida</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Rabia - Vence</label>
-                        <input type="date" id="edit-rabia-vence" class="form-input" value="${perro.vacuna_rabia_vence || ''}">
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label">Séxtuple - Estado</label>
-                        <select id="edit-sextuple-estado" class="form-select">
-                            <option value="Pendiente" ${perro.vacuna_sextuple_estado === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
-                            <option value="Vigente" ${perro.vacuna_sextuple_estado === 'Vigente' ? 'selected' : ''}>Vigente</option>
-                            <option value="Vencida" ${perro.vacuna_sextuple_estado === 'Vencida' ? 'selected' : ''}>Vencida</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Séxtuple - Vence</label>
-                        <input type="date" id="edit-sextuple-vence" class="form-input" value="${perro.vacuna_sextuple_vence || ''}">
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label">Bordetella - Estado</label>
-                        <select id="edit-bordetella-estado" class="form-select">
-                            <option value="Pendiente" ${perro.vacuna_bordetella_estado === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
-                            <option value="Vigente" ${perro.vacuna_bordetella_estado === 'Vigente' ? 'selected' : ''}>Vigente</option>
-                            <option value="Vencida" ${perro.vacuna_bordetella_estado === 'Vencida' ? 'selected' : ''}>Vencida</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Bordetella - Vence</label>
-                        <input type="date" id="edit-bordetella-vence" class="form-input" value="${perro.vacuna_bordetella_vence || ''}">
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label">Giardia - Estado</label>
-                        <select id="edit-giardia-estado" class="form-select">
-                            <option value="Pendiente" ${perro.vacuna_giardia_estado === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
-                            <option value="Vigente" ${perro.vacuna_giardia_estado === 'Vigente' ? 'selected' : ''}>Vigente</option>
-                            <option value="Vencida" ${perro.vacuna_giardia_estado === 'Vencida' ? 'selected' : ''}>Vencida</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Giardia - Vence</label>
-                        <input type="date" id="edit-giardia-vence" class="form-input" value="${perro.vacuna_giardia_vence || ''}">
-                    </div>
-                </div>
-                
-                <h4 class="mb-2 mt-3">Desparasitación</h4>
-                <div class="form-group">
-                    <label class="form-label">Tipo</label>
-                    <select id="edit-despara-tipo" class="form-select">
-                        <option value="">Ninguna</option>
-                        <option value="Interna" ${perro.desparasitacion_tipo === 'Interna' ? 'selected' : ''}>Interna</option>
-                        <option value="Externa" ${perro.desparasitacion_tipo === 'Externa' ? 'selected' : ''}>Externa</option>
-                        <option value="Dual" ${perro.desparasitacion_tipo === 'Dual' ? 'selected' : ''}>Dual</option>
-                    </select>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label">Producto Interno</label>
-                        <input type="text" id="edit-despara-prod-int" class="form-input" value="${perro.desparasitacion_producto_int || ''}">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Fecha Interno</label>
-                        <input type="date" id="edit-despara-fecha-int" class="form-input" value="${perro.desparasitacion_fecha_int || ''}">
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label">Producto Externo</label>
-                        <input type="text" id="edit-despara-prod-ext" class="form-input" value="${perro.desparasitacion_producto_ext || ''}">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Fecha Externo</label>
-                        <input type="date" id="edit-despara-fecha-ext" class="form-input" value="${perro.desparasitacion_fecha_ext || ''}">
-                    </div>
-                </div>
-            </form>
-        </div>
-        <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" onclick="cerrarModalEdicion()">Cancelar</button>
-            <button type="button" class="btn btn-primary" onclick="guardarExpedienteCompleto('${perroId}')">Guardar Cambios</button>
-        </div>
-    </div>
-    `;
-    
-    document.body.appendChild(modal);
-}
-
-function cerrarModalEdicion() {
-    document.getElementById('modal-editar-expediente')?.remove();
-}
-
-async function guardarExpedienteCompleto(perroId) {
-    const data = {
-        nombre: document.getElementById('edit-nombre').value,
-        raza: document.getElementById('edit-raza').value || null,
-        edad: document.getElementById('edit-edad').value || null,
-        peso_kg: parseFloat(document.getElementById('edit-peso').value) || null,
-        genero: document.getElementById('edit-genero').value || null,
-        esterilizado: document.getElementById('edit-esterilizado').checked,
-        medicamentos: document.getElementById('edit-medicamentos').value || null,
-        alergias: document.getElementById('edit-alergias').value || null,
-        veterinario: document.getElementById('edit-veterinario').value || null,
-        vacuna_rabia_estado: document.getElementById('edit-rabia-estado').value,
-        vacuna_rabia_vence: document.getElementById('edit-rabia-vence').value || null,
-        vacuna_sextuple_estado: document.getElementById('edit-sextuple-estado').value,
-        vacuna_sextuple_vence: document.getElementById('edit-sextuple-vence').value || null,
-        vacuna_bordetella_estado: document.getElementById('edit-bordetella-estado').value,
-        vacuna_bordetella_vence: document.getElementById('edit-bordetella-vence').value || null,
-        vacuna_giardia_estado: document.getElementById('edit-giardia-estado').value,
-        vacuna_giardia_vence: document.getElementById('edit-giardia-vence').value || null,
-        desparasitacion_tipo: document.getElementById('edit-despara-tipo').value || null,
-        desparasitacion_producto_int: document.getElementById('edit-despara-prod-int').value || null,
-        desparasitacion_fecha_int: document.getElementById('edit-despara-fecha-int').value || null,
-        desparasitacion_producto_ext: document.getElementById('edit-despara-prod-ext').value || null,
-        desparasitacion_fecha_ext: document.getElementById('edit-despara-fecha-ext').value || null
-    };
+    if (!fechaInicio || !fechaFin) {
+        alert('Selecciona ambas fechas');
+        return;
+    }
     
     try {
-        showLoading();
-        await apiPut(`/perros/${perroId}`, data);
-        
-        // Actualizar en memoria
-        const index = perros.findIndex(p => p.id === perroId);
-        if (index > -1) {
-            perros[index] = { ...perros[index], ...data };
+        const movimientos = await apiRequest(`/movimientos-caja/?fecha_inicio=${fechaInicio}&fecha_fin=${fechaFin}`);
+        // Re-renderizar con filtro
+        // ... similar a cargarMovimientosCaja pero con filtro
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+// Generar ticket de caja
+async function generarTicketCaja(movimientoId, tipo) {
+    try {
+        let datos;
+        if (tipo === 'checkin') {
+            datos = await apiRequest(`/checkin/${movimientoId}`);
+        } else if (tipo === 'paseo') {
+            datos = await apiRequest(`/paseo/${movimientoId}`);
         }
         
-        hideLoading();
-        cerrarModalEdicion();
-        cargarExpediente(); // Recargar vista
-        showToast('Expediente actualizado correctamente', 'success');
+        mostrarTicket(datos, tipo);
     } catch (error) {
-        hideLoading();
-        showToast(error.message, 'error');
+        alert('Error generando ticket: ' + error.message);
     }
 }
 
-// ============================================
-// GESTIÓN DE DATOS
-// ============================================
-function toggleGestionTipo() {
-    const tipo = document.querySelector('input[name="gestion-tipo"]:checked').value;
-    document.getElementById('gestion-perros').classList.toggle('hidden', tipo !== 'perros');
-    document.getElementById('gestion-clientes').classList.toggle('hidden', tipo !== 'clientes');
-}
-
-function cargarFormularioPerroCompleto() {
-    const perroId = document.getElementById('gestion-perro-select').value;
-    if (perroId) {
-        editarExpedienteCompleto(perroId);
-    }
-}
-
-function cargarFormularioCliente() {
-    const clienteId = document.getElementById('gestion-cliente-select').value;
-    const container = document.getElementById('gestion-cliente-form');
+// Mostrar ticket para impresión/descarga
+function mostrarTicket(datos, tipo) {
+    const ticketHTML = `
+        <div class="ticket-container" id="ticketParaDescargar">
+            <div class="ticket-header">
+                <h2>ComfortCan México</h2>
+                <p>Hotel & Adiestramiento Canino</p>
+            </div>
+            <hr>
+            <div class="ticket-body">
+                <p><strong>Fecha:</strong> ${formatDate(new Date())}</p>
+                <p><strong>Tipo:</strong> ${tipo === 'checkin' ? 'Hospedaje' : 'Paseo'}</p>
+                <p><strong>Mascota:</strong> ${datos.perro_nombre || 'N/A'}</p>
+                ${tipo === 'checkin' ? `
+                    <p><strong>Entrada:</strong> ${formatDate(datos.fecha_entrada)}</p>
+                    <p><strong>Salida:</strong> ${formatDate(datos.fecha_salida)}</p>
+                ` : `
+                    <p><strong>Fecha:</strong> ${formatDate(datos.fecha)}</p>
+                    <p><strong>Duración:</strong> ${datos.duracion} min</p>
+                `}
+                <hr>
+                <h4>Servicios:</h4>
+                ${datos.servicios ? datos.servicios.map(s => `
+                    <p>${s.nombre}: $${s.subtotal?.toFixed(2) || s.precio}</p>
+                `).join('') : `<p>Servicio: $${datos.precio?.toFixed(2)}</p>`}
+                <hr>
+                <h3>TOTAL: $${datos.total?.toFixed(2) || datos.precio?.toFixed(2)}</h3>
+            </div>
+            <div class="ticket-footer">
+                <p>¡Gracias por su preferencia!</p>
+            </div>
+        </div>
+    `;
     
-    if (!clienteId) {
-        container.classList.add('hidden');
+    // Mostrar en modal
+    const modal = document.getElementById('ticketModal');
+    const contenido = document.getElementById('ticketContenido');
+    if (modal && contenido) {
+        contenido.innerHTML = ticketHTML;
+        modal.style.display = 'block';
+    }
+}
+
+// Descargar ticket como imagen
+function descargarTicket() {
+    const ticket = document.getElementById('ticketParaDescargar');
+    if (!ticket) return;
+    
+    // Usar html2canvas si está disponible
+    if (typeof html2canvas !== 'undefined') {
+        html2canvas(ticket).then(canvas => {
+            const link = document.createElement('a');
+            link.download = `ticket_${Date.now()}.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+        });
+    } else {
+        // Alternativa: imprimir
+        window.print();
+    }
+}
+
+// Cerrar modal de ticket
+function cerrarTicketModal() {
+    const modal = document.getElementById('ticketModal');
+    if (modal) modal.style.display = 'none';
+}
+// ==================== PARTE 4: EXPEDIENTES ====================
+
+let expedienteActual = null;
+
+// Cargar lista de expedientes (perros)
+async function cargarExpedientes() {
+    try {
+        const perros = await apiRequest('/perros/');
+        renderExpedientes(perros);
+    } catch (error) {
+        console.error('Error cargando expedientes:', error);
+    }
+}
+
+// Renderizar expedientes en grid
+function renderExpedientes(perros) {
+    const container = document.getElementById('expedientesGrid');
+    if (!container) return;
+    
+    if (perros.length === 0) {
+        container.innerHTML = '<p class="text-muted">No hay expedientes registrados</p>';
         return;
     }
     
-    const cliente = propietarios.find(p => p.id === clienteId);
-    if (!cliente) return;
-    
-    container.innerHTML = `
-    <div class="card mt-2" style="background: var(--color-bg-input);">
-        <div class="form-group">
-            <label class="form-label">Nombre</label>
-            <input type="text" id="edit-cliente-nombre" class="form-input" value="${cliente.nombre || ''}">
+    container.innerHTML = perros.map(p => `
+        <div class="expediente-card" onclick="verExpediente(${p.id})">
+            <div class="expediente-foto">
+                ${p.foto_url ? `<img src="${p.foto_url}" alt="${p.nombre}">` : `<div class="sin-foto">${p.nombre.charAt(0)}</div>`}
+            </div>
+            <div class="expediente-info">
+                <h4>${p.nombre}</h4>
+                <p>${p.raza || 'Sin raza'}</p>
+                <p class="propietario">${p.propietario_nombre || 'Sin dueño'}</p>
+            </div>
         </div>
-        <div class="form-group">
-            <label class="form-label">Teléfono</label>
-            <input type="tel" id="edit-cliente-telefono" class="form-input" value="${cliente.telefono || ''}">
-        </div>
-        <div class="form-group">
-            <label class="form-label">Email</label>
-            <input type="email" id="edit-cliente-email" class="form-input" value="${cliente.email || ''}">
-        </div>
-        <div class="form-group">
-            <label class="form-label">Dirección</label>
-            <input type="text" id="edit-cliente-direccion" class="form-input" value="${cliente.direccion || ''}">
-        </div>
-        <div class="btn-group mt-2">
-            <button type="button" class="btn btn-primary" onclick="guardarEdicionCliente('${clienteId}')">Guardar Cambios</button>
-            <button type="button" class="btn btn-danger" onclick="eliminarCliente('${clienteId}')">Eliminar Cliente</button>
-        </div>
-    </div>`;
-    
-    container.classList.remove('hidden');
-}
-
-async function guardarEdicionCliente(id) {
-    const data = {
-        nombre: document.getElementById('edit-cliente-nombre').value,
-        telefono: document.getElementById('edit-cliente-telefono').value,
-        email: document.getElementById('edit-cliente-email').value,
-        direccion: document.getElementById('edit-cliente-direccion').value
-    };
-    
-    try {
-        showLoading();
-        await apiPut(`/propietarios/${id}`, data);
-        const index = propietarios.findIndex(p => p.id === id);
-        if (index > -1) propietarios[index] = { ...propietarios[index], ...data };
-        llenarSelectPropietarios();
-        hideLoading();
-        showToast('Cliente actualizado', 'success');
-    } catch (error) {
-        hideLoading();
-        showToast(error.message, 'error');
-    }
-}
-
-async function eliminarCliente(id) {
-    if (!confirm('¿Seguro? Se eliminarán también todos los perros de este cliente.')) return;
-    
-    try {
-        showLoading();
-        await apiDelete(`/propietarios/${id}`);
-        propietarios = propietarios.filter(p => p.id !== id);
-        perros = perros.filter(p => p.propietario_id !== id);
-        llenarSelectPropietarios();
-        llenarSelectPerros();
-        document.getElementById('gestion-cliente-select').value = '';
-        document.getElementById('gestion-cliente-form').classList.add('hidden');
-        hideLoading();
-        showToast('Cliente eliminado', 'success');
-    } catch (error) {
-        hideLoading();
-        showToast(error.message, 'error');
-    }
-}
-
-// ============================================
-// CONFIGURACIÓN
-// ============================================
-function renderTablaServicios() {
-    const tbody = document.getElementById('tabla-servicios');
-    if (!tbody) return;
-    
-    if (catalogoServicios.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Sin servicios</td></tr>';
-        return;
-    }
-    
-    tbody.innerHTML = catalogoServicios.map(s => `
-        <tr>
-            <td>${s.nombre}</td>
-            <td>$${(s.precio||0).toFixed(2)}</td>
-            <td>${s.tipo_cobro === 'unico' ? 'Único' : 'Por día'}</td>
-            <td>
-                <button class="btn btn-sm btn-danger" onclick="eliminarServicio('${s.id}')">🗑</button>
-            </td>
-        </tr>
     `).join('');
 }
 
-function renderTablaPaseos() {
-    const tbody = document.getElementById('tabla-tipos-paseo');
-    if (!tbody) return;
+// Filtrar expedientes por búsqueda
+function filtrarExpedientes() {
+    const busqueda = document.getElementById('busquedaExpediente')?.value.toLowerCase() || '';
+    const cards = document.querySelectorAll('.expediente-card');
     
-    if (catalogoPaseos.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">Sin tipos de paseo</td></tr>';
-        return;
-    }
-    
-    tbody.innerHTML = catalogoPaseos.map(p => `
-        <tr>
-            <td>${p.nombre}</td>
-            <td>$${(p.precio||0).toFixed(2)}</td>
-            <td>
-                <button class="btn btn-sm btn-danger" onclick="eliminarTipoPaseo('${p.id}')">🗑</button>
-            </td>
-        </tr>
-    `).join('');
-}
-
-async function handleNuevoServicio() {
-    const nombre = document.getElementById('nuevo-servicio-nombre').value;
-    const precio = parseFloat(document.getElementById('nuevo-servicio-precio').value);
-    const tipoCobro = document.getElementById('nuevo-servicio-tipo')?.value || 'por_dia';
-    
-    if (!nombre || !precio) {
-        showToast('Ingresa nombre y precio', 'error');
-        return;
-    }
-    
-    try {
-        showLoading();
-        const nuevo = await apiPost('/catalogo-servicios', { nombre, precio, tipo_cobro: tipoCobro });
-        catalogoServicios.push(nuevo);
-        renderTablaServicios();
-        llenarSelectServicios();
-        document.getElementById('nuevo-servicio-nombre').value = '';
-        document.getElementById('nuevo-servicio-precio').value = '';
-        hideLoading();
-        showToast('Servicio agregado', 'success');
-    } catch (error) {
-        hideLoading();
-        showToast(error.message, 'error');
-    }
-}
-
-async function eliminarServicio(id) {
-    if (!confirm('¿Eliminar este servicio?')) return;
-    
-    try {
-        await apiDelete(`/catalogo-servicios/${id}`);
-        catalogoServicios = catalogoServicios.filter(s => s.id !== id);
-        renderTablaServicios();
-        llenarSelectServicios();
-        showToast('Servicio eliminado', 'success');
-    } catch (error) {
-        showToast(error.message, 'error');
-    }
-}
-
-async function handleNuevoTipoPaseo() {
-    const nombre = document.getElementById('nuevo-paseo-nombre').value;
-    const duracion = parseInt(document.getElementById('nuevo-paseo-duracion').value) || null;
-    const precio = parseFloat(document.getElementById('nuevo-paseo-precio').value);
-    
-    if (!nombre || !precio) {
-        showToast('Ingresa nombre y precio', 'error');
-        return;
-    }
-    
-    try {
-        showLoading();
-        const nuevo = await apiPost('/catalogo-paseos', { nombre, duracion_minutos: duracion, precio });
-        catalogoPaseos.push(nuevo);
-        renderTablaPaseos();
-        llenarSelectPaseos();
-        document.getElementById('nuevo-paseo-nombre').value = '';
-        document.getElementById('nuevo-paseo-duracion').value = '';
-        document.getElementById('nuevo-paseo-precio').value = '';
-        hideLoading();
-        showToast('Tipo de paseo agregado', 'success');
-    } catch (error) {
-        hideLoading();
-        showToast(error.message, 'error');
-    }
-}
-
-async function eliminarTipoPaseo(id) {
-    if (!confirm('¿Eliminar este tipo de paseo?')) return;
-    
-    try {
-        await apiDelete(`/catalogo-paseos/${id}`);
-        catalogoPaseos = catalogoPaseos.filter(p => p.id !== id);
-        renderTablaPaseos();
-        llenarSelectPaseos();
-        showToast('Tipo de paseo eliminado', 'success');
-    } catch (error) {
-        showToast(error.message, 'error');
-    }
-}
-
-// ============================================
-// UTILIDADES
-// ============================================
-function formatDate(dateString) {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('es-MX', {
-        year: 'numeric', month: 'short', day: 'numeric'
+    cards.forEach(card => {
+        const nombre = card.querySelector('h4')?.textContent.toLowerCase() || '';
+        const raza = card.querySelector('p')?.textContent.toLowerCase() || '';
+        const propietario = card.querySelector('.propietario')?.textContent.toLowerCase() || '';
+        
+        if (nombre.includes(busqueda) || raza.includes(busqueda) || propietario.includes(busqueda)) {
+            card.style.display = 'block';
+        } else {
+            card.style.display = 'none';
+        }
     });
 }
 
-function showLoading() {
-    document.getElementById('loading')?.classList.remove('hidden');
+// Ver expediente completo
+async function verExpediente(perroId) {
+    try {
+        const [perro, propietario, historial] = await Promise.all([
+            apiRequest(`/perro/${perroId}`),
+            apiRequest(`/perro/${perroId}/propietario`).catch(() => null),
+            apiRequest(`/perro/${perroId}/historial`).catch(() => [])
+        ]);
+        
+        expedienteActual = { perro, propietario, historial };
+        
+        mostrarModalExpediente(perro, propietario, historial);
+        
+    } catch (error) {
+        console.error('Error cargando expediente:', error);
+        alert('Error al cargar expediente');
+    }
 }
 
-function hideLoading() {
-    document.getElementById('loading')?.classList.add('hidden');
-}
-
-function showToast(message, type = 'info') {
-    const container = document.getElementById('toast-container');
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    toast.textContent = message;
-    container.appendChild(toast);
+// Mostrar modal de expediente
+function mostrarModalExpediente(perro, propietario, historial) {
+    const modal = document.getElementById('expedienteModal');
+    const contenido = document.getElementById('expedienteContenido');
+    if (!modal || !contenido) return;
     
-    setTimeout(() => toast.classList.add('show'), 100);
-    setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => toast.remove(), 300);
-    }, 3000);
+    contenido.innerHTML = `
+        <div class="expediente-detalle">
+            <!-- Sección de fotos -->
+            <div class="expediente-fotos">
+                <h4>Fotos</h4>
+                <div class="fotos-grid">
+                    <div class="foto-principal">
+                        ${perro.foto_url ? `<img src="${perro.foto_url}" alt="${perro.nombre}">` : `<div class="sin-foto-grande">${perro.nombre.charAt(0)}</div>`}
+                        <label class="btn btn-sm btn-secondary">
+                            Cambiar foto
+                            <input type="file" accept="image/*" onchange="subirFotoPerro(${perro.id}, this)" style="display:none">
+                        </label>
+                    </div>
+                    <div class="foto-cartilla">
+                        <h5>Cartilla de Vacunación</h5>
+                        ${perro.cartilla_url ? `<img src="${perro.cartilla_url}" alt="Cartilla" onclick="verImagenGrande('${perro.cartilla_url}')">` : '<p class="text-muted">Sin cartilla</p>'}
+                        <label class="btn btn-sm btn-secondary">
+                            ${perro.cartilla_url ? 'Cambiar' : 'Subir'} cartilla
+                            <input type="file" accept="image/*" onchange="subirCartilla(${perro.id}, this)" style="display:none">
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Información del perro -->
+            <div class="expediente-info-completa">
+                <h4>Información del Perro</h4>
+                <form id="formEditarPerro" onsubmit="guardarEdicionPerro(event, ${perro.id})">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Nombre</label>
+                            <input type="text" id="editPerroNombre" value="${perro.nombre || ''}" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Raza</label>
+                            <input type="text" id="editPerroRaza" value="${perro.raza || ''}">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Color</label>
+                            <input type="text" id="editPerroColor" value="${perro.color || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label>Tamaño</label>
+                            <select id="editPerroTamano">
+                                <option value="pequeño" ${perro.tamano === 'pequeño' ? 'selected' : ''}>Pequeño</option>
+                                <option value="mediano" ${perro.tamano === 'mediano' ? 'selected' : ''}>Mediano</option>
+                                <option value="grande" ${perro.tamano === 'grande' ? 'selected' : ''}>Grande</option>
+                                <option value="gigante" ${perro.tamano === 'gigante' ? 'selected' : ''}>Gigante</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Edad (años)</label>
+                            <select id="editPerroEdad">
+                                ${[...Array(16).keys()].map(i => `<option value="${i}" ${perro.edad == i ? 'selected' : ''}>${i} ${i === 1 ? 'año' : 'años'}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Sexo</label>
+                            <select id="editPerroSexo">
+                                <option value="macho" ${perro.sexo === 'macho' ? 'selected' : ''}>Macho</option>
+                                <option value="hembra" ${perro.sexo === 'hembra' ? 'selected' : ''}>Hembra</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>¿Esterilizado?</label>
+                            <select id="editPerroEsterilizado">
+                                <option value="true" ${perro.esterilizado ? 'selected' : ''}>Sí</option>
+                                <option value="false" ${!perro.esterilizado ? 'selected' : ''}>No</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Peso (kg)</label>
+                            <input type="number" step="0.1" id="editPerroPeso" value="${perro.peso || ''}">
+                        </div>
+                    </div>
+                    
+                    <h5>Vacunas y Desparasitación</h5>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Vacuna Rabia</label>
+                            <input type="date" id="editPerroRabia" value="${perro.vacuna_rabia || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label>Vacuna Múltiple</label>
+                            <input type="date" id="editPerroMultiple" value="${perro.vacuna_multiple || ''}">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Desparasitación Interna</label>
+                            <input type="date" id="editPerroDesparasitacionInt" value="${perro.desparasitacion_fecha_int || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label>Desparasitación Externa</label>
+                            <input type="date" id="editPerroDesparasitacionExt" value="${perro.desparasitacion_fecha_ext || ''}">
+                        </div>
+                    </div>
+                    
+                    <h5>Información Médica</h5>
+                    <div class="form-group">
+                        <label>Alergias</label>
+                        <textarea id="editPerroAlergias">${perro.alergias || ''}</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Padecimientos</label>
+                        <textarea id="editPerroPadecimientos">${perro.padecimientos || ''}</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Indicaciones Especiales</label>
+                        <textarea id="editPerroIndicaciones">${perro.indicaciones_especiales || ''}</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Veterinario</label>
+                        <input type="text" id="editPerroVeterinario" value="${perro.veterinario || ''}">
+                    </div>
+                    <div class="form-group">
+                        <label>Teléfono Veterinario</label>
+                        <input type="tel" id="editPerroVetTel" value="${perro.veterinario_telefono || ''}">
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                </form>
+            </div>
+            
+            <!-- Información del propietario -->
+            ${propietario ? `
+            <div class="expediente-propietario">
+                <h4>Propietario</h4>
+                <form id="formEditarPropietario" onsubmit="guardarEdicionPropietario(event, ${propietario.id})">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Nombre</label>
+                            <input type="text" id="editPropNombre" value="${propietario.nombre || ''}" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Teléfono</label>
+                            <input type="tel" id="editPropTelefono" value="${propietario.telefono || ''}">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Email</label>
+                            <input type="email" id="editPropEmail" value="${propietario.email || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label>Dirección</label>
+                            <input type="text" id="editPropDireccion" value="${propietario.direccion || ''}">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Contacto Emergencia</label>
+                        <input type="text" id="editPropEmergencia" value="${propietario.contacto_emergencia || ''}">
+                    </div>
+                    <div class="form-group">
+                        <label>Teléfono Emergencia</label>
+                        <input type="tel" id="editPropEmergenciaTel" value="${propietario.telefono_emergencia || ''}">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Guardar Propietario</button>
+                </form>
+            </div>
+            ` : ''}
+            
+            <!-- Historial de tickets -->
+            <div class="expediente-tickets">
+                <h4>Historial de Servicios</h4>
+                <div class="tickets-grid">
+                    ${historial.length > 0 ? historial.map(h => `
+                        <div class="ticket-mini" onclick="verTicketHistorial(${h.id}, '${h.tipo}')">
+                            <div class="ticket-mini-header">
+                                <span class="tipo">${h.tipo === 'checkin' ? '🏨' : '🦮'}</span>
+                                <span class="fecha">${formatDate(h.fecha)}</span>
+                            </div>
+                            <div class="ticket-mini-body">
+                                <p>${h.tipo === 'checkin' ? 'Hospedaje' : 'Paseo'}</p>
+                                <p class="monto">$${h.total?.toFixed(2) || h.precio?.toFixed(2) || '0.00'}</p>
+                            </div>
+                        </div>
+                    `).join('') : '<p class="text-muted">Sin historial de servicios</p>'}
+                </div>
+            </div>
+        </div>
+    `;
+    
+    modal.style.display = 'block';
 }
+
+// Guardar edición del perro
+async function guardarEdicionPerro(e, perroId) {
+    e.preventDefault();
+    
+    const datos = {
+        nombre: document.getElementById('editPerroNombre')?.value,
+        raza: document.getElementById('editPerroRaza')?.value,
+        color: document.getElementById('editPerroColor')?.value,
+        tamano: document.getElementById('editPerroTamano')?.value,
+        edad: parseInt(document.getElementById('editPerroEdad')?.value) || 0,
+        sexo: document.getElementById('editPerroSexo')?.value,
+        esterilizado: document.getElementById('editPerroEsterilizado')?.value === 'true',
+        peso: parseFloat(document.getElementById('editPerroPeso')?.value) || null,
+        vacuna_rabia: document.getElementById('editPerroRabia')?.value || null,
+        vacuna_multiple: document.getElementById('editPerroMultiple')?.value || null,
+        desparasitacion_fecha_int: document.getElementById('editPerroDesparasitacionInt')?.value || null,
+        desparasitacion_fecha_ext: document.getElementById('editPerroDesparasitacionExt')?.value || null,
+        alergias: document.getElementById('editPerroAlergias')?.value,
+        padecimientos: document.getElementById('editPerroPadecimientos')?.value,
+        indicaciones_especiales: document.getElementById('editPerroIndicaciones')?.value,
+        veterinario: document.getElementById('editPerroVeterinario')?.value,
+        veterinario_telefono: document.getElementById('editPerroVetTel')?.value
+    };
+    
+    try {
+        await apiRequest(`/perro/${perroId}`, 'PUT', datos);
+        alert('Información del perro actualizada');
+        await cargarExpedientes();
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+// Guardar edición del propietario
+async function guardarEdicionPropietario(e, propietarioId) {
+    e.preventDefault();
+    
+    const datos = {
+        nombre: document.getElementById('editPropNombre')?.value,
+        telefono: document.getElementById('editPropTelefono')?.value,
+        email: document.getElementById('editPropEmail')?.value,
+        direccion: document.getElementById('editPropDireccion')?.value,
+        contacto_emergencia: document.getElementById('editPropEmergencia')?.value,
+        telefono_emergencia: document.getElementById('editPropEmergenciaTel')?.value
+    };
+    
+    try {
+        await apiRequest(`/propietario/${propietarioId}`, 'PUT', datos);
+        alert('Información del propietario actualizada');
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+// Subir foto del perro
+async function subirFotoPerro(perroId, input) {
+    if (!input.files || !input.files[0]) return;
+    
+    const file = input.files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+        const response = await fetch(`${API_URL}/perro/${perroId}/foto`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: formData
+        });
+        
+        if (!response.ok) throw new Error('Error subiendo foto');
+        
+        alert('Foto actualizada');
+        await verExpediente(perroId);
+        
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+// Subir cartilla de vacunación
+async function subirCartilla(perroId, input) {
+    if (!input.files || !input.files[0]) return;
+    
+    const file = input.files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+        const response = await fetch(`${API_URL}/perro/${perroId}/cartilla`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: formData
+        });
+        
+        if (!response.ok) throw new Error('Error subiendo cartilla');
+        
+        alert('Cartilla actualizada');
+        await verExpediente(perroId);
+        
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+// Ver imagen en grande
+function verImagenGrande(url) {
+    const modal = document.getElementById('imagenModal');
+    const img = document.getElementById('imagenGrande');
+    if (modal && img) {
+        img.src = url;
+        modal.style.display = 'block';
+    }
+}
+
+// Ver ticket del historial
+async function verTicketHistorial(id, tipo) {
+    try {
+        let datos;
+        if (tipo === 'checkin') {
+            datos = await apiRequest(`/checkin/${id}`);
+        } else {
+            datos = await apiRequest(`/paseo/${id}`);
+        }
+        mostrarTicket(datos, tipo);
+    } catch (error) {
+        alert('Error cargando ticket');
+    }
+}
+
+// Cerrar modal de expediente
+function cerrarExpedienteModal() {
+    const modal = document.getElementById('expedienteModal');
+    if (modal) modal.style.display = 'none';
+}
+
+// Cerrar modal de imagen
+function cerrarImagenModal() {
+    const modal = document.getElementById('imagenModal');
+    if (modal) modal.style.display = 'none';
+}
+// ==================== PARTE 5: CONFIGURACIÓN Y UTILIDADES ====================
+
+// ==================== CONFIGURACIÓN ====================
+
+// Cargar catálogo de servicios
+async function cargarCatalogoServicios() {
+    try {
+        const servicios = await apiRequest('/catalogo-servicios/');
+        const tabla = document.getElementById('tablaServicios');
+        if (!tabla) return;
+        
+        if (servicios.length === 0) {
+            tabla.innerHTML = '<tr><td colspan="5" class="text-muted">No hay servicios configurados</td></tr>';
+            return;
+        }
+        
+        tabla.innerHTML = servicios.map(s => `
+            <tr>
+                <td>${s.nombre}</td>
+                <td>$${s.precio.toFixed(2)}</td>
+                <td>${s.tipo_cobro === 'unico' ? 'Único' : 'Por día'}</td>
+                <td>${s.activo ? '✅ Activo' : '❌ Inactivo'}</td>
+                <td>
+                    <button onclick="editarServicio(${s.id})" class="btn btn-sm btn-info">Editar</button>
+                    <button onclick="eliminarServicio(${s.id})" class="btn btn-sm btn-danger">Eliminar</button>
+                </td>
+            </tr>
+        `).join('');
+        
+    } catch (error) {
+        console.error('Error cargando catálogo:', error);
+    }
+}
+
+// Agregar nuevo servicio
+async function handleNuevoServicio(e) {
+    e.preventDefault();
+    
+    const nombre = document.getElementById('servicioNombre')?.value;
+    const precio = document.getElementById('servicioPrecio')?.value;
+    const tipoCobro = document.getElementById('servicioTipoCobro')?.value;
+    
+    if (!nombre || !precio) {
+        alert('Completa todos los campos');
+        return;
+    }
+    
+    try {
+        await apiRequest('/catalogo-servicios/', 'POST', {
+            nombre: nombre,
+            precio: parseFloat(precio),
+            tipo_cobro: tipoCobro || 'por_dia',
+            activo: true
+        });
+        
+        alert('Servicio agregado');
+        document.getElementById('servicioForm')?.reset();
+        await cargarCatalogoServicios();
+        await cargarServiciosDropdown();
+        
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+// Editar servicio existente
+async function editarServicio(servicioId) {
+    try {
+        const servicio = await apiRequest(`/catalogo-servicio/${servicioId}`);
+        
+        const nuevoNombre = prompt('Nombre del servicio:', servicio.nombre);
+        if (!nuevoNombre) return;
+        
+        const nuevoPrecio = prompt('Precio:', servicio.precio);
+        if (!nuevoPrecio) return;
+        
+        const nuevoTipo = prompt('Tipo de cobro (unico/por_dia):', servicio.tipo_cobro || 'por_dia');
+        
+        await apiRequest(`/catalogo-servicio/${servicioId}`, 'PUT', {
+            nombre: nuevoNombre,
+            precio: parseFloat(nuevoPrecio),
+            tipo_cobro: nuevoTipo || 'por_dia',
+            activo: servicio.activo
+        });
+        
+        alert('Servicio actualizado');
+        await cargarCatalogoServicios();
+        await cargarServiciosDropdown();
+        
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+// Eliminar servicio
+async function eliminarServicio(servicioId) {
+    if (!confirm('¿Eliminar este servicio?')) return;
+    
+    try {
+        await apiRequest(`/catalogo-servicio/${servicioId}`, 'DELETE');
+        alert('Servicio eliminado');
+        await cargarCatalogoServicios();
+        await cargarServiciosDropdown();
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+// ==================== UTILIDADES ====================
+
+// Formatear fecha
+function formatDate(dateStr) {
+    if (!dateStr) return 'N/A';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('es-MX', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+    });
+}
+
+// Formatear fecha y hora
+function formatDateTime(dateStr) {
+    if (!dateStr) return 'N/A';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('es-MX', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+// Cerrar modales al hacer clic fuera
+window.onclick = function(event) {
+    const modales = ['expedienteModal', 'ticketModal', 'imagenModal'];
+    modales.forEach(modalId => {
+        const modal = document.getElementById(modalId);
+        if (event.target === modal) {
+            modal.style.display = 'none';
+        }
+    });
+};
+
+// Cerrar modales con tecla Escape
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const modales = document.querySelectorAll('.modal');
+        modales.forEach(modal => {
+            modal.style.display = 'none';
+        });
+    }
+});
+
+// ==================== EVENT LISTENERS ADICIONALES ====================
+
+// Event listeners para formularios y acciones
+document.addEventListener('DOMContentLoaded', function() {
+    // Check-in: agregar servicio desde dropdown
+    const servicioDropdown = document.getElementById('servicioDropdown');
+    if (servicioDropdown) {
+        servicioDropdown.addEventListener('change', agregarServicioCheckIn);
+    }
+    
+    // Check-in: calcular total cuando cambian las fechas
+    const fechaEntrada = document.getElementById('checkInFechaEntrada');
+    const fechaSalida = document.getElementById('checkInFechaSalida');
+    if (fechaEntrada) {
+        fechaEntrada.addEventListener('change', calcularTotalCheckIn);
+    }
+    if (fechaSalida) {
+        fechaSalida.addEventListener('change', calcularTotalCheckIn);
+    }
+    
+    // Formulario de check-in
+    const checkInForm = document.getElementById('checkInForm');
+    if (checkInForm) {
+        checkInForm.addEventListener('submit', handleCheckIn);
+    }
+    
+    // Formulario de paseo
+    const paseoForm = document.getElementById('paseoForm');
+    if (paseoForm) {
+        paseoForm.addEventListener('submit', handlePaseo);
+    }
+    
+    // Formulario de nuevo servicio
+    const servicioForm = document.getElementById('servicioForm');
+    if (servicioForm) {
+        servicioForm.addEventListener('submit', handleNuevoServicio);
+    }
+    
+    // Búsqueda de expedientes
+    const busquedaExpediente = document.getElementById('busquedaExpediente');
+    if (busquedaExpediente) {
+        busquedaExpediente.addEventListener('input', filtrarExpedientes);
+    }
+    
+    // Botón de filtrar caja
+    const btnFiltrarCaja = document.getElementById('btnFiltrarCaja');
+    if (btnFiltrarCaja) {
+        btnFiltrarCaja.addEventListener('click', filtrarCaja);
+    }
+    
+    // Botón de descargar ticket
+    const btnDescargarTicket = document.getElementById('btnDescargarTicket');
+    if (btnDescargarTicket) {
+        btnDescargarTicket.addEventListener('click', descargarTicket);
+    }
+    
+    // Botones de cerrar modales
+    const btnCerrarExpediente = document.getElementById('btnCerrarExpediente');
+    if (btnCerrarExpediente) {
+        btnCerrarExpediente.addEventListener('click', cerrarExpedienteModal);
+    }
+    
+    const btnCerrarTicket = document.getElementById('btnCerrarTicket');
+    if (btnCerrarTicket) {
+        btnCerrarTicket.addEventListener('click', cerrarTicketModal);
+    }
+    
+    const btnCerrarImagen = document.getElementById('btnCerrarImagen');
+    if (btnCerrarImagen) {
+        btnCerrarImagen.addEventListener('click', cerrarImagenModal);
+    }
+});
+
+// ==================== INICIALIZACIÓN DE SECCIONES ====================
+
+// Función para cargar datos según la sección activa
+async function cargarDatosSeccion(seccion) {
+    switch(seccion) {
+        case 'propietarios':
+            await cargarPropietarios();
+            break;
+        case 'perros':
+            await Promise.all([cargarPerros(), cargarPropietariosSelect()]);
+            break;
+        case 'checkin':
+            await Promise.all([cargarPerrosCheckIn(), cargarServiciosDropdown(), cargarCheckIns()]);
+            serviciosSeleccionados = [];
+            renderServiciosSeleccionados();
+            break;
+        case 'paseos':
+            await Promise.all([cargarPerrosPaseos(), cargarPaseos()]);
+            break;
+        case 'caja':
+            await cargarMovimientosCaja();
+            break;
+        case 'expedientes':
+            await cargarExpedientes();
+            break;
+        case 'configuracion':
+            await cargarCatalogoServicios();
+            break;
+    }
+}
+
+// Navegación mejorada con carga de datos
+function showSection(sectionId) {
+    // Ocultar todas las secciones
+    document.querySelectorAll('.section').forEach(section => {
+        section.classList.remove('active');
+        section.style.display = 'none';
+    });
+    
+    // Mostrar la sección seleccionada
+    const section = document.getElementById(sectionId);
+    if (section) {
+        section.classList.add('active');
+        section.style.display = 'block';
+    }
+    
+    // Actualizar navegación activa
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.classList.remove('active');
+    });
+    const navItem = document.querySelector(`[data-section="${sectionId}"]`);
+    if (navItem) {
+        navItem.classList.add('active');
+    }
+    
+    // Cargar datos de la sección
+    cargarDatosSeccion(sectionId);
+}
+
+// ==================== VERIFICACIÓN FINAL ====================
+
+console.log('✅ ComfortCan México - App.js cargado completamente');
+console.log('📋 Módulos disponibles: Auth, Propietarios, Perros, Check-in, Paseos, Caja, Expedientes, Configuración');
