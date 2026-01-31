@@ -580,36 +580,18 @@ async def upload_foto_perro(perro_id: str, file: UploadFile = File(...), authori
     # Actualizar perro con la URL directamente usando service key
     print(f"Actualizando perro {perro_id} con foto_url: {foto_url}")
 
-    # Primero verificar que el perro existe
-    check_url = f"{SUPABASE_URL}/rest/v1/perros?id=eq.{perro_id}&select=id,nombre,foto_perro_url"
-    async with httpx.AsyncClient() as client:
-        check_response = await client.get(
-            check_url,
-            headers={
-                "apikey": SUPABASE_KEY,
-                "Authorization": f"Bearer {SUPABASE_KEY}",
-            },
-            timeout=30.0
+    # Usar supabase_request que ya funciona correctamente
+    print(f"Usando supabase_request para actualizar perro...")
+    try:
+        result = await supabase_request(
+            "PATCH",
+            f"perros?id=eq.{perro_id}",
+            {"foto_perro_url": foto_url},
+            token=SUPABASE_KEY
         )
-        print(f"Check perro existe: {check_response.status_code} - {check_response.text}")
-
-        # Ahora hacer el update
-        update_url = f"{SUPABASE_URL}/rest/v1/perros?id=eq.{perro_id}"
-        print(f"Update URL: {update_url}")
-        update_response = await client.patch(
-            update_url,
-            headers={
-                "apikey": SUPABASE_KEY,
-                "Authorization": f"Bearer {SUPABASE_KEY}",
-                "Content-Type": "application/json",
-                "Prefer": "return=representation"
-            },
-            json={"foto_perro_url": foto_url},
-            timeout=30.0
-        )
-        print(f"Update response: {update_response.status_code} - {update_response.text}")
-        if update_response.status_code >= 400:
-            print(f"Error actualizando perro: {update_response.text}")
+        print(f"Update result: {result}")
+    except Exception as e:
+        print(f"Error en update: {e}")
 
     print(f"Foto de perro subida: {foto_url}")
     return {"url": foto_url, "message": "Foto subida correctamente"}
