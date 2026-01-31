@@ -1166,6 +1166,138 @@ function descargarTicket() {
     }
 }
 
+// Ver detalle de ticket desde historial
+async function verDetalleTicket(ticketId) {
+    try {
+        showLoading();
+        const ticket = await apiGet(`/tickets/${ticketId}`);
+        hideLoading();
+
+        if (!ticket) {
+            showToast('Ticket no encontrado', 'error');
+            return;
+        }
+
+        const perro = ticket.perros || {};
+        const propietario = ticket.propietarios || {};
+
+        // Obtener los cargos asociados a este ticket
+        let cargosTicket = [];
+        try {
+            const todosCargos = await apiGet(`/cargos?perro_id=${ticket.perro_id}`);
+            cargosTicket = todosCargos.filter(c => c.ticket_id === ticketId);
+        } catch (e) {
+            console.log('No se pudieron cargar los cargos del ticket');
+        }
+
+        const modalHTML = `
+            <div class="modal-overlay active" id="modal-ticket-detalle">
+                <div class="modal">
+                    <div class="modal-header">
+                        <h3 class="modal-title">Detalle del Ticket</h3>
+                        <button class="modal-close" onclick="cerrarModalTicketDetalle()">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="ticket" id="ticket-detalle-para-descargar">
+                            <div class="ticket-header">
+                                <img src="assets/logo.png" alt="ComfortCan" class="ticket-logo">
+                                <div class="ticket-title">ComfortCan Mexico</div>
+                                <div class="ticket-subtitle">Train & Care</div>
+                            </div>
+                            <div class="ticket-body">
+                                <div class="ticket-row">
+                                    <span>Fecha:</span>
+                                    <span>${formatDate(ticket.fecha)}</span>
+                                </div>
+                                <div class="ticket-row">
+                                    <span>Cliente:</span>
+                                    <span>${propietario.nombre || 'N/A'}</span>
+                                </div>
+                                <div class="ticket-row">
+                                    <span>Mascota:</span>
+                                    <span>${perro.nombre || 'N/A'}</span>
+                                </div>
+                                <div class="ticket-divider"></div>
+                                ${cargosTicket.length > 0 ? cargosTicket.map(c => `
+                                    <div class="ticket-row">
+                                        <span>${c.concepto}<br><small style="color:#666">${formatDate(c.fecha_servicio || c.fecha_cargo)}</small></span>
+                                        <span>$${(c.monto || 0).toFixed(2)}</span>
+                                    </div>
+                                `).join('') : `
+                                    <div class="ticket-row">
+                                        <span>Servicios</span>
+                                        <span>$${(ticket.subtotal || 0).toFixed(2)}</span>
+                                    </div>
+                                `}
+                                <div class="ticket-divider"></div>
+                                <div class="ticket-row ticket-total">
+                                    <span>TOTAL:</span>
+                                    <span>$${(ticket.total || 0).toFixed(2)}</span>
+                                </div>
+                                <div class="ticket-row">
+                                    <span>Metodo de pago:</span>
+                                    <span>${ticket.metodo_pago || 'Efectivo'}</span>
+                                </div>
+                            </div>
+                            <div class="ticket-footer">
+                                Gracias por confiar en nosotros!<br>
+                                Tel: (555) 123-4567
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button onclick="cerrarModalTicketDetalle()" class="btn btn-secondary">Cerrar</button>
+                        <button onclick="imprimirTicketDetalle()" class="btn btn-primary">Imprimir</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+    } catch (error) {
+        hideLoading();
+        showToast('Error cargando ticket', 'error');
+    }
+}
+
+function cerrarModalTicketDetalle() {
+    const modal = document.getElementById('modal-ticket-detalle');
+    if (modal) modal.remove();
+}
+
+function imprimirTicketDetalle() {
+    const ticketContent = document.getElementById('ticket-detalle-para-descargar');
+    if (!ticketContent) return;
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <html>
+        <head>
+            <title>Ticket ComfortCan</title>
+            <style>
+                body { font-family: Arial, sans-serif; padding: 20px; }
+                .ticket { max-width: 300px; margin: 0 auto; }
+                .ticket-header { text-align: center; margin-bottom: 15px; }
+                .ticket-logo { max-width: 80px; }
+                .ticket-title { font-size: 18px; font-weight: bold; }
+                .ticket-subtitle { font-size: 12px; color: #666; }
+                .ticket-body { border-top: 1px dashed #ccc; border-bottom: 1px dashed #ccc; padding: 10px 0; }
+                .ticket-row { display: flex; justify-content: space-between; margin: 5px 0; font-size: 14px; }
+                .ticket-row small { font-size: 11px; }
+                .ticket-divider { border-top: 1px dashed #ccc; margin: 10px 0; }
+                .ticket-total { font-weight: bold; font-size: 16px; }
+                .ticket-footer { text-align: center; margin-top: 15px; font-size: 12px; color: #666; }
+            </style>
+        </head>
+        <body>
+            ${ticketContent.innerHTML}
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+}
+
 // ============================================
 // EXPEDIENTES
 // ============================================
@@ -1331,7 +1463,7 @@ async function cargarExpedienteDirecto(perroId) {
                 ${tickets && tickets.length > 0 ? `
                     <div class="tickets-grid">
                         ${tickets.map(t => `
-                            <div class="ticket-mini">
+                            <div class="ticket-mini" onclick="verDetalleTicket('${t.id}')" style="cursor:pointer;">
                                 <div class="ticket-mini-header">
                                     <span>Ticket</span>
                                     <span>${formatDate(t.fecha)}</span>
