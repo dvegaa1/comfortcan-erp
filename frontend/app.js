@@ -1,8 +1,34 @@
 // ============================================
-// COMFORTCAN MÉXICO - APP.JS v3 CORREGIDO
+// COMFORTCAN MÉXICO - APP.JS v5 - FOTOS FIX
 // ============================================
 
 const API_URL = 'https://comfortcan-api.onrender.com';
+
+// Debug: Función para verificar estado del storage
+window.verificarStorage = async function() {
+    console.log('🔍 Verificando estado del storage...');
+    try {
+        const response = await fetch(`${API_URL}/storage/check`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        const data = await response.json();
+        console.log('📦 Estado del storage:', data);
+        return data;
+    } catch (err) {
+        console.error('❌ Error verificando storage:', err);
+    }
+};
+
+// Debug: Función para probar subida directa a Supabase
+window.testUploadDirecto = async function() {
+    console.log('🧪 Para probar, necesitas verificar las políticas en Supabase:');
+    console.log('1. Ve a Supabase Dashboard > Storage > fotos');
+    console.log('2. Ve a Policies');
+    console.log('3. Verifica que existan estas políticas:');
+    console.log('   - SELECT (public) - Para leer fotos públicamente');
+    console.log('   - INSERT (authenticated) - Para subir fotos');
+    console.log('   - DELETE (authenticated) - Para eliminar fotos');
+};
 
 // Estado global
 let authToken = localStorage.getItem('authToken');
@@ -520,6 +546,9 @@ async function subirFoto(perroId, file, tipo) {
 
     const endpoint = tipo === 'foto-perro' ? 'foto-perro' : 'foto-cartilla';
 
+    console.log(`📤 Subiendo ${tipo} para perro ${perroId}...`);
+    console.log(`   Archivo: ${file.name} (${file.size} bytes, ${file.type})`);
+
     try {
         const response = await fetch(`${API_URL}/upload/${endpoint}/${perroId}`, {
             method: 'POST',
@@ -527,18 +556,38 @@ async function subirFoto(perroId, file, tipo) {
             body: formData
         });
 
+        console.log(`   Respuesta: ${response.status} ${response.statusText}`);
+
         if (!response.ok) {
-            const errorData = await response.json();
-            console.error('Error subiendo foto:', errorData);
-            showToast(`Error subiendo ${tipo}: ${errorData.detail || 'Error desconocido'}`, 'error');
+            let errorDetail = 'Error desconocido';
+            try {
+                const errorData = await response.json();
+                errorDetail = errorData.detail || JSON.stringify(errorData);
+                console.error('❌ Error del servidor:', errorData);
+            } catch (e) {
+                const errorText = await response.text();
+                errorDetail = errorText || `HTTP ${response.status}`;
+                console.error('❌ Error (texto):', errorText);
+            }
+
+            // Detectar errores comunes de Supabase Storage
+            if (errorDetail.includes('policy') || errorDetail.includes('Policies') || response.status === 400) {
+                showToast(`Error: Falta política INSERT en Storage. Ve a Supabase > Storage > fotos > Policies y agrega una política INSERT.`, 'error');
+                console.error('⚠️ SOLUCIÓN: Agregar política INSERT en Supabase Storage');
+                console.error('   1. Ve a Supabase Dashboard > Storage > fotos');
+                console.error('   2. Click en "Policies"');
+                console.error('   3. Agregar política INSERT para "authenticated" o "public"');
+            } else {
+                showToast(`Error subiendo ${tipo}: ${errorDetail}`, 'error');
+            }
             return null;
         }
 
         const data = await response.json();
-        console.log(`✅ Foto subida: ${data.url}`);
+        console.log(`✅ Foto subida exitosamente: ${data.url}`);
         return data.url;
     } catch (err) {
-        console.error('Error subiendo foto:', err);
+        console.error('❌ Error de conexión:', err);
         showToast(`Error de conexión al subir ${tipo}`, 'error');
         return null;
     }
