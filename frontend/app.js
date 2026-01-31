@@ -1824,7 +1824,11 @@ async function guardarEdicionPerro(e, perroId) {
         await subirFoto(perroId, fotoCartillaInput.files[0], 'foto-cartilla');
     }
 
+    // Obtener el perro actual para tener el propietario_id
+    const perroActual = perros.find(p => p.id === perroId);
+
     const data = {
+        propietario_id: perroActual?.propietario_id,
         nombre: document.getElementById('edit-nombre').value,
         raza: document.getElementById('edit-raza').value || null,
         edad: document.getElementById('edit-edad').value || null,
