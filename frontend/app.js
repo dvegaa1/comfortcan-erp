@@ -847,17 +847,17 @@ function renderTablaPaseosHistorial(paseos) {
                 <td>$${(p.precio || 0).toFixed(2)}</td>
                 <td>
                     <span class="badge ${p.pagado ? 'badge-success' : 'badge-warning'}">
-                        ${p.pagado ? '🟢 Pagado' : '🟡 Pendiente'}
+                        ${p.pagado ? 'Pagado' : 'Pendiente'}
                     </span>
                 </td>
                 <td>
                     ${!p.pagado ? `
                         <div class="btn-group">
                             <button onclick="enviarPaseoACaja('${p.id}', '${p.perro_id}', '${p.fecha}', '${p.tipo_paseo}', ${p.precio})" class="btn btn-info btn-sm" title="Enviar a Caja para cobrar en ticket">
-                                💰 Caja
+                                Caja
                             </button>
                             <button onclick="marcarPaseoPagado('${p.id}')" class="btn btn-success btn-sm" title="Marcar como pagado directamente (sin ticket)">
-                                ✓ Pagado
+                                Pagado
                             </button>
                         </div>
                     ` : '<span class="text-muted">Ya pagado</span>'}
@@ -1246,7 +1246,7 @@ async function cargarExpedienteDirecto(perroId) {
                 <div class="fotos-expediente mb-3">
                     <div class="flex gap-3" style="flex-wrap: wrap;">
                         <div class="foto-box">
-                            <p class="text-muted mb-1"><strong>📷 Foto del Perro:</strong></p>
+                            <p class="text-muted mb-1"><strong>Foto del Perro</strong></p>
                             ${perro.foto_perro_url ?
                                 `<img src="${perro.foto_perro_url}" alt="${perro.nombre}" class="foto-expediente-img" onclick="window.open('${perro.foto_perro_url}', '_blank')" onerror="this.onerror=null; this.src=''; this.style.display='none'; this.nextElementSibling.style.display='flex';">
                                  <div class="sin-foto-grande" style="display:none;">${perro.nombre.charAt(0).toUpperCase()}</div>` :
@@ -1254,7 +1254,7 @@ async function cargarExpedienteDirecto(perroId) {
                             }
                         </div>
                         <div class="foto-box">
-                            <p class="text-muted mb-1"><strong>📋 Cartilla de Vacunación:</strong></p>
+                            <p class="text-muted mb-1"><strong>Cartilla de Vacunacion</strong></p>
                             ${perro.foto_cartilla_url ?
                                 `<img src="${perro.foto_cartilla_url}" alt="Cartilla" class="foto-expediente-img" onclick="window.open('${perro.foto_cartilla_url}', '_blank')" onerror="this.onerror=null; this.src=''; this.style.display='none'; this.nextElementSibling.style.display='flex';">
                                  <div class="sin-foto-grande" style="font-size: 1rem;">Sin cartilla</div>` :
@@ -1333,7 +1333,7 @@ async function cargarExpedienteDirecto(perroId) {
                         ${tickets.map(t => `
                             <div class="ticket-mini">
                                 <div class="ticket-mini-header">
-                                    <span>🧾</span>
+                                    <span>Ticket</span>
                                     <span>${formatDate(t.fecha)}</span>
                                 </div>
                                 <div class="ticket-mini-body">
@@ -1346,8 +1346,8 @@ async function cargarExpedienteDirecto(perroId) {
                 ` : '<p class="text-muted">Sin historial de tickets</p>'}
 
                 <div class="flex gap-2 mt-3">
-                    <button onclick="editarExpedienteCompleto('${perroId}')" class="btn btn-secondary">✏️ Editar Expediente</button>
-                    <button onclick="subirFotosExpediente('${perroId}')" class="btn btn-primary">📷 Subir Fotos</button>
+                    <button onclick="editarExpedienteCompleto('${perroId}')" class="btn btn-secondary">Editar Expediente</button>
+                    <button onclick="subirFotosExpediente('${perroId}')" class="btn btn-primary">Subir Fotos</button>
                 </div>
             </div>
         `;
@@ -1369,7 +1369,7 @@ function subirFotosExpediente(perroId) {
         <div class="modal-overlay active" id="modal-fotos">
             <div class="modal">
                 <div class="modal-header">
-                    <h3 class="modal-title">📷 Subir Fotos - ${perro?.nombre || 'Perro'}</h3>
+                    <h3 class="modal-title">Subir Fotos - ${perro?.nombre || 'Perro'}</h3>
                     <button class="modal-close" onclick="cerrarModalFotos()">&times;</button>
                 </div>
                 <div class="modal-body">
@@ -1386,7 +1386,7 @@ function subirFotosExpediente(perroId) {
                 </div>
                 <div class="modal-footer">
                     <button onclick="cerrarModalFotos()" class="btn btn-secondary">Cancelar</button>
-                    <button onclick="ejecutarSubidaFotos('${perroId}')" class="btn btn-primary">📤 Subir Fotos</button>
+                    <button onclick="ejecutarSubidaFotos('${perroId}')" class="btn btn-primary">Subir Fotos</button>
                 </div>
             </div>
         </div>
