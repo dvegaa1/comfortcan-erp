@@ -574,13 +574,13 @@ async def upload_foto_perro(perro_id: str, file: UploadFile = File(...), authori
                 detail=f"Error subiendo foto: {error_detail}. Verifica que el bucket 'fotos' exista y tenga políticas correctas."
             )
 
-    # URL pública
+    # URL publica
     foto_url = f"{SUPABASE_URL}/storage/v1/object/public/fotos/{filename}"
 
-    # Actualizar perro con la URL
-    await supabase_request("PATCH", f"perros?id=eq.{perro_id}", {"foto_perro_url": foto_url}, token=token)
+    # Actualizar perro con la URL (usar service key para evitar problemas de permisos)
+    await supabase_request("PATCH", f"perros?id=eq.{perro_id}", {"foto_perro_url": foto_url}, token=SUPABASE_KEY)
 
-    print(f"✅ Foto de perro subida: {foto_url}")
+    print(f"Foto de perro subida: {foto_url}")
     return {"url": foto_url, "message": "Foto subida correctamente"}
 
 @app.post("/upload/foto-cartilla/{perro_id}")
@@ -616,9 +616,9 @@ async def upload_foto_cartilla(perro_id: str, file: UploadFile = File(...), auth
             )
 
     foto_url = f"{SUPABASE_URL}/storage/v1/object/public/fotos/{filename}"
-    await supabase_request("PATCH", f"perros?id=eq.{perro_id}", {"foto_cartilla_url": foto_url}, token=token)
+    await supabase_request("PATCH", f"perros?id=eq.{perro_id}", {"foto_cartilla_url": foto_url}, token=SUPABASE_KEY)
 
-    print(f"✅ Cartilla subida: {foto_url}")
+    print(f"Cartilla subida: {foto_url}")
     return {"url": foto_url, "message": "Cartilla subida correctamente"}
 
 # ============================================
