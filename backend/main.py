@@ -580,14 +580,14 @@ async def upload_foto_perro(perro_id: str, file: UploadFile = File(...), authori
     # Actualizar perro con la URL directamente usando service key
     print(f"Actualizando perro {perro_id} con foto_url: {foto_url}")
 
-    # Usar supabase_request que ya funciona correctamente
-    print(f"Usando supabase_request para actualizar perro...")
+    # Usar supabase_request con el token del usuario (no service key)
+    print(f"Usando token del usuario para actualizar perro...")
     try:
         result = await supabase_request(
             "PATCH",
             f"perros?id=eq.{perro_id}",
             {"foto_perro_url": foto_url},
-            token=SUPABASE_KEY
+            token=token  # Usar token del usuario, no SUPABASE_KEY
         )
         print(f"Update result: {result}")
     except Exception as e:
