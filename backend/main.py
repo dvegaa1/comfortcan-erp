@@ -579,7 +579,7 @@ async def upload_foto_perro(perro_id: str, file: UploadFile = File(...), authori
 
     # Actualizar perro con la URL directamente usando service key
     print(f"Actualizando perro {perro_id} con foto_url: {foto_url}")
-    update_url = f"{SUPABASE_URL}/rest/v1/perros?id=eq.{perro_id}"
+    update_url = f"{SUPABASE_URL}/rest/v1/perros"
     async with httpx.AsyncClient() as client:
         update_response = await client.patch(
             update_url,
@@ -589,6 +589,7 @@ async def upload_foto_perro(perro_id: str, file: UploadFile = File(...), authori
                 "Content-Type": "application/json",
                 "Prefer": "return=representation"
             },
+            params={"id": f"eq.{perro_id}"},
             json={"foto_perro_url": foto_url},
             timeout=30.0
         )
