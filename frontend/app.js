@@ -989,48 +989,34 @@ function generarTicket() {
     let subtotal = cargosActuales.reduce((sum, c) => sum + (c.monto || 0), 0);
 
     const ticketHTML = `
-        <div class="ticket" id="ticket-para-descargar">
-            <div class="ticket-header text-center">
-                <h2>ComfortCan México</h2>
-                <p>Train & Care</p>
-                <hr>
+        <div class="ticket-compact" id="ticket-para-descargar">
+            <div class="ticket-header-compact">
+                <strong>ComfortCan</strong>
+                <span>${formatDate(new Date())}</span>
             </div>
-            <div class="ticket-info">
-                <p><strong>Fecha:</strong> ${formatDate(new Date())}</p>
-                <p><strong>Cliente:</strong> ${propietario?.nombre || 'N/A'}</p>
-                <p><strong>Mascota:</strong> ${perro?.nombre || 'N/A'}</p>
+            <div class="ticket-cliente">
+                ${propietario?.nombre || 'Cliente'} - ${perro?.nombre || 'Mascota'}
             </div>
-            <hr>
-            <table class="ticket-items" style="width: 100%;">
-                <thead>
-                    <tr>
-                        <th>Concepto</th>
-                        <th>Fecha</th>
-                        <th style="text-align: right;">Monto</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${cargosActuales.map(c => `
-                        <tr>
-                            <td>${c.concepto}</td>
-                            <td>${formatDate(c.fecha_servicio || c.fecha_cargo)}</td>
-                            <td style="text-align: right;">$${(c.monto || 0).toFixed(2)}</td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-            <hr>
-            <div class="ticket-total">
-                <p><strong>TOTAL: $${subtotal.toFixed(2)}</strong></p>
+            <div class="ticket-items-compact">
+                ${cargosActuales.map(c => `
+                    <div class="ticket-item-row">
+                        <span>${c.concepto}</span>
+                        <span>$${(c.monto || 0).toFixed(2)}</span>
+                    </div>
+                `).join('')}
             </div>
-            <div class="ticket-footer text-center mt-2">
-                <p>¡Gracias por su preferencia!</p>
+            <div class="ticket-total-compact">
+                TOTAL: $${subtotal.toFixed(2)}
             </div>
         </div>
     `;
 
     document.getElementById('ticket-content').innerHTML = ticketHTML;
     document.getElementById('ticket-container').style.display = 'block';
+}
+
+function cerrarTicket() {
+    document.getElementById('ticket-container').style.display = 'none';
 }
 
 async function confirmarPago() {

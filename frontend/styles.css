@@ -410,20 +410,25 @@ body {
     to { transform: translateX(0); opacity: 1; }
 }
 
-/* Loading */
+/* Loading - Dark overlay */
 .loading-overlay {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(18, 18, 18, 0.9);
+    background: rgba(18, 18, 18, 0.95);
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 1rem;
     z-index: 3000;
+}
+
+.loading-overlay span {
+    color: var(--color-text-primary);
+    font-size: 0.95rem;
 }
 
 .spinner {
@@ -763,4 +768,69 @@ body {
 .flex.gap-3 {
     display: flex;
     gap: 1.5rem;
+}
+
+/* ========== TICKET COMPACTO ========== */
+.ticket-compact {
+    background: white;
+    color: #000;
+    font-family: 'Courier New', monospace;
+    width: 280px;
+    padding: 15px;
+    margin: 0.5rem auto;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.ticket-header-compact {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px dashed #000;
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+}
+
+.ticket-header-compact strong {
+    font-size: 14px;
+}
+
+.ticket-header-compact span {
+    font-size: 10px;
+    color: #666;
+}
+
+.ticket-cliente {
+    font-size: 11px;
+    color: #333;
+    margin-bottom: 10px;
+    text-align: center;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #ddd;
+}
+
+.ticket-items-compact {
+    margin-bottom: 10px;
+}
+
+.ticket-item-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 0;
+    font-size: 11px;
+}
+
+.ticket-item-row span:first-child {
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ticket-total-compact {
+    border-top: 2px solid #000;
+    padding-top: 8px;
+    font-size: 14px;
+    font-weight: bold;
+    text-align: right;
 }
