@@ -737,7 +737,7 @@ async function cargarPaseos() {
         if (!tbody) return;
 
         if (!paseos || paseos.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Sin paseos</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Sin paseos</td></tr>';
             return;
         }
 
@@ -757,6 +757,12 @@ async function cargarPaseos() {
                             ${p.pagado ? 'Pagado' : 'Pendiente'}
                         </span>
                     </td>
+                    <td>
+                        ${!p.pagado ? `
+                            <button onclick="enviarPaseoACaja('${p.id}', '${p.perro_id}', '${p.fecha}', '${p.tipo_paseo}', ${p.precio})" class="btn btn-info btn-sm" title="Enviar a Caja">💰</button>
+                            <button onclick="marcarPaseoPagado('${p.id}')" class="btn btn-success btn-sm" title="Marcar Pagado">✓</button>
+                        ` : '<span class="text-muted">-</span>'}
+                    </td>
                 </tr>
             `;
         }).join('');
@@ -766,6 +772,48 @@ async function cargarPaseos() {
 
     } catch (error) {
         console.error('Error cargando paseos:', error);
+    }
+}
+
+// Marcar paseo como pagado directamente
+async function marcarPaseoPagado(paseoId) {
+    if (!confirm('¿Marcar este paseo como pagado?')) return;
+
+    try {
+        showLoading();
+        await apiPut(`/paseos/${paseoId}/pagar`, {});
+        await cargarPaseos();
+        hideLoading();
+        showToast('Paseo marcado como pagado', 'success');
+    } catch (error) {
+        hideLoading();
+        showToast('Error: ' + error.message, 'error');
+    }
+}
+
+// Enviar paseo a caja (crear cargo)
+async function enviarPaseoACaja(paseoId, perroId, fecha, tipoPaseo, precio) {
+    try {
+        showLoading();
+
+        // Crear cargo en caja
+        await apiPost('/cargos', {
+            perro_id: perroId,
+            fecha_cargo: new Date().toISOString().split('T')[0],
+            fecha_servicio: fecha,
+            concepto: `Paseo: ${tipoPaseo}`,
+            monto: precio
+        });
+
+        // Marcar paseo como pagado (ya que se envió a caja)
+        await apiPut(`/paseos/${paseoId}/pagar`, {});
+
+        await cargarPaseos();
+        hideLoading();
+        showToast('Paseo enviado a caja correctamente', 'success');
+    } catch (error) {
+        hideLoading();
+        showToast('Error: ' + error.message, 'error');
     }
 }
 
@@ -789,7 +837,7 @@ async function filtrarPaseos() {
         if (!tbody) return;
 
         if (!paseos || paseos.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Sin paseos con esos filtros</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Sin paseos con esos filtros</td></tr>';
             document.getElementById('paseos-pendiente-total').textContent = '$0.00';
             return;
         }
@@ -809,6 +857,12 @@ async function filtrarPaseos() {
                         <span class="badge ${p.pagado ? 'badge-success' : 'badge-warning'}">
                             ${p.pagado ? 'Pagado' : 'Pendiente'}
                         </span>
+                    </td>
+                    <td>
+                        ${!p.pagado ? `
+                            <button onclick="enviarPaseoACaja('${p.id}', '${p.perro_id}', '${p.fecha}', '${p.tipo_paseo}', ${p.precio})" class="btn btn-info btn-sm" title="Enviar a Caja">💰</button>
+                            <button onclick="marcarPaseoPagado('${p.id}')" class="btn btn-success btn-sm" title="Marcar Pagado">✓</button>
+                        ` : '<span class="text-muted">-</span>'}
                     </td>
                 </tr>
             `;
