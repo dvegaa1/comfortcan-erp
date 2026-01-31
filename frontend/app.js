@@ -1590,9 +1590,12 @@ async function ejecutarSubidaFotos(perroId) {
 }
 
 async function editarExpedienteCompleto(perroId) {
-    // Navegar a gestión y cargar el perro
+    // Navegar a gestion y cargar el perro
     navigateToSection('gestion');
-    document.getElementById('gestion-perro-select').value = perroId;
+    const selectPerro = document.getElementById('gestion-perro-select');
+    if (selectPerro) {
+        selectPerro.value = perroId;
+    }
 
     try {
         showLoading();
