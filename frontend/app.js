@@ -1543,21 +1543,28 @@ async function ejecutarSubidaFotos(perroId) {
 
     showLoading();
     let subidas = 0;
+    let errores = [];
 
     try {
         if (fotoPerroInput?.files[0]) {
+            console.log('Intentando subir foto del perro...');
             const url = await subirFoto(perroId, fotoPerroInput.files[0], 'foto-perro');
             if (url) {
-                console.log(' Foto de perro subida:', url);
+                console.log('Foto de perro subida:', url);
                 subidas++;
+            } else {
+                errores.push('foto del perro');
             }
         }
 
         if (fotoCartillaInput?.files[0]) {
+            console.log('Intentando subir cartilla...');
             const url = await subirFoto(perroId, fotoCartillaInput.files[0], 'foto-cartilla');
             if (url) {
-                console.log(' Foto de cartilla subida:', url);
+                console.log('Foto de cartilla subida:', url);
                 subidas++;
+            } else {
+                errores.push('cartilla');
             }
         }
 
@@ -1572,11 +1579,12 @@ async function ejecutarSubidaFotos(perroId) {
             showToast(`${subidas} foto(s) subida(s) correctamente`, 'success');
             // Recargar expediente
             await cargarExpedienteDirecto(perroId);
-        } else {
-            showToast('No se pudo subir ninguna foto. Verifica la configuración de Supabase Storage.', 'error');
+        } else if (errores.length > 0) {
+            showToast(`Error subiendo: ${errores.join(', ')}. Revisa la consola (F12) para mas detalles.`, 'error');
         }
     } catch (error) {
         hideLoading();
+        console.error('Error en ejecutarSubidaFotos:', error);
         showToast('Error: ' + error.message, 'error');
     }
 }
