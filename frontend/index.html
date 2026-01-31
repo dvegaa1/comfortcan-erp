@@ -54,28 +54,22 @@
             
             <nav class="sidebar-nav">
                 <a class="nav-item active" data-section="recepcion">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
-                    Recepción (Altas)
+                    <span>📋</span> Recepción (Altas)
                 </a>
                 <a class="nav-item" data-section="paseos">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                    Paseos y Agenda
+                    <span>🦮</span> Paseos y Agenda
                 </a>
                 <a class="nav-item" data-section="caja">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-                    Caja y Ticket
+                    <span>💰</span> Caja y Ticket
                 </a>
                 <a class="nav-item" data-section="expedientes">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                    Expedientes
+                    <span>📁</span> Expedientes
                 </a>
                 <a class="nav-item" data-section="gestion">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                    Gestión de Datos
+                    <span>✏️</span> Gestión de Datos
                 </a>
                 <a class="nav-item" data-section="configuracion">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-                    Configuración
+                    <span>⚙️</span> Configuración
                 </a>
             </nav>
             
@@ -87,7 +81,7 @@
         <!-- Main Content -->
         <main class="main-content">
             
-            <!-- SECCIÓN: RECEPCIÓN -->
+            <!-- ========== SECCIÓN: RECEPCIÓN ========== -->
             <section id="section-recepcion" class="section active">
                 <div class="page-header">
                     <h1 class="page-title">Recepción y Check-In</h1>
@@ -110,7 +104,7 @@
                                     <input type="text" id="prop-nombre" class="form-input" required>
                                 </div>
                                 <div class="form-group">
-                                    <label class="form-label">Teléfono (ID)</label>
+                                    <label class="form-label">Teléfono</label>
                                     <input type="tel" id="prop-telefono" class="form-input">
                                 </div>
                             </div>
@@ -132,7 +126,7 @@
                     <div class="card">
                         <form id="form-perro">
                             <div class="form-group">
-                                <label class="form-label">A quién pertenece? *</label>
+                                <label class="form-label">¿A quién pertenece? *</label>
                                 <select id="perro-propietario" class="form-select" required>
                                     <option value="">-- Seleccionar dueño --</option>
                                 </select>
@@ -211,44 +205,44 @@
                                 <input type="text" id="perro-veterinario" class="form-input">
                             </div>
                             
-                                <h3 class="mb-2 mt-3">Desparasitación</h3>
-                                <div class="form-group">
-                                    <label class="form-label">Tipo</label>
-                                    <select id="perro-desparasitacion-tipo" class="form-select">
-                                        <option value="">Ninguna</option>
-                                        <option value="Interna">Interna</option>
-                                        <option value="Externa">Externa</option>
-                                        <option value="Dual">Dual (Interna + Externa)</option>
-                                    </select>
-                                </div>
-
-                                <!-- Campos Interna -->
-                                <div id="desparasitacion-interna" class="hidden">
-                                    <div class="form-row">
-                                        <div class="form-group">
-                                            <label class="form-label">Producto (Interna)</label>
-                                            <input type="text" id="perro-despara-producto-int" class="form-input" placeholder="Ej. Drontal">
-                                        </div>
-                                        <div class="form-group">
-                                            <label class="form-label">Fecha Aplicación</label>
-                                            <input type="date" id="perro-despara-fecha-int" class="form-input">
-                                        </div>
+                            <h3 class="mb-2 mt-3">Desparasitación</h3>
+                            <div class="form-group">
+                                <label class="form-label">Tipo</label>
+                                <select id="perro-desparasitacion-tipo" class="form-select">
+                                    <option value="">Ninguna</option>
+                                    <option value="Interna">Interna</option>
+                                    <option value="Externa">Externa</option>
+                                    <option value="Dual">Dual (Interna + Externa)</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Campos Interna -->
+                            <div id="desparasitacion-interna" class="hidden">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Producto (Interna)</label>
+                                        <input type="text" id="perro-despara-producto-int" class="form-input" placeholder="Ej. Drontal">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Fecha Aplicación</label>
+                                        <input type="date" id="perro-despara-fecha-int" class="form-input">
                                     </div>
                                 </div>
-
-                                <!-- Campos Externa -->
-                                <div id="desparasitacion-externa" class="hidden">
-                                    <div class="form-row">
-                                        <div class="form-group">
-                                            <label class="form-label">Producto (Externa)</label>
-                                            <input type="text" id="perro-despara-producto-ext" class="form-input" placeholder="Ej. Frontline, Nexgard">
-                                        </div>
-                                        <div class="form-group">
-                                            <label class="form-label">Fecha Aplicación</label>
-                                            <input type="date" id="perro-despara-fecha-ext" class="form-input">
-                                        </div>
+                            </div>
+                            
+                            <!-- Campos Externa -->
+                            <div id="desparasitacion-externa" class="hidden">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Producto (Externa)</label>
+                                        <input type="text" id="perro-despara-producto-ext" class="form-input" placeholder="Ej. Frontline, Nexgard">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Fecha Aplicación</label>
+                                        <input type="date" id="perro-despara-fecha-ext" class="form-input">
                                     </div>
                                 </div>
+                            </div>
                             
                             <h3 class="mb-2 mt-3">Vacunas</h3>
                             <div class="vacunas-grid">
@@ -330,45 +324,61 @@
                 <!-- Tab: Check-In -->
                 <div id="tab-check-in" class="tab-content">
                     <div class="card">
-                        <h3 class="mb-2">Calculadora de Servicios</h3>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label class="form-label">Huésped *</label>
-                                <select id="checkin-perro" class="form-select" required>
-                                    <option value="">-- Seleccionar perro --</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Habitación</label>
-                                <select id="checkin-habitacion" class="form-select">
-                                    <option value="Suite 1">Suite 1</option>
-                                    <option value="Suite 2">Suite 2</option>
-                                    <option value="Suite 3">Suite 3</option>
-                                    <option value="Área Común">Área Común</option>
-                                </select>
-                            </div>
+                        <h3 class="mb-2">Registro de Estancia</h3>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Huésped *</label>
+                            <select id="checkin-perro" class="form-select" required>
+                                <option value="">-- Seleccionar perro --</option>
+                            </select>
                         </div>
+                        
                         <div class="form-row">
                             <div class="form-group">
-                                <label class="form-label">Entrada</label>
+                                <label class="form-label">Fecha Entrada *</label>
                                 <input type="date" id="checkin-entrada" class="form-input">
                             </div>
                             <div class="form-group">
-                                <label class="form-label">Salida</label>
+                                <label class="form-label">Fecha Salida *</label>
                                 <input type="date" id="checkin-salida" class="form-input">
                             </div>
                         </div>
                         
                         <div class="form-group">
-                            <label class="form-label">Servicios Adicionales</label>
-                            <div id="servicios-checkin-list" class="flex gap-1" style="flex-wrap: wrap;">
-                                <!-- Se llena dinámicamente -->
+                            <label class="form-label">Habitación</label>
+                            <select id="checkin-habitacion" class="form-select">
+                                <option value="Suite 1">Suite 1</option>
+                                <option value="Suite 2">Suite 2</option>
+                                <option value="Suite 3">Suite 3</option>
+                                <option value="Área Común">Área Común</option>
+                            </select>
+                        </div>
+                        
+                        <h4 class="mb-2 mt-3">Servicios</h4>
+                        <div class="form-group">
+                            <label class="form-label">Agregar Servicio</label>
+                            <div class="flex gap-1">
+                                <select id="checkin-servicio" class="form-select" style="flex:1;">
+                                    <option value="">-- Seleccionar servicio --</option>
+                                </select>
+                                <button type="button" id="btn-agregar-servicio" class="btn btn-primary">+ Agregar</button>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Servicios Seleccionados:</label>
+                            <div id="servicios-seleccionados" class="servicios-tags">
+                                <p class="text-muted">No hay servicios seleccionados</p>
                             </div>
                         </div>
                         
                         <div class="card mt-2" style="background: var(--color-bg-input);">
                             <div class="flex-between">
-                                <span>Total Estimado:</span>
+                                <span>Días de estancia:</span>
+                                <span id="checkin-dias">0 día(s)</span>
+                            </div>
+                            <div class="flex-between mt-1">
+                                <span><strong>Total Estimado:</strong></span>
                                 <span id="checkin-total" class="stat-value text-success">$0.00</span>
                             </div>
                         </div>
@@ -378,12 +388,12 @@
                             <input type="color" id="checkin-color" value="#45BF4D" class="form-input" style="width: 60px; height: 40px; padding: 0;">
                         </div>
                         
-                        <button type="button" id="btn-confirmar-estancia" class="btn btn-success btn-lg mt-2">Confirmar Estancia</button>
+                        <button type="button" id="btn-confirmar-estancia" class="btn btn-success btn-lg mt-2">✓ Confirmar Estancia</button>
                     </div>
                 </div>
             </section>
             
-            <!-- SECCIÓN: PASEOS -->
+            <!-- ========== SECCIÓN: PASEOS ========== -->
             <section id="section-paseos" class="section">
                 <div class="page-header">
                     <h1 class="page-title">Gestión de Paseos</h1>
@@ -392,10 +402,10 @@
                 <div class="form-row">
                     <!-- Registrar Paseo -->
                     <div class="card">
-                        <h3 class="mb-2">Registrar Salida</h3>
+                        <h3 class="mb-2">Registrar Paseo</h3>
                         <form id="form-paseo">
                             <div class="form-group">
-                                <label class="form-label">Perro</label>
+                                <label class="form-label">Perro *</label>
                                 <select id="paseo-perro" class="form-select" required>
                                     <option value="">-- Seleccionar --</option>
                                 </select>
@@ -405,7 +415,7 @@
                                 <input type="date" id="paseo-fecha" class="form-input">
                             </div>
                             <div class="form-group">
-                                <label class="form-label">Tipo de Paseo</label>
+                                <label class="form-label">Tipo de Paseo *</label>
                                 <select id="paseo-tipo" class="form-select" required>
                                     <option value="">-- Seleccionar --</option>
                                 </select>
@@ -413,11 +423,11 @@
                             <div class="alert alert-info" id="paseo-precio-info">Precio del paseo: $0.00</div>
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label class="form-label">Salida</label>
+                                    <label class="form-label">Hora Salida</label>
                                     <input type="time" id="paseo-salida" class="form-input">
                                 </div>
                                 <div class="form-group">
-                                    <label class="form-label">Regreso</label>
+                                    <label class="form-label">Hora Regreso</label>
                                     <input type="time" id="paseo-regreso" class="form-input">
                                 </div>
                             </div>
@@ -425,12 +435,12 @@
                         </form>
                     </div>
                     
-                    <!-- Reporte -->
+                    <!-- Historial -->
                     <div class="card">
-                        <h3 class="mb-2">Reporte de Salidas</h3>
+                        <h3 class="mb-2">Historial de Paseos</h3>
                         <div class="form-row">
                             <div class="form-group">
-                                <label class="form-label">Filtrar Perro</label>
+                                <label class="form-label">Filtrar por Perro</label>
                                 <select id="filtro-paseo-perro" class="form-select">
                                     <option value="">Todos</option>
                                 </select>
@@ -451,8 +461,8 @@
                                         <th>Fecha</th>
                                         <th>Perro</th>
                                         <th>Tipo</th>
-                                        <th>Costo</th>
-                                        <th>Pagado</th>
+                                        <th>Precio</th>
+                                        <th>Estado</th>
                                     </tr>
                                 </thead>
                                 <tbody id="tabla-paseos">
@@ -462,16 +472,15 @@
                         </div>
                         <div class="flex-between mt-2">
                             <div>
-                                <strong>Pendiente por Cobrar:</strong>
+                                <strong>Pendiente:</strong>
                                 <span id="paseos-pendiente-total" class="text-warning">$0.00</span>
                             </div>
-                            <button type="button" id="btn-enviar-caja" class="btn btn-success">Enviar a Caja</button>
                         </div>
                     </div>
                 </div>
             </section>
             
-            <!-- SECCIÓN: CAJA -->
+            <!-- ========== SECCIÓN: CAJA ========== -->
             <section id="section-caja" class="section">
                 <div class="page-header">
                     <h1 class="page-title">Caja y Liquidación</h1>
@@ -480,7 +489,7 @@
                 <div class="form-row">
                     <div class="card">
                         <div class="form-group">
-                            <label class="form-label">Seleccionar Cliente:</label>
+                            <label class="form-label">Seleccionar Cliente (Perro):</label>
                             <select id="caja-perro" class="form-select">
                                 <option value="">-- Seleccionar perro --</option>
                             </select>
@@ -491,7 +500,7 @@
                             <div class="card mt-2" style="background: var(--color-bg-input);">
                                 <div class="form-row">
                                     <div class="form-group">
-                                        <label class="form-label">Fecha Real del Servicio</label>
+                                        <label class="form-label">Fecha del Servicio</label>
                                         <input type="date" id="cargo-fecha" class="form-input">
                                     </div>
                                     <div class="form-group">
@@ -503,12 +512,11 @@
                                         <input type="number" step="0.01" id="cargo-monto" class="form-input">
                                     </div>
                                 </div>
-                                <button type="button" id="btn-agregar-cargo" class="btn btn-secondary">Agregar</button>
+                                <button type="button" id="btn-agregar-cargo" class="btn btn-secondary">Agregar Cargo</button>
                             </div>
                         </details>
                         
-                        <h3 class="mt-3 mb-2">Revisar y Editar Cargos</h3>
-                        <p class="text-muted mb-2">Marca la casilla 'Borrar' para eliminar un concepto erróneo antes de imprimir.</p>
+                        <h3 class="mt-3 mb-2">Cargos Pendientes</h3>
                         <div class="table-container">
                             <table class="table">
                                 <thead>
@@ -517,7 +525,7 @@
                                         <th>Perro</th>
                                         <th>Concepto</th>
                                         <th>Monto</th>
-                                        <th>Borrar?</th>
+                                        <th>Eliminar</th>
                                     </tr>
                                 </thead>
                                 <tbody id="tabla-cargos">
@@ -531,9 +539,7 @@
                                 <strong>Total a Cobrar:</strong>
                                 <span id="caja-total" class="stat-value text-success">$0.00</span>
                             </div>
-                            <div class="btn-group">
-                                <button type="button" id="btn-generar-ticket" class="btn btn-primary">Generar Ticket</button>
-                            </div>
+                            <button type="button" id="btn-generar-ticket" class="btn btn-primary">Generar Ticket</button>
                         </div>
                     </div>
                     
@@ -554,84 +560,96 @@
                 </div>
             </section>
             
-            <!-- SECCIÓN: EXPEDIENTES -->
+            <!-- ========== SECCIÓN: EXPEDIENTES ========== -->
             <section id="section-expedientes" class="section">
                 <div class="page-header">
-                    <h1 class="page-title">Expediente Digital</h1>
+                    <h1 class="page-title">Expedientes Digitales</h1>
                 </div>
                 
                 <div class="card">
-                    <div class="form-group">
-                        <label class="form-label">Buscar Paciente:</label>
-                        <select id="expediente-perro" class="form-select">
-                            <option value="">-- Seleccionar perro --</option>
-                        </select>
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 2;">
+                            <label class="form-label">🔍 Buscar Perro:</label>
+                            <input type="text" id="filtro-expediente" class="form-input" placeholder="Buscar por nombre, raza o dueño...">
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">O seleccionar:</label>
+                            <select id="expediente-perro" class="form-select">
+                                <option value="">-- Seleccionar perro --</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
                 
+                <!-- Lista de expedientes con tarjetas -->
+                <div id="lista-expedientes" class="mt-2">
+                    <!-- Se llena dinámicamente -->
+                </div>
+                
+                <!-- Contenido del expediente seleccionado -->
                 <div id="expediente-contenido" class="hidden">
                     <!-- Se llena dinámicamente -->
                 </div>
             </section>
             
-            <!-- SECCIÓN: GESTIÓN DE DATOS -->
+            <!-- ========== SECCIÓN: GESTIÓN DE DATOS ========== -->
             <section id="section-gestion" class="section">
                 <div class="page-header">
-                    <h1 class="page-title">Admin: Editar o Eliminar Registros</h1>
+                    <h1 class="page-title">Gestión de Datos</h1>
                 </div>
                 
-                <div class="alert alert-warning">⚠️ Atención: Los cambios aquí son permanentes.</div>
+                <div class="alert alert-warning">⚠️ Los cambios aquí son permanentes. Ten cuidado al eliminar registros.</div>
                 
                 <div class="card">
                     <div class="form-group">
-                        <label class="form-label">Qué deseas gestionar?</label>
+                        <label class="form-label">¿Qué deseas gestionar?</label>
                         <div class="flex gap-2">
                             <label class="form-checkbox">
-                                <input type="radio" name="gestion-tipo" value="perros" checked> Perros (Expediente Completo)
+                                <input type="radio" name="gestion-tipo" value="perros" checked> Perros
                             </label>
                             <label class="form-checkbox">
-                                <input type="radio" name="gestion-tipo" value="clientes"> Clientes (Datos Completos)
+                                <input type="radio" name="gestion-tipo" value="clientes"> Clientes
                             </label>
                         </div>
                     </div>
                     
+                    <!-- Gestión Perros -->
                     <div id="gestion-perros">
                         <div class="form-group">
-                            <label class="form-label">Selecciona el Perro a editar:</label>
+                            <label class="form-label">Seleccionar Perro:</label>
                             <select id="gestion-perro-select" class="form-select">
                                 <option value="">-- Seleccionar --</option>
                             </select>
                         </div>
-                        <div id="gestion-perro-form" class="hidden">
-                            <!-- Formulario de edición de perro -->
-                        </div>
+                        <p class="text-muted">Al seleccionar un perro se abrirá el formulario de edición completo.</p>
                     </div>
                     
+                    <!-- Gestión Clientes -->
                     <div id="gestion-clientes" class="hidden">
                         <div class="form-group">
-                            <label class="form-label">Selecciona el Cliente a editar:</label>
+                            <label class="form-label">Seleccionar Cliente:</label>
                             <select id="gestion-cliente-select" class="form-select">
                                 <option value="">-- Seleccionar --</option>
                             </select>
                         </div>
                         <div id="gestion-cliente-form" class="hidden">
-                            <!-- Formulario de edición de cliente -->
+                            <!-- Se llena dinámicamente -->
                         </div>
                     </div>
                 </div>
             </section>
             
-            <!-- SECCIÓN: CONFIGURACIÓN -->
+            <!-- ========== SECCIÓN: CONFIGURACIÓN ========== -->
             <section id="section-configuracion" class="section">
                 <div class="page-header">
-                    <h1 class="page-title">Configuración del Sistema</h1>
+                    <h1 class="page-title">Configuración</h1>
                 </div>
                 
                 <div class="form-row">
-                    <!-- Servicios Generales -->
+                    <!-- Servicios -->
                     <div class="card">
-                        <h3 class="mb-1">1. Servicios Generales</h3>
-                        <p class="text-muted mb-2">Hospedaje, Baño, Escuela, etc.</p>
+                        <h3 class="mb-1">Catálogo de Servicios</h3>
+                        <p class="text-muted mb-2">Hospedaje, Baño, Guardería, etc.</p>
                         
                         <details>
                             <summary style="cursor: pointer; color: var(--color-primary);">+ Nuevo Servicio</summary>
@@ -639,14 +657,21 @@
                                 <div class="form-row">
                                     <div class="form-group">
                                         <label class="form-label">Nombre</label>
-                                        <input type="text" id="nuevo-servicio-nombre" class="form-input">
+                                        <input type="text" id="nuevo-servicio-nombre" class="form-input" placeholder="Ej: Hospedaje">
                                     </div>
                                     <div class="form-group">
-                                        <label class="form-label">Precio</label>
+                                        <label class="form-label">Precio ($)</label>
                                         <input type="number" step="0.01" id="nuevo-servicio-precio" class="form-input">
                                     </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Tipo de Cobro</label>
+                                        <select id="nuevo-servicio-tipo" class="form-select">
+                                            <option value="por_dia">Por día (hospedaje)</option>
+                                            <option value="unico">Único (baño, corte)</option>
+                                        </select>
+                                    </div>
                                 </div>
-                                <button type="button" id="btn-guardar-servicio" class="btn btn-primary">Guardar</button>
+                                <button type="button" id="btn-guardar-servicio" class="btn btn-primary">Guardar Servicio</button>
                             </div>
                         </details>
                         
@@ -656,20 +681,21 @@
                                     <tr>
                                         <th>Servicio</th>
                                         <th>Precio</th>
+                                        <th>Tipo</th>
                                         <th></th>
                                     </tr>
                                 </thead>
                                 <tbody id="tabla-servicios">
-                                    <tr><td colspan="3" class="text-center text-muted">Cargando...</td></tr>
+                                    <tr><td colspan="4" class="text-center text-muted">Cargando...</td></tr>
                                 </tbody>
                             </table>
                         </div>
                     </div>
                     
-                    <!-- Catálogo de Paseos -->
+                    <!-- Tipos de Paseo -->
                     <div class="card">
-                        <h3 class="mb-1">2. Catálogo de Paseos</h3>
-                        <p class="text-muted mb-2">Tipos de paseos fijos.</p>
+                        <h3 class="mb-1">Catálogo de Paseos</h3>
+                        <p class="text-muted mb-2">Tipos de paseo disponibles.</p>
                         
                         <details>
                             <summary style="cursor: pointer; color: var(--color-primary);">+ Nuevo Tipo de Paseo</summary>
@@ -677,18 +703,18 @@
                                 <div class="form-row">
                                     <div class="form-group">
                                         <label class="form-label">Nombre</label>
-                                        <input type="text" id="nuevo-paseo-nombre" class="form-input">
+                                        <input type="text" id="nuevo-paseo-nombre" class="form-input" placeholder="Ej: Paseo Corto">
                                     </div>
                                     <div class="form-group">
                                         <label class="form-label">Duración (min)</label>
                                         <input type="number" id="nuevo-paseo-duracion" class="form-input">
                                     </div>
                                     <div class="form-group">
-                                        <label class="form-label">Precio</label>
+                                        <label class="form-label">Precio ($)</label>
                                         <input type="number" step="0.01" id="nuevo-paseo-precio" class="form-input">
                                     </div>
                                 </div>
-                                <button type="button" id="btn-guardar-tipo-paseo" class="btn btn-primary">Guardar</button>
+                                <button type="button" id="btn-guardar-tipo-paseo" class="btn btn-primary">Guardar Paseo</button>
                             </div>
                         </details>
                         

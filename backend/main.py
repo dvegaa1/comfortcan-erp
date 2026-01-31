@@ -156,6 +156,11 @@ class ServicioCreate(BaseModel):
     nombre: str
     precio: float
 
+class ServicioCreate(BaseModel):
+    nombre: str
+    precio: float
+    tipo_cobro: Optional[str] = "por_dia"  # "por_dia" o "unico"
+
 class TipoPaseoCreate(BaseModel):
     nombre: str
     duracion_minutos: Optional[int] = None
