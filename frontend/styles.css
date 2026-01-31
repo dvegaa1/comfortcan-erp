@@ -1279,3 +1279,201 @@ body {
         min-height: 60px;
     }
 }
+
+/* ============================================
+   RESPONSIVE ESPECIFICO POR SECCION
+   ============================================ */
+
+/* PASEOS - Mobile */
+@media (max-width: 768px) {
+    #section-paseos > .form-row {
+        display: flex;
+        flex-direction: column;
+    }
+
+    #section-paseos > .form-row > .card {
+        width: 100%;
+    }
+
+    #section-paseos .alert {
+        font-size: 0.75rem;
+        padding: 0.5rem;
+    }
+
+    #section-paseos .alert .badge {
+        display: inline-block;
+        margin: 0.25rem 0;
+    }
+
+    /* Tabla paseos mas compacta */
+    #section-paseos .table {
+        min-width: 500px;
+    }
+
+    #section-paseos .table th,
+    #section-paseos .table td {
+        padding: 0.4rem 0.25rem;
+        font-size: 0.75rem;
+    }
+
+    /* Stats en paseos */
+    #section-paseos .stats-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    #section-paseos .stat-card {
+        padding: 0.75rem;
+    }
+
+    #section-paseos .stat-value {
+        font-size: 1rem;
+    }
+
+    #section-paseos .stat-label {
+        font-size: 0.7rem;
+    }
+}
+
+/* CAJA Y TICKET - Mobile */
+@media (max-width: 768px) {
+    #section-caja > .form-row {
+        display: flex;
+        flex-direction: column;
+    }
+
+    #section-caja > .form-row > .card {
+        width: 100%;
+    }
+
+    #section-caja .table {
+        min-width: 400px;
+    }
+
+    #section-caja .table th,
+    #section-caja .table td {
+        padding: 0.4rem 0.25rem;
+        font-size: 0.8rem;
+    }
+
+    /* Ticket preview */
+    #ticket-container {
+        margin-top: 1rem;
+    }
+
+    #ticket-container .btn-group {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    #ticket-container .btn-group .btn {
+        flex: 1;
+        min-width: 80px;
+    }
+
+    .ticket {
+        padding: 0.75rem;
+        font-size: 0.85rem;
+    }
+
+    .ticket-logo {
+        max-width: 60px;
+    }
+
+    .ticket-title {
+        font-size: 1rem;
+    }
+
+    .ticket-row {
+        font-size: 0.8rem;
+        gap: 0.5rem;
+    }
+
+    .ticket-total {
+        font-size: 1rem;
+    }
+}
+
+/* SERVICIOS Y PRECIOS (Configuracion) - Mobile */
+@media (max-width: 768px) {
+    #section-configuracion > .form-row {
+        display: flex;
+        flex-direction: column;
+    }
+
+    #section-configuracion > .form-row > .card {
+        width: 100%;
+    }
+
+    #section-configuracion .card h3 {
+        font-size: 1rem;
+    }
+
+    #section-configuracion .card p.text-muted {
+        font-size: 0.8rem;
+    }
+
+    #section-configuracion .table {
+        min-width: 300px;
+        font-size: 0.8rem;
+    }
+
+    #section-configuracion .table th,
+    #section-configuracion .table td {
+        padding: 0.5rem 0.3rem;
+    }
+
+    #section-configuracion .form-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* EDITAR DATOS (Gestion) - Mobile */
+@media (max-width: 768px) {
+    #section-gestion .flex.gap-2 {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+
+    #section-gestion .form-checkbox {
+        flex: 1;
+        min-width: 100px;
+    }
+}
+
+/* Mobile pequeno - ajustes adicionales */
+@media (max-width: 480px) {
+    /* Paseos */
+    #section-paseos .stats-grid {
+        grid-template-columns: 1fr;
+    }
+
+    #section-paseos .table {
+        min-width: 450px;
+    }
+
+    /* Botones de accion en tabla mas pequenos */
+    .table .btn-sm {
+        padding: 0.25rem 0.4rem;
+        font-size: 0.7rem;
+    }
+
+    /* Caja */
+    #section-caja .table {
+        min-width: 350px;
+    }
+
+    /* Ticket */
+    .ticket {
+        padding: 0.5rem;
+    }
+
+    .ticket-row {
+        font-size: 0.75rem;
+    }
+
+    /* Servicios */
+    #section-configuracion .table {
+        min-width: 280px;
+    }
+}

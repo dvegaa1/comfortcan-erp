@@ -6,22 +6,22 @@ const API_URL = 'https://comfortcan-api.onrender.com';
 
 // Debug: Función para verificar estado del storage
 window.verificarStorage = async function() {
-    console.log('🔍 Verificando estado del storage...');
+    console.log(' Verificando estado del storage...');
     try {
         const response = await fetch(`${API_URL}/storage/check`, {
             headers: { 'Authorization': `Bearer ${authToken}` }
         });
         const data = await response.json();
-        console.log('📦 Estado del storage:', data);
+        console.log(' Estado del storage:', data);
         return data;
     } catch (err) {
-        console.error('❌ Error verificando storage:', err);
+        console.error(' Error verificando storage:', err);
     }
 };
 
 // Debug: Función para probar subida directa a Supabase
 window.testUploadDirecto = async function() {
-    console.log('🧪 Para probar, necesitas verificar las políticas en Supabase:');
+    console.log(' Para probar, necesitas verificar las políticas en Supabase:');
     console.log('1. Ve a Supabase Dashboard > Storage > fotos');
     console.log('2. Ve a Policies');
     console.log('3. Verifica que existan estas políticas:');
@@ -548,7 +548,7 @@ async function subirFoto(perroId, file, tipo) {
 
     const endpoint = tipo === 'foto-perro' ? 'foto-perro' : 'foto-cartilla';
 
-    console.log(`📤 Subiendo ${tipo} para perro ${perroId}...`);
+    console.log(` Subiendo ${tipo} para perro ${perroId}...`);
     console.log(`   Archivo: ${file.name} (${file.size} bytes, ${file.type})`);
 
     try {
@@ -565,17 +565,17 @@ async function subirFoto(perroId, file, tipo) {
             try {
                 const errorData = await response.json();
                 errorDetail = errorData.detail || JSON.stringify(errorData);
-                console.error('❌ Error del servidor:', errorData);
+                console.error(' Error del servidor:', errorData);
             } catch (e) {
                 const errorText = await response.text();
                 errorDetail = errorText || `HTTP ${response.status}`;
-                console.error('❌ Error (texto):', errorText);
+                console.error(' Error (texto):', errorText);
             }
 
             // Detectar errores comunes de Supabase Storage
             if (errorDetail.includes('policy') || errorDetail.includes('Policies') || response.status === 400) {
                 showToast(`Error: Falta política INSERT en Storage. Ve a Supabase > Storage > fotos > Policies y agrega una política INSERT.`, 'error');
-                console.error('⚠️ SOLUCIÓN: Agregar política INSERT en Supabase Storage');
+                console.error(' SOLUCIÓN: Agregar política INSERT en Supabase Storage');
                 console.error('   1. Ve a Supabase Dashboard > Storage > fotos');
                 console.error('   2. Click en "Policies"');
                 console.error('   3. Agregar política INSERT para "authenticated" o "public"');
@@ -586,10 +586,10 @@ async function subirFoto(perroId, file, tipo) {
         }
 
         const data = await response.json();
-        console.log(`✅ Foto subida exitosamente: ${data.url}`);
+        console.log(` Foto subida exitosamente: ${data.url}`);
         return data.url;
     } catch (err) {
-        console.error('❌ Error de conexión:', err);
+        console.error(' Error de conexión:', err);
         showToast(`Error de conexión al subir ${tipo}`, 'error');
         return null;
     }
@@ -1361,7 +1361,7 @@ async function cargarExpedienteDirecto(perroId) {
         const propietario = perro.propietarios || propietarios.find(p => p.id === perro.propietario_id);
 
         // Debug: mostrar URLs de fotos
-        console.log('📷 Debug fotos de', perro.nombre);
+        console.log(' Debug fotos de', perro.nombre);
         console.log('  foto_perro_url:', perro.foto_perro_url || 'NO TIENE');
         console.log('  foto_cartilla_url:', perro.foto_cartilla_url || 'NO TIENE');
 
@@ -1548,7 +1548,7 @@ async function ejecutarSubidaFotos(perroId) {
         if (fotoPerroInput?.files[0]) {
             const url = await subirFoto(perroId, fotoPerroInput.files[0], 'foto-perro');
             if (url) {
-                console.log('✅ Foto de perro subida:', url);
+                console.log(' Foto de perro subida:', url);
                 subidas++;
             }
         }
@@ -1556,7 +1556,7 @@ async function ejecutarSubidaFotos(perroId) {
         if (fotoCartillaInput?.files[0]) {
             const url = await subirFoto(perroId, fotoCartillaInput.files[0], 'foto-cartilla');
             if (url) {
-                console.log('✅ Foto de cartilla subida:', url);
+                console.log(' Foto de cartilla subida:', url);
                 subidas++;
             }
         }
@@ -1594,7 +1594,7 @@ async function editarExpedienteCompleto(perroId) {
         const formContainer = document.getElementById('gestion-perros');
         formContainer.innerHTML = `
             <div class="card">
-                <h3>✏️ Editando: ${perro.nombre}</h3>
+                <h3> Editando: ${perro.nombre}</h3>
 
                 <!-- FOTOS -->
                 <div class="form-row mt-3">
@@ -1965,7 +1965,7 @@ function renderTablaServicios() {
                 <td>${s.nombre}</td>
                 <td>$${(s.precio || 0).toFixed(2)}</td>
                 <td>${tipoTexto}</td>
-                <td><button onclick="eliminarServicioCatalogo('${s.id}')" class="btn btn-danger btn-sm">🗑️</button></td>
+                <td><button onclick="eliminarServicioCatalogo('${s.id}')" class="btn btn-danger btn-sm">X</button></td>
             </tr>
         `;
     }).join('');
@@ -2029,7 +2029,7 @@ function renderTablaPaseos() {
         <tr>
             <td>${p.nombre}</td>
             <td>$${(p.precio || 0).toFixed(2)}</td>
-            <td><button onclick="eliminarTipoPaseo('${p.id}')" class="btn btn-danger btn-sm">🗑️</button></td>
+            <td><button onclick="eliminarTipoPaseo('${p.id}')" class="btn btn-danger btn-sm">X</button></td>
         </tr>
     `).join('');
 }
@@ -2110,17 +2110,17 @@ async function verificarImagen(url) {
 
 // Debug: verificar estado de fotos de perros
 async function debugFotosPerros() {
-    console.log('🔍 Debug - Verificando fotos de perros:');
+    console.log(' Debug - Verificando fotos de perros:');
     for (const p of perros) {
         if (p.foto_perro_url) {
             const accesible = await verificarImagen(p.foto_perro_url);
             console.log(`  ${p.nombre}: foto_perro_url = ${p.foto_perro_url}`);
-            console.log(`    -> Accesible: ${accesible ? '✅ SÍ' : '❌ NO (verificar políticas de Supabase Storage)'}`);
+            console.log(`    -> Accesible: ${accesible ? ' SÍ' : ' NO (verificar políticas de Supabase Storage)'}`);
         }
         if (p.foto_cartilla_url) {
             const accesible = await verificarImagen(p.foto_cartilla_url);
             console.log(`  ${p.nombre}: foto_cartilla_url = ${p.foto_cartilla_url}`);
-            console.log(`    -> Accesible: ${accesible ? '✅ SÍ' : '❌ NO (verificar políticas de Supabase Storage)'}`);
+            console.log(`    -> Accesible: ${accesible ? ' SÍ' : ' NO (verificar políticas de Supabase Storage)'}`);
         }
     }
 }
@@ -2128,6 +2128,6 @@ async function debugFotosPerros() {
 // ============================================
 // VERIFICACIÓN FINAL
 // ============================================
-console.log('✅ ComfortCan México - App.js v4 cargado');
-console.log('📋 Módulos: Auth, Propietarios, Perros, Check-in, Paseos, Caja, Expedientes, Configuración');
+console.log(' ComfortCan México - App.js v4 cargado');
+console.log(' Módulos: Auth, Propietarios, Perros, Check-in, Paseos, Caja, Expedientes, Configuración');
 console.log('💡 Tip: Ejecuta debugFotosPerros() en la consola para verificar acceso a las imágenes');
