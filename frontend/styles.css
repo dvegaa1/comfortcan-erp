@@ -670,3 +670,97 @@ body {
     max-height: 70vh;
     overflow-y: auto;
 }
+
+/* Fotos en edición de expediente */
+.foto-edit-container {
+    text-align: center;
+}
+
+.foto-preview-edit {
+    max-width: 150px;
+    max-height: 150px;
+    border-radius: var(--radius-md);
+    object-fit: cover;
+    border: 2px solid var(--color-border);
+    display: block;
+    margin: 0 auto 0.5rem;
+}
+
+.sin-foto-edit {
+    width: 150px;
+    height: 150px;
+    background: var(--color-bg-input);
+    border: 2px dashed var(--color-border);
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-muted);
+    margin: 0 auto 0.5rem;
+    font-size: 0.85rem;
+}
+
+.sin-foto {
+    font-size: 2rem;
+    color: var(--color-text-muted);
+}
+
+.sin-foto-grande {
+    width: 200px;
+    height: 200px;
+    background: var(--color-bg-input);
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 4rem;
+    color: var(--color-text-muted);
+}
+
+/* Expediente detalle mejorado */
+.expediente-header {
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+}
+
+.expediente-fotos {
+    flex-shrink: 0;
+}
+
+.expediente-datos {
+    flex: 1;
+    min-width: 250px;
+}
+
+.gap-3 {
+    gap: 1.5rem;
+}
+
+/* Botón quitar servicio */
+.btn-quitar {
+    background: none;
+    border: none;
+    color: var(--color-danger);
+    cursor: pointer;
+    font-size: 1.2rem;
+    line-height: 1;
+    padding: 0 0 0 0.5rem;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.btn-quitar:hover {
+    opacity: 1;
+}
+
+/* Flex gap helpers */
+.flex.gap-2 {
+    display: flex;
+    gap: 1rem;
+}
+
+.flex.gap-3 {
+    display: flex;
+    gap: 1.5rem;
+}

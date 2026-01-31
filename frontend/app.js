@@ -119,6 +119,8 @@ function setupEventListeners() {
     // Filtros
     document.getElementById('filtro-expediente')?.addEventListener('input', filtrarExpedientes);
     document.getElementById('filtro-paseo-perro')?.addEventListener('change', filtrarPaseos);
+    document.getElementById('filtro-paseo-desde')?.addEventListener('change', filtrarPaseos);
+    document.getElementById('filtro-paseo-hasta')?.addEventListener('change', filtrarPaseos);
 
     // Desparasitación dinámica
     document.getElementById('perro-desparasitacion-tipo')?.addEventListener('change', toggleDesparasitacion);
@@ -323,8 +325,14 @@ function llenarSelectServicios() {
     if (select) {
         select.innerHTML = '<option value="">-- Seleccionar servicio --</option>';
         catalogoServicios.forEach(s => {
-            const tipoCobro = s.tipo_cobro === 'unico' ? '(único)' : '(por día)';
-            select.innerHTML += `<option value="${s.id}" data-precio="${s.precio}" data-tipo="${s.tipo_cobro || 'por_dia'}" data-nombre="${s.nombre}">${s.nombre} - $${s.precio} ${tipoCobro}</option>`;
+            // Solo Guardería, Hospedaje y Escuela son por día
+            const nombreLower = s.nombre.toLowerCase();
+            const esPorDia = nombreLower.includes('guardería') || nombreLower.includes('guarderia') ||
+                            nombreLower.includes('hospedaje') || nombreLower.includes('escuela') ||
+                            nombreLower.includes('daycare');
+            const tipoCobro = esPorDia ? 'por_dia' : 'unico';
+            const tipoTexto = esPorDia ? 'por día' : 'único';
+            select.innerHTML += `<option value="${s.id}" data-precio="${s.precio}" data-tipo="${tipoCobro}" data-nombre="${s.nombre}">${s.nombre} - $${s.precio} (${tipoTexto})</option>`;
         });
     }
     renderTablaServicios();
@@ -553,12 +561,15 @@ function renderServiciosSeleccionados() {
         return;
     }
 
-    container.innerHTML = serviciosSeleccionados.map(s => `
-        <span class="servicio-tag">
-            ${s.nombre} - $${s.precio} (${s.tipo_cobro === 'unico' ? 'único' : 'por día'})
-            <button type="button" onclick="quitarServicio('${s.id}')" class="btn-quitar">&times;</button>
-        </span>
-    `).join('');
+    container.innerHTML = serviciosSeleccionados.map(s => {
+        const tipoTexto = s.tipo_cobro === 'unico' ? 'único' : 'por día';
+        return `
+            <span class="servicio-tag">
+                ${s.nombre} - $${s.precio} (${tipoTexto})
+                <button type="button" onclick="quitarServicio('${s.id}')" class="btn-quitar">&times;</button>
+            </span>
+        `;
+    }).join('');
 }
 
 function calcularTotalCheckIn() {
@@ -758,9 +769,56 @@ async function cargarPaseos() {
     }
 }
 
-function filtrarPaseos() {
-    // TODO: Implementar filtro de paseos
-    cargarPaseos();
+async function filtrarPaseos() {
+    const perroId = document.getElementById('filtro-paseo-perro')?.value;
+    const desde = document.getElementById('filtro-paseo-desde')?.value;
+    const hasta = document.getElementById('filtro-paseo-hasta')?.value;
+
+    try {
+        let endpoint = '/paseos?';
+        const params = [];
+
+        if (perroId) params.push(`perro_id=${perroId}`);
+        if (desde) params.push(`fecha_inicio=${desde}`);
+        if (hasta) params.push(`fecha_fin=${hasta}`);
+
+        endpoint += params.join('&');
+
+        const paseos = await apiGet(endpoint);
+        const tbody = document.getElementById('tabla-paseos');
+        if (!tbody) return;
+
+        if (!paseos || paseos.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Sin paseos con esos filtros</td></tr>';
+            document.getElementById('paseos-pendiente-total').textContent = '$0.00';
+            return;
+        }
+
+        let totalPendiente = 0;
+
+        tbody.innerHTML = paseos.map(p => {
+            const perroNombre = p.perros?.nombre || 'N/A';
+            if (!p.pagado) totalPendiente += p.precio || 0;
+            return `
+                <tr>
+                    <td>${formatDate(p.fecha)}</td>
+                    <td>${perroNombre}</td>
+                    <td>${p.tipo_paseo || 'N/A'}</td>
+                    <td>$${(p.precio || 0).toFixed(2)}</td>
+                    <td>
+                        <span class="badge ${p.pagado ? 'badge-success' : 'badge-warning'}">
+                            ${p.pagado ? 'Pagado' : 'Pendiente'}
+                        </span>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        document.getElementById('paseos-pendiente-total').textContent = `$${totalPendiente.toFixed(2)}`;
+
+    } catch (error) {
+        console.error('Error filtrando paseos:', error);
+    }
 }
 
 // ============================================
@@ -1040,29 +1098,35 @@ async function cargarExpedienteDirecto(perroId) {
         const contenido = document.getElementById('expediente-contenido');
         contenido.innerHTML = `
             <div class="card mt-2">
-                <div class="expediente-header flex gap-3">
+                <div class="expediente-header">
                     <div class="expediente-fotos">
                         <div class="foto-principal">
-                            ${perro.foto_perro_url ? `<img src="${perro.foto_perro_url}" alt="${perro.nombre}" style="max-width: 200px; border-radius: 8px;">` : `<div class="sin-foto-grande">${perro.nombre.charAt(0)}</div>`}
+                            <p class="text-muted mb-1"><strong>📷 Foto del Perro:</strong></p>
+                            ${perro.foto_perro_url ?
+                                `<img src="${perro.foto_perro_url}" alt="${perro.nombre}" style="max-width: 200px; max-height: 200px; border-radius: 8px; object-fit: cover; cursor: pointer;" onclick="window.open('${perro.foto_perro_url}', '_blank')">` :
+                                `<div class="sin-foto-grande">${perro.nombre.charAt(0).toUpperCase()}</div>`
+                            }
                         </div>
-                        ${perro.foto_cartilla_url ? `
-                            <div class="foto-cartilla mt-2">
-                                <p class="text-muted">Cartilla de Vacunación:</p>
-                                <img src="${perro.foto_cartilla_url}" alt="Cartilla" style="max-width: 200px; border-radius: 8px; cursor: pointer;" onclick="window.open('${perro.foto_cartilla_url}', '_blank')">
-                            </div>
-                        ` : ''}
+                        <div class="foto-cartilla mt-2">
+                            <p class="text-muted mb-1"><strong>📋 Cartilla de Vacunación:</strong></p>
+                            ${perro.foto_cartilla_url ?
+                                `<img src="${perro.foto_cartilla_url}" alt="Cartilla" style="max-width: 200px; max-height: 200px; border-radius: 8px; object-fit: cover; cursor: pointer;" onclick="window.open('${perro.foto_cartilla_url}', '_blank')">` :
+                                `<div class="sin-foto-grande" style="font-size: 1rem;">Sin cartilla</div>`
+                            }
+                        </div>
                     </div>
-                    <div class="expediente-datos" style="flex: 1;">
+                    <div class="expediente-datos">
                         <h2>${perro.nombre}</h2>
                         <p><strong>Raza:</strong> ${perro.raza || 'N/A'}</p>
                         <p><strong>Edad:</strong> ${perro.edad || 'N/A'}</p>
                         <p><strong>Género:</strong> ${perro.genero || 'N/A'}</p>
-                        <p><strong>Peso:</strong> ${perro.peso_kg ? perro.peso_kg + ' kg' : 'N/A'}</p>
+                        <p><strong>Peso:</strong> ${perro.peso_kg ? perro.peso_kg + ' kg' : 'N/A'} ${perro.fecha_pesaje ? `(${formatDate(perro.fecha_pesaje)})` : ''}</p>
                         <p><strong>Esterilizado:</strong> ${perro.esterilizado ? 'Sí' : 'No'}</p>
                         <hr>
                         <h4>Propietario</h4>
                         <p><strong>Nombre:</strong> ${propietario?.nombre || 'N/A'}</p>
                         <p><strong>Teléfono:</strong> ${propietario?.telefono || 'N/A'}</p>
+                        <p><strong>Email:</strong> ${propietario?.email || 'N/A'}</p>
                         <p><strong>Dirección:</strong> ${propietario?.direccion || 'N/A'}</p>
                     </div>
                 </div>
@@ -1145,69 +1209,205 @@ async function editarExpedienteCompleto(perroId) {
     try {
         showLoading();
         const perro = await apiGet(`/perros/${perroId}`);
+        const propietario = perro.propietarios || propietarios.find(p => p.id === perro.propietario_id);
 
         const formContainer = document.getElementById('gestion-perros');
         formContainer.innerHTML = `
-            <h3>Editando: ${perro.nombre}</h3>
-            <form id="form-editar-perro">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label">Nombre</label>
-                        <input type="text" id="edit-nombre" class="form-input" value="${perro.nombre || ''}" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Raza</label>
-                        <input type="text" id="edit-raza" class="form-input" value="${perro.raza || ''}">
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label">Edad</label>
-                        <input type="text" id="edit-edad" class="form-input" value="${perro.edad || ''}">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Peso (kg)</label>
-                        <input type="number" step="0.1" id="edit-peso" class="form-input" value="${perro.peso_kg || ''}">
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Alergias</label>
-                    <input type="text" id="edit-alergias" class="form-input" value="${perro.alergias || ''}">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Medicamentos</label>
-                    <input type="text" id="edit-medicamentos" class="form-input" value="${perro.medicamentos || ''}">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Veterinario</label>
-                    <input type="text" id="edit-veterinario" class="form-input" value="${perro.veterinario || ''}">
-                </div>
+            <div class="card">
+                <h3>✏️ Editando: ${perro.nombre}</h3>
 
-                <h4 class="mt-2">Vacunas</h4>
-                <div class="form-row">
+                <!-- FOTOS -->
+                <div class="form-row mt-3">
                     <div class="form-group">
-                        <label class="form-label">Rabia</label>
-                        <select id="edit-rabia-estado" class="form-select">
-                            <option value="Pendiente" ${perro.vacuna_rabia_estado === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
-                            <option value="Vigente" ${perro.vacuna_rabia_estado === 'Vigente' ? 'selected' : ''}>Vigente</option>
-                            <option value="Vencida" ${perro.vacuna_rabia_estado === 'Vencida' ? 'selected' : ''}>Vencida</option>
-                        </select>
-                        <input type="date" id="edit-rabia-vence" class="form-input mt-1" value="${perro.vacuna_rabia_vence || ''}">
+                        <label class="form-label">Foto del Perro</label>
+                        <div class="foto-edit-container">
+                            ${perro.foto_perro_url ? `<img src="${perro.foto_perro_url}" alt="${perro.nombre}" class="foto-preview-edit">` : '<div class="sin-foto-edit">Sin foto</div>'}
+                            <input type="file" id="edit-foto-perro" accept="image/*" class="form-input mt-1">
+                        </div>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Séxtuple</label>
-                        <select id="edit-sextuple-estado" class="form-select">
-                            <option value="Pendiente" ${perro.vacuna_sextuple_estado === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
-                            <option value="Vigente" ${perro.vacuna_sextuple_estado === 'Vigente' ? 'selected' : ''}>Vigente</option>
-                            <option value="Vencida" ${perro.vacuna_sextuple_estado === 'Vencida' ? 'selected' : ''}>Vencida</option>
-                        </select>
-                        <input type="date" id="edit-sextuple-vence" class="form-input mt-1" value="${perro.vacuna_sextuple_vence || ''}">
+                        <label class="form-label">Cartilla de Vacunación</label>
+                        <div class="foto-edit-container">
+                            ${perro.foto_cartilla_url ? `<img src="${perro.foto_cartilla_url}" alt="Cartilla" class="foto-preview-edit">` : '<div class="sin-foto-edit">Sin cartilla</div>'}
+                            <input type="file" id="edit-foto-cartilla" accept="image/*" class="form-input mt-1">
+                        </div>
                     </div>
                 </div>
 
-                <button type="submit" class="btn btn-primary mt-2">Guardar Cambios</button>
-                <button type="button" onclick="cancelarEdicion()" class="btn btn-secondary mt-2">Cancelar</button>
-            </form>
+                <form id="form-editar-perro">
+                    <h4 class="mt-3">Datos Básicos</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Nombre *</label>
+                            <input type="text" id="edit-nombre" class="form-input" value="${perro.nombre || ''}" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Raza</label>
+                            <input type="text" id="edit-raza" class="form-input" value="${perro.raza || ''}">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Edad</label>
+                            <select id="edit-edad" class="form-select">
+                                <option value="">Seleccionar</option>
+                                <option value="Cachorro (< 1 año)" ${perro.edad === 'Cachorro (< 1 año)' ? 'selected' : ''}>Cachorro (< 1 año)</option>
+                                ${[...Array(15).keys()].map(i => `<option value="${i+1} año${i > 0 ? 's' : ''}" ${perro.edad === `${i+1} año${i > 0 ? 's' : ''}` ? 'selected' : ''}>${i+1} año${i > 0 ? 's' : ''}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Género</label>
+                            <select id="edit-genero" class="form-select">
+                                <option value="">Seleccionar</option>
+                                <option value="Macho" ${perro.genero === 'Macho' ? 'selected' : ''}>Macho</option>
+                                <option value="Hembra" ${perro.genero === 'Hembra' ? 'selected' : ''}>Hembra</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Peso (kg)</label>
+                            <input type="number" step="0.1" id="edit-peso" class="form-input" value="${perro.peso_kg || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Fecha Pesaje</label>
+                            <input type="date" id="edit-fecha-pesaje" class="form-input" value="${perro.fecha_pesaje || ''}">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-checkbox">
+                            <input type="checkbox" id="edit-esterilizado" ${perro.esterilizado ? 'checked' : ''}>
+                            Esterilizado
+                        </label>
+                    </div>
+
+                    <h4 class="mt-3">Información Médica</h4>
+                    <div class="form-group">
+                        <label class="form-label">Medicamentos Actuales</label>
+                        <input type="text" id="edit-medicamentos" class="form-input" value="${perro.medicamentos || ''}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Alergias / Condiciones</label>
+                        <input type="text" id="edit-alergias" class="form-input" value="${perro.alergias || ''}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Veterinario / Clínica</label>
+                        <input type="text" id="edit-veterinario" class="form-input" value="${perro.veterinario || ''}">
+                    </div>
+
+                    <h4 class="mt-3">Desparasitación</h4>
+                    <div class="form-group">
+                        <label class="form-label">Tipo</label>
+                        <select id="edit-despara-tipo" class="form-select">
+                            <option value="">Ninguna</option>
+                            <option value="Interna" ${perro.desparasitacion_tipo === 'Interna' ? 'selected' : ''}>Interna</option>
+                            <option value="Externa" ${perro.desparasitacion_tipo === 'Externa' ? 'selected' : ''}>Externa</option>
+                            <option value="Dual" ${perro.desparasitacion_tipo === 'Dual' ? 'selected' : ''}>Dual (Interna + Externa)</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Producto Interna</label>
+                            <input type="text" id="edit-despara-producto-int" class="form-input" value="${perro.desparasitacion_producto_int || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Fecha Interna</label>
+                            <input type="date" id="edit-despara-fecha-int" class="form-input" value="${perro.desparasitacion_fecha_int || ''}">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Producto Externa</label>
+                            <input type="text" id="edit-despara-producto-ext" class="form-input" value="${perro.desparasitacion_producto_ext || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Fecha Externa</label>
+                            <input type="date" id="edit-despara-fecha-ext" class="form-input" value="${perro.desparasitacion_fecha_ext || ''}">
+                        </div>
+                    </div>
+
+                    <h4 class="mt-3">Vacunas</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Rabia - Estado</label>
+                            <select id="edit-rabia-estado" class="form-select">
+                                <option value="Pendiente" ${perro.vacuna_rabia_estado === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
+                                <option value="Vigente" ${perro.vacuna_rabia_estado === 'Vigente' ? 'selected' : ''}>Vigente</option>
+                                <option value="Vencida" ${perro.vacuna_rabia_estado === 'Vencida' ? 'selected' : ''}>Vencida</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Rabia - Vence</label>
+                            <input type="date" id="edit-rabia-vence" class="form-input" value="${perro.vacuna_rabia_vence || ''}">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Séxtuple - Estado</label>
+                            <select id="edit-sextuple-estado" class="form-select">
+                                <option value="Pendiente" ${perro.vacuna_sextuple_estado === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
+                                <option value="Vigente" ${perro.vacuna_sextuple_estado === 'Vigente' ? 'selected' : ''}>Vigente</option>
+                                <option value="Vencida" ${perro.vacuna_sextuple_estado === 'Vencida' ? 'selected' : ''}>Vencida</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Séxtuple - Vence</label>
+                            <input type="date" id="edit-sextuple-vence" class="form-input" value="${perro.vacuna_sextuple_vence || ''}">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Bordetella - Estado</label>
+                            <select id="edit-bordetella-estado" class="form-select">
+                                <option value="Pendiente" ${perro.vacuna_bordetella_estado === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
+                                <option value="Vigente" ${perro.vacuna_bordetella_estado === 'Vigente' ? 'selected' : ''}>Vigente</option>
+                                <option value="Vencida" ${perro.vacuna_bordetella_estado === 'Vencida' ? 'selected' : ''}>Vencida</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Bordetella - Vence</label>
+                            <input type="date" id="edit-bordetella-vence" class="form-input" value="${perro.vacuna_bordetella_vence || ''}">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Giardia - Estado</label>
+                            <select id="edit-giardia-estado" class="form-select">
+                                <option value="Pendiente" ${perro.vacuna_giardia_estado === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
+                                <option value="Vigente" ${perro.vacuna_giardia_estado === 'Vigente' ? 'selected' : ''}>Vigente</option>
+                                <option value="Vencida" ${perro.vacuna_giardia_estado === 'Vencida' ? 'selected' : ''}>Vencida</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Giardia - Vence</label>
+                            <input type="date" id="edit-giardia-vence" class="form-input" value="${perro.vacuna_giardia_vence || ''}">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Vacuna Extra - Nombre</label>
+                            <input type="text" id="edit-extra-nombre" class="form-input" value="${perro.vacuna_extra_nombre || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Vacuna Extra - Estado</label>
+                            <select id="edit-extra-estado" class="form-select">
+                                <option value="">--</option>
+                                <option value="Vigente" ${perro.vacuna_extra_estado === 'Vigente' ? 'selected' : ''}>Vigente</option>
+                                <option value="Vencida" ${perro.vacuna_extra_estado === 'Vencida' ? 'selected' : ''}>Vencida</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Vacuna Extra - Vence</label>
+                            <input type="date" id="edit-extra-vence" class="form-input" value="${perro.vacuna_extra_vence || ''}">
+                        </div>
+                    </div>
+
+                    <div class="flex gap-2 mt-3">
+                        <button type="submit" class="btn btn-primary btn-lg">💾 Guardar Todos los Cambios</button>
+                        <button type="button" onclick="cancelarEdicion()" class="btn btn-secondary">Cancelar</button>
+                    </div>
+                </form>
+            </div>
         `;
 
         document.getElementById('form-editar-perro').addEventListener('submit', (e) => guardarEdicionPerro(e, perroId));
@@ -1220,34 +1420,59 @@ async function editarExpedienteCompleto(perroId) {
 
 async function guardarEdicionPerro(e, perroId) {
     e.preventDefault();
+    showLoading();
+
+    // Subir fotos si se seleccionaron nuevas
+    const fotoPerroInput = document.getElementById('edit-foto-perro');
+    const fotoCartillaInput = document.getElementById('edit-foto-cartilla');
+
+    if (fotoPerroInput?.files[0]) {
+        await subirFoto(perroId, fotoPerroInput.files[0], 'foto-perro');
+    }
+    if (fotoCartillaInput?.files[0]) {
+        await subirFoto(perroId, fotoCartillaInput.files[0], 'foto-cartilla');
+    }
 
     const data = {
         nombre: document.getElementById('edit-nombre').value,
         raza: document.getElementById('edit-raza').value || null,
         edad: document.getElementById('edit-edad').value || null,
+        genero: document.getElementById('edit-genero').value || null,
         peso_kg: parseFloat(document.getElementById('edit-peso').value) || null,
-        alergias: document.getElementById('edit-alergias').value || null,
+        fecha_pesaje: document.getElementById('edit-fecha-pesaje').value || null,
+        esterilizado: document.getElementById('edit-esterilizado').checked,
         medicamentos: document.getElementById('edit-medicamentos').value || null,
+        alergias: document.getElementById('edit-alergias').value || null,
         veterinario: document.getElementById('edit-veterinario').value || null,
+        desparasitacion_tipo: document.getElementById('edit-despara-tipo').value || null,
+        desparasitacion_producto_int: document.getElementById('edit-despara-producto-int').value || null,
+        desparasitacion_fecha_int: document.getElementById('edit-despara-fecha-int').value || null,
+        desparasitacion_producto_ext: document.getElementById('edit-despara-producto-ext').value || null,
+        desparasitacion_fecha_ext: document.getElementById('edit-despara-fecha-ext').value || null,
         vacuna_rabia_estado: document.getElementById('edit-rabia-estado').value,
         vacuna_rabia_vence: document.getElementById('edit-rabia-vence').value || null,
         vacuna_sextuple_estado: document.getElementById('edit-sextuple-estado').value,
-        vacuna_sextuple_vence: document.getElementById('edit-sextuple-vence').value || null
+        vacuna_sextuple_vence: document.getElementById('edit-sextuple-vence').value || null,
+        vacuna_bordetella_estado: document.getElementById('edit-bordetella-estado').value,
+        vacuna_bordetella_vence: document.getElementById('edit-bordetella-vence').value || null,
+        vacuna_giardia_estado: document.getElementById('edit-giardia-estado').value,
+        vacuna_giardia_vence: document.getElementById('edit-giardia-vence').value || null,
+        vacuna_extra_nombre: document.getElementById('edit-extra-nombre').value || null,
+        vacuna_extra_estado: document.getElementById('edit-extra-estado').value || null,
+        vacuna_extra_vence: document.getElementById('edit-extra-vence').value || null
     };
 
     try {
-        showLoading();
         await apiPut(`/perros/${perroId}`, data);
 
-        // Actualizar lista local
-        const index = perros.findIndex(p => p.id === perroId);
-        if (index >= 0) {
-            perros[index] = { ...perros[index], ...data };
-        }
+        // Recargar lista de perros
+        const perrosActualizados = await apiGet('/perros');
+        perros = perrosActualizados || [];
+        llenarSelectPerros();
 
         cancelarEdicion();
         hideLoading();
-        showToast('Expediente actualizado', 'success');
+        showToast('Expediente actualizado correctamente', 'success');
     } catch (error) {
         hideLoading();
         showToast(error.message, 'error');
@@ -1348,14 +1573,22 @@ function renderTablaServicios() {
         return;
     }
 
-    tbody.innerHTML = catalogoServicios.map(s => `
-        <tr>
-            <td>${s.nombre}</td>
-            <td>$${(s.precio || 0).toFixed(2)}</td>
-            <td>${s.tipo_cobro === 'unico' ? 'Único' : 'Por día'}</td>
-            <td><button onclick="eliminarServicioCatalogo('${s.id}')" class="btn btn-danger btn-sm">🗑️</button></td>
-        </tr>
-    `).join('');
+    tbody.innerHTML = catalogoServicios.map(s => {
+        // Determinar tipo de cobro basado en nombre
+        const nombreLower = s.nombre.toLowerCase();
+        const esPorDia = nombreLower.includes('guardería') || nombreLower.includes('guarderia') ||
+                        nombreLower.includes('hospedaje') || nombreLower.includes('escuela') ||
+                        nombreLower.includes('daycare');
+        const tipoTexto = esPorDia ? 'Por día' : 'Único';
+        return `
+            <tr>
+                <td>${s.nombre}</td>
+                <td>$${(s.precio || 0).toFixed(2)}</td>
+                <td>${tipoTexto}</td>
+                <td><button onclick="eliminarServicioCatalogo('${s.id}')" class="btn btn-danger btn-sm">🗑️</button></td>
+            </tr>
+        `;
+    }).join('');
 }
 
 async function handleNuevoServicio() {
