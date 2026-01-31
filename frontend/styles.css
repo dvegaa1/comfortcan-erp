@@ -851,3 +851,431 @@ body {
 .datos-expediente h2 {
     color: var(--color-primary);
 }
+
+/* ============================================
+   RESPONSIVE - Mobile First
+   ============================================ */
+
+/* Tablet (768px - 1024px) */
+@media (max-width: 1024px) {
+    .form-row {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .expedientes-grid {
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    }
+
+    .foto-expediente-img {
+        max-width: 220px;
+        max-height: 220px;
+    }
+
+    .sin-foto-grande {
+        width: 220px;
+        height: 220px;
+        font-size: 4rem;
+    }
+}
+
+/* Mobile (hasta 768px) */
+@media (max-width: 768px) {
+    /* Sidebar mobile */
+    .sidebar {
+        transform: translateX(-100%);
+        width: 280px;
+    }
+
+    .sidebar.open {
+        transform: translateX(0);
+    }
+
+    .sidebar-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 44px;
+        font-size: 1.5rem;
+    }
+
+    .main-content {
+        margin-left: 0;
+        padding: 1rem;
+        padding-top: 4.5rem;
+    }
+
+    /* Page header */
+    .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .page-title {
+        font-size: 1.25rem;
+    }
+
+    /* Cards */
+    .card {
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    /* Forms */
+    .form-row {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+    }
+
+    .form-input, .form-select {
+        padding: 0.65rem 0.875rem;
+        font-size: 16px; /* Evita zoom en iOS */
+    }
+
+    /* Buttons */
+    .btn {
+        padding: 0.65rem 1rem;
+        font-size: 0.875rem;
+        width: 100%;
+    }
+
+    .btn-group {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .btn-group .btn {
+        width: 100%;
+    }
+
+    .flex.gap-2 {
+        flex-direction: column;
+    }
+
+    .flex.gap-2 .btn {
+        width: 100%;
+    }
+
+    /* Stats */
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+    }
+
+    .stat-card {
+        padding: 1rem;
+    }
+
+    .stat-value {
+        font-size: 1.25rem;
+    }
+
+    /* Tables responsive */
+    .table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin: 0 -1rem;
+        padding: 0 1rem;
+    }
+
+    .table {
+        min-width: 600px;
+        font-size: 0.8rem;
+    }
+
+    .table th, .table td {
+        padding: 0.5rem 0.4rem;
+    }
+
+    .table td .btn-group {
+        flex-direction: row;
+        gap: 0.25rem;
+    }
+
+    .table td .btn-sm {
+        font-size: 0.7rem;
+        padding: 0.3rem 0.4rem;
+    }
+
+    /* Tabs */
+    .tabs {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        flex-wrap: nowrap;
+        gap: 0.25rem;
+    }
+
+    .tab {
+        padding: 0.6rem 0.875rem;
+        font-size: 0.8rem;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+
+    /* Expedientes */
+    .expedientes-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+    }
+
+    .expediente-card {
+        padding: 0.75rem;
+    }
+
+    .expediente-foto {
+        width: 60px;
+        height: 60px;
+    }
+
+    .expediente-info h4 {
+        font-size: 0.9rem;
+    }
+
+    .expediente-info p {
+        font-size: 0.75rem;
+    }
+
+    /* Fotos expediente */
+    .fotos-expediente .flex.gap-3 {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .foto-box {
+        width: 100%;
+        max-width: 300px;
+    }
+
+    .foto-expediente-img {
+        max-width: 100%;
+        max-height: 250px;
+        width: 100%;
+    }
+
+    .sin-foto-grande {
+        width: 100%;
+        max-width: 280px;
+        height: 200px;
+        font-size: 3rem;
+    }
+
+    /* Vacunas */
+    .vacunas-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.5rem;
+    }
+
+    .vacuna-card {
+        padding: 0.75rem;
+    }
+
+    .vacuna-title {
+        font-size: 0.7rem;
+    }
+
+    /* Tickets mini */
+    .tickets-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.5rem;
+    }
+
+    .ticket-mini {
+        padding: 0.5rem;
+    }
+
+    /* Modal */
+    .modal-overlay {
+        padding: 0.5rem;
+        align-items: flex-start;
+        padding-top: 2rem;
+    }
+
+    .modal {
+        width: 100%;
+        max-width: 100%;
+        max-height: 90vh;
+        border-radius: var(--radius-md);
+    }
+
+    .modal-header {
+        padding: 1rem;
+    }
+
+    .modal-title {
+        font-size: 1rem;
+    }
+
+    .modal-body {
+        padding: 1rem;
+        max-height: 60vh;
+    }
+
+    .modal-footer {
+        padding: 1rem;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .modal-footer .btn {
+        width: 100%;
+    }
+
+    /* Ticket preview */
+    .ticket {
+        padding: 1rem;
+    }
+
+    .ticket-header h2 {
+        font-size: 1.1rem;
+    }
+
+    .ticket-row {
+        font-size: 0.8rem;
+    }
+
+    /* File upload */
+    .file-upload {
+        padding: 1.5rem 1rem;
+    }
+
+    .file-upload-icon {
+        font-size: 1.5rem;
+    }
+
+    /* Alert */
+    .alert {
+        padding: 0.75rem;
+        font-size: 0.85rem;
+    }
+
+    /* Paseos filtros */
+    #section-paseos .card h3 {
+        font-size: 1rem;
+    }
+
+    #section-paseos .form-row {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+/* Mobile small (hasta 480px) */
+@media (max-width: 480px) {
+    .main-content {
+        padding: 0.75rem;
+        padding-top: 4rem;
+    }
+
+    .page-title {
+        font-size: 1.1rem;
+    }
+
+    .card {
+        padding: 0.875rem;
+        border-radius: var(--radius-md);
+    }
+
+    /* Expedientes una columna */
+    .expedientes-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .expediente-card {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        text-align: left;
+    }
+
+    .expediente-foto {
+        margin: 0;
+        flex-shrink: 0;
+    }
+
+    .expediente-info {
+        text-align: left;
+    }
+
+    /* Vacunas una columna en muy pequeno */
+    .vacunas-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    /* Tickets grid */
+    .tickets-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    /* Stats */
+    .stat-icon {
+        width: 36px;
+        height: 36px;
+        font-size: 1rem;
+    }
+
+    /* Paseos filtros */
+    #section-paseos .form-row {
+        grid-template-columns: 1fr;
+    }
+
+    /* Table aun mas compacta */
+    .table {
+        font-size: 0.75rem;
+    }
+
+    .table th, .table td {
+        padding: 0.4rem 0.3rem;
+    }
+
+    /* Fotos */
+    .sin-foto-grande {
+        height: 180px;
+        font-size: 2.5rem;
+    }
+}
+
+/* Landscape mobile */
+@media (max-width: 768px) and (orientation: landscape) {
+    .modal {
+        max-height: 95vh;
+    }
+
+    .modal-body {
+        max-height: 50vh;
+    }
+
+    .fotos-expediente .flex.gap-3 {
+        flex-direction: row;
+        justify-content: center;
+    }
+
+    .foto-box {
+        max-width: 45%;
+    }
+}
+
+/* Touch devices - bigger tap targets */
+@media (hover: none) and (pointer: coarse) {
+    .btn {
+        min-height: 44px;
+    }
+
+    .nav-item {
+        min-height: 48px;
+    }
+
+    .tab {
+        min-height: 44px;
+    }
+
+    .form-checkbox {
+        min-height: 44px;
+    }
+
+    .expediente-card {
+        min-height: 60px;
+    }
+}

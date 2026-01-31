@@ -103,11 +103,13 @@ function setupEventListeners() {
         document.getElementById('sidebar').classList.toggle('open');
     });
 
-    // Navegación
+    // Navegacion
     document.querySelectorAll('.nav-item').forEach(item => {
         item.addEventListener('click', () => {
             const section = item.dataset.section;
             navigateToSection(section);
+            // Cerrar sidebar en mobile
+            document.getElementById('sidebar').classList.remove('open');
         });
     });
 
@@ -989,7 +991,7 @@ async function cargarCargosPerro() {
                     <td>${perro?.nombre || 'N/A'}</td>
                     <td>${c.concepto}</td>
                     <td>$${(c.monto || 0).toFixed(2)}</td>
-                    <td><button onclick="eliminarCargo('${c.id}')" class="btn btn-danger btn-sm">🗑️</button></td>
+                    <td><button onclick="eliminarCargo('${c.id}')" class="btn btn-danger btn-sm">X</button></td>
                 </tr>
             `;
         }).join('');
@@ -1248,16 +1250,14 @@ async function cargarExpedienteDirecto(perroId) {
                         <div class="foto-box">
                             <p class="text-muted mb-1"><strong>Foto del Perro</strong></p>
                             ${perro.foto_perro_url ?
-                                `<img src="${perro.foto_perro_url}" alt="${perro.nombre}" class="foto-expediente-img" onclick="window.open('${perro.foto_perro_url}', '_blank')" onerror="this.onerror=null; this.src=''; this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                                 <div class="sin-foto-grande" style="display:none;">${perro.nombre.charAt(0).toUpperCase()}</div>` :
+                                `<img src="${perro.foto_perro_url}" alt="${perro.nombre}" class="foto-expediente-img" onclick="window.open('${perro.foto_perro_url}', '_blank')">` :
                                 `<div class="sin-foto-grande">${perro.nombre.charAt(0).toUpperCase()}</div>`
                             }
                         </div>
                         <div class="foto-box">
                             <p class="text-muted mb-1"><strong>Cartilla de Vacunacion</strong></p>
                             ${perro.foto_cartilla_url ?
-                                `<img src="${perro.foto_cartilla_url}" alt="Cartilla" class="foto-expediente-img" onclick="window.open('${perro.foto_cartilla_url}', '_blank')" onerror="this.onerror=null; this.src=''; this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                                 <div class="sin-foto-grande" style="font-size: 1rem;">Sin cartilla</div>` :
+                                `<img src="${perro.foto_cartilla_url}" alt="Cartilla" class="foto-expediente-img" onclick="window.open('${perro.foto_cartilla_url}', '_blank')">` :
                                 `<div class="sin-foto-grande" style="font-size: 1rem;">Sin cartilla</div>`
                             }
                         </div>
