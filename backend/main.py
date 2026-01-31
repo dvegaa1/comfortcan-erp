@@ -578,7 +578,13 @@ async def upload_foto_perro(perro_id: str, file: UploadFile = File(...), authori
     foto_url = f"{SUPABASE_URL}/storage/v1/object/public/fotos/{filename}"
 
     # Actualizar perro con la URL (usar service key para evitar problemas de permisos)
-    await supabase_request("PATCH", f"perros?id=eq.{perro_id}", {"foto_perro_url": foto_url}, token=SUPABASE_KEY)
+    print(f"Actualizando perro {perro_id} con foto_url: {foto_url}")
+    try:
+        await supabase_request("PATCH", f"perros?id=eq.{perro_id}", {"foto_perro_url": foto_url}, token=SUPABASE_KEY)
+        print(f"Perro actualizado correctamente")
+    except Exception as e:
+        print(f"Error actualizando perro: {e}")
+        raise e
 
     print(f"Foto de perro subida: {foto_url}")
     return {"url": foto_url, "message": "Foto subida correctamente"}
