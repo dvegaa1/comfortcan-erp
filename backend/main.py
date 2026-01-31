@@ -524,65 +524,148 @@ async def crear_ticket(data: TicketCreate, authorization: str = Header(None)):
 # ============================================
 # ENDPOINTS: UPLOAD FOTOS
 # ============================================
+# IMPORTANTE: Para que las fotos sean públicamente accesibles, debes:
+# 1. Ir a Supabase Dashboard > Storage
+# 2. Crear un bucket llamado "fotos" si no existe
+# 3. En las políticas del bucket, agregar una política SELECT pública:
+#    - Policy name: "Acceso público lectura"
+#    - Allowed operation: SELECT
+#    - Target roles: public
+#    - Policy definition: true
+# 4. También necesitas política INSERT para subir:
+#    - Policy name: "Usuarios autenticados pueden subir"
+#    - Allowed operation: INSERT
+#    - Target roles: authenticated
+#    - Policy definition: true
 
 @app.post("/upload/foto-perro/{perro_id}")
 async def upload_foto_perro(perro_id: str, file: UploadFile = File(...), authorization: str = Header(None)):
     token = await verify_token(authorization)
-    
+
     # Leer archivo
     contents = await file.read()
-    
-    # Nombre único
-    filename = f"perros/{perro_id}_{datetime.now().timestamp()}.{file.filename.split('.')[-1]}"
-    
+
+    # Nombre único - usar extensión del archivo original
+    extension = file.filename.split('.')[-1].lower() if '.' in file.filename else 'jpg'
+    filename = f"perros/{perro_id}_{int(datetime.now().timestamp())}.{extension}"
+
     # Subir a Supabase Storage
-    url = f"{SUPABASE_URL}/storage/v1/object/fotos/{filename}"
+    storage_url = f"{SUPABASE_URL}/storage/v1/object/fotos/{filename}"
+
     async with httpx.AsyncClient() as client:
+        # Primero intentar subir (upsert)
         response = await client.post(
-            url,
+            storage_url,
             headers={
                 "apikey": SUPABASE_KEY,
                 "Authorization": f"Bearer {SUPABASE_KEY}",
-                "Content-Type": file.content_type
+                "Content-Type": file.content_type or "image/jpeg",
+                "x-upsert": "true"  # Sobrescribir si existe
             },
-            content=contents
+            content=contents,
+            timeout=30.0
         )
+
         if response.status_code >= 400:
-            raise HTTPException(status_code=response.status_code, detail="Error subiendo foto")
-    
+            error_detail = response.text
+            print(f"Error subiendo foto: {response.status_code} - {error_detail}")
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=f"Error subiendo foto: {error_detail}. Verifica que el bucket 'fotos' exista y tenga políticas correctas."
+            )
+
     # URL pública
     foto_url = f"{SUPABASE_URL}/storage/v1/object/public/fotos/{filename}"
-    
-    # Actualizar perro
+
+    # Actualizar perro con la URL
     await supabase_request("PATCH", f"perros?id=eq.{perro_id}", {"foto_perro_url": foto_url}, token=token)
-    
-    return {"url": foto_url}
+
+    print(f"✅ Foto de perro subida: {foto_url}")
+    return {"url": foto_url, "message": "Foto subida correctamente"}
 
 @app.post("/upload/foto-cartilla/{perro_id}")
 async def upload_foto_cartilla(perro_id: str, file: UploadFile = File(...), authorization: str = Header(None)):
     token = await verify_token(authorization)
-    
+
     contents = await file.read()
-    filename = f"cartillas/{perro_id}_{datetime.now().timestamp()}.{file.filename.split('.')[-1]}"
-    
-    url = f"{SUPABASE_URL}/storage/v1/object/fotos/{filename}"
+
+    extension = file.filename.split('.')[-1].lower() if '.' in file.filename else 'jpg'
+    filename = f"cartillas/{perro_id}_{int(datetime.now().timestamp())}.{extension}"
+
+    storage_url = f"{SUPABASE_URL}/storage/v1/object/fotos/{filename}"
+
     async with httpx.AsyncClient() as client:
         response = await client.post(
-            url,
+            storage_url,
             headers={
                 "apikey": SUPABASE_KEY,
                 "Authorization": f"Bearer {SUPABASE_KEY}",
-                "Content-Type": file.content_type
+                "Content-Type": file.content_type or "image/jpeg",
+                "x-upsert": "true"
             },
-            content=contents
+            content=contents,
+            timeout=30.0
         )
+
         if response.status_code >= 400:
-            raise HTTPException(status_code=response.status_code, detail="Error subiendo foto")
-    
+            error_detail = response.text
+            print(f"Error subiendo cartilla: {response.status_code} - {error_detail}")
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=f"Error subiendo cartilla: {error_detail}. Verifica que el bucket 'fotos' exista y tenga políticas correctas."
+            )
+
     foto_url = f"{SUPABASE_URL}/storage/v1/object/public/fotos/{filename}"
     await supabase_request("PATCH", f"perros?id=eq.{perro_id}", {"foto_cartilla_url": foto_url}, token=token)
-    
-    return {"url": foto_url}
+
+    print(f"✅ Cartilla subida: {foto_url}")
+    return {"url": foto_url, "message": "Cartilla subida correctamente"}
+
+# ============================================
+# ENDPOINTS: DIAGNÓSTICO STORAGE
+# ============================================
+
+@app.get("/storage/check")
+async def check_storage(authorization: str = Header(None)):
+    """Verificar estado del bucket de storage"""
+    token = await verify_token(authorization)
+
+    try:
+        # Verificar si el bucket existe
+        url = f"{SUPABASE_URL}/storage/v1/bucket/fotos"
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                url,
+                headers={
+                    "apikey": SUPABASE_KEY,
+                    "Authorization": f"Bearer {SUPABASE_KEY}"
+                }
+            )
+
+            if response.status_code == 404:
+                return {
+                    "status": "error",
+                    "message": "El bucket 'fotos' NO existe. Debes crearlo en Supabase Dashboard > Storage",
+                    "instructions": [
+                        "1. Ve a Supabase Dashboard",
+                        "2. Ve a Storage",
+                        "3. Crea un nuevo bucket llamado 'fotos'",
+                        "4. Marca la opción 'Public bucket' para que las fotos sean accesibles",
+                        "5. Agrega políticas INSERT para usuarios autenticados"
+                    ]
+                }
+
+            bucket_info = response.json()
+
+            return {
+                "status": "ok",
+                "bucket": "fotos",
+                "public": bucket_info.get("public", False),
+                "message": "Bucket existe" + (" y es público" if bucket_info.get("public") else " pero NO es público - las fotos no serán accesibles")
+            }
+
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 # ============================================
 # ENDPOINTS: REPORTES

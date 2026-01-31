@@ -438,11 +438,21 @@
                     <!-- Historial -->
                     <div class="card">
                         <h3 class="mb-2">Historial de Paseos</h3>
+
+                        <!-- Filtros mejorados -->
                         <div class="form-row">
                             <div class="form-group">
-                                <label class="form-label">Filtrar por Perro</label>
+                                <label class="form-label">Perro</label>
                                 <select id="filtro-paseo-perro" class="form-select">
                                     <option value="">Todos</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Estado</label>
+                                <select id="filtro-paseo-estado" class="form-select">
+                                    <option value="">Todos</option>
+                                    <option value="pendiente">🟡 Pendientes</option>
+                                    <option value="pagado">🟢 Pagados</option>
                                 </select>
                             </div>
                             <div class="form-group">
@@ -454,6 +464,14 @@
                                 <input type="date" id="filtro-paseo-hasta" class="form-input">
                             </div>
                         </div>
+
+                        <!-- Leyenda de acciones -->
+                        <div class="alert alert-info mt-2" style="font-size: 0.85rem; padding: 0.75rem;">
+                            <strong>Acciones disponibles:</strong>
+                            <span class="badge badge-info ml-1">💰 Caja</span> = Enviar a caja para cobrar en ticket |
+                            <span class="badge badge-success ml-1">✓ Pagado</span> = Marcar como pagado directamente
+                        </div>
+
                         <div class="table-container mt-2">
                             <table class="table">
                                 <thead>
@@ -471,10 +489,22 @@
                                 </tbody>
                             </table>
                         </div>
-                        <div class="flex-between mt-2">
-                            <div>
-                                <strong>Pendiente:</strong>
-                                <span id="paseos-pendiente-total" class="text-warning">$0.00</span>
+
+                        <!-- Resumen -->
+                        <div class="stats-grid mt-2">
+                            <div class="stat-card">
+                                <div class="stat-icon" style="background: rgba(245, 166, 35, 0.15); color: var(--color-warning);">🟡</div>
+                                <div>
+                                    <div class="stat-label">Total Pendiente</div>
+                                    <div class="stat-value text-warning" id="paseos-pendiente-total">$0.00</div>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon" style="background: rgba(69, 191, 77, 0.15); color: var(--color-success);">🟢</div>
+                                <div>
+                                    <div class="stat-label">Total Pagado</div>
+                                    <div class="stat-value text-success" id="paseos-pagado-total">$0.00</div>
+                                </div>
                             </div>
                         </div>
                     </div>

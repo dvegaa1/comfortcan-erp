@@ -119,6 +119,7 @@ function setupEventListeners() {
     // Filtros
     document.getElementById('filtro-expediente')?.addEventListener('input', filtrarExpedientes);
     document.getElementById('filtro-paseo-perro')?.addEventListener('change', filtrarPaseos);
+    document.getElementById('filtro-paseo-estado')?.addEventListener('change', filtrarPaseos);
     document.getElementById('filtro-paseo-desde')?.addEventListener('change', filtrarPaseos);
     document.getElementById('filtro-paseo-hasta')?.addEventListener('change', filtrarPaseos);
 
@@ -475,14 +476,30 @@ async function handleNuevoPerro(e) {
         const fotoPerroInput = document.getElementById('foto-perro-input');
         const fotoCartillaInput = document.getElementById('foto-cartilla-input');
 
+        let fotosSubidas = false;
         if (fotoPerroInput?.files[0]) {
-            await subirFoto(nuevo.id, fotoPerroInput.files[0], 'foto-perro');
+            const url = await subirFoto(nuevo.id, fotoPerroInput.files[0], 'foto-perro');
+            if (url) {
+                nuevo.foto_perro_url = url;
+                fotosSubidas = true;
+            }
         }
         if (fotoCartillaInput?.files[0]) {
-            await subirFoto(nuevo.id, fotoCartillaInput.files[0], 'foto-cartilla');
+            const url = await subirFoto(nuevo.id, fotoCartillaInput.files[0], 'foto-cartilla');
+            if (url) {
+                nuevo.foto_cartilla_url = url;
+                fotosSubidas = true;
+            }
         }
 
-        perros.push(nuevo);
+        // Recargar perros para tener las URLs actualizadas
+        if (fotosSubidas) {
+            const perrosActualizados = await apiGet('/perros');
+            perros = perrosActualizados || [];
+        } else {
+            perros.push(nuevo);
+        }
+
         llenarSelectPerros();
         e.target.reset();
         document.getElementById('foto-perro-preview')?.classList.add('hidden');
@@ -490,7 +507,7 @@ async function handleNuevoPerro(e) {
         document.getElementById('desparasitacion-interna')?.classList.add('hidden');
         document.getElementById('desparasitacion-externa')?.classList.add('hidden');
         hideLoading();
-        showToast('Perro registrado exitosamente', 'success');
+        showToast('Perro registrado exitosamente' + (fotosSubidas ? ' con fotos' : ''), 'success');
     } catch (error) {
         hideLoading();
         showToast(error.message, 'error');
@@ -504,13 +521,26 @@ async function subirFoto(perroId, file, tipo) {
     const endpoint = tipo === 'foto-perro' ? 'foto-perro' : 'foto-cartilla';
 
     try {
-        await fetch(`${API_URL}/upload/${endpoint}/${perroId}`, {
+        const response = await fetch(`${API_URL}/upload/${endpoint}/${perroId}`, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${authToken}` },
             body: formData
         });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error('Error subiendo foto:', errorData);
+            showToast(`Error subiendo ${tipo}: ${errorData.detail || 'Error desconocido'}`, 'error');
+            return null;
+        }
+
+        const data = await response.json();
+        console.log(`✅ Foto subida: ${data.url}`);
+        return data.url;
     } catch (err) {
         console.error('Error subiendo foto:', err);
+        showToast(`Error de conexión al subir ${tipo}`, 'error');
+        return null;
     }
 }
 
@@ -733,46 +763,62 @@ async function handleNuevoPaseo(e) {
 async function cargarPaseos() {
     try {
         const paseos = await apiGet('/paseos');
-        const tbody = document.getElementById('tabla-paseos');
-        if (!tbody) return;
-
-        if (!paseos || paseos.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Sin paseos</td></tr>';
-            return;
-        }
-
-        let totalPendiente = 0;
-
-        tbody.innerHTML = paseos.map(p => {
-            const perroNombre = p.perros?.nombre || 'N/A';
-            if (!p.pagado) totalPendiente += p.precio || 0;
-            return `
-                <tr>
-                    <td>${formatDate(p.fecha)}</td>
-                    <td>${perroNombre}</td>
-                    <td>${p.tipo_paseo || 'N/A'}</td>
-                    <td>$${(p.precio || 0).toFixed(2)}</td>
-                    <td>
-                        <span class="badge ${p.pagado ? 'badge-success' : 'badge-warning'}">
-                            ${p.pagado ? 'Pagado' : 'Pendiente'}
-                        </span>
-                    </td>
-                    <td>
-                        ${!p.pagado ? `
-                            <button onclick="enviarPaseoACaja('${p.id}', '${p.perro_id}', '${p.fecha}', '${p.tipo_paseo}', ${p.precio})" class="btn btn-info btn-sm" title="Enviar a Caja">💰</button>
-                            <button onclick="marcarPaseoPagado('${p.id}')" class="btn btn-success btn-sm" title="Marcar Pagado">✓</button>
-                        ` : '<span class="text-muted">-</span>'}
-                    </td>
-                </tr>
-            `;
-        }).join('');
-
-        const totalEl = document.getElementById('paseos-pendiente-total');
-        if (totalEl) totalEl.textContent = `$${totalPendiente.toFixed(2)}`;
-
+        renderTablaPaseosHistorial(paseos);
     } catch (error) {
         console.error('Error cargando paseos:', error);
     }
+}
+
+function renderTablaPaseosHistorial(paseos) {
+    const tbody = document.getElementById('tabla-paseos');
+    if (!tbody) return;
+
+    if (!paseos || paseos.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Sin paseos</td></tr>';
+        document.getElementById('paseos-pendiente-total').textContent = '$0.00';
+        document.getElementById('paseos-pagado-total').textContent = '$0.00';
+        return;
+    }
+
+    let totalPendiente = 0;
+    let totalPagado = 0;
+
+    tbody.innerHTML = paseos.map(p => {
+        const perroNombre = p.perros?.nombre || 'N/A';
+        if (p.pagado) {
+            totalPagado += p.precio || 0;
+        } else {
+            totalPendiente += p.precio || 0;
+        }
+        return `
+            <tr class="${p.pagado ? 'paseo-pagado' : 'paseo-pendiente'}">
+                <td>${formatDate(p.fecha)}</td>
+                <td>${perroNombre}</td>
+                <td>${p.tipo_paseo || 'N/A'}</td>
+                <td>$${(p.precio || 0).toFixed(2)}</td>
+                <td>
+                    <span class="badge ${p.pagado ? 'badge-success' : 'badge-warning'}">
+                        ${p.pagado ? '🟢 Pagado' : '🟡 Pendiente'}
+                    </span>
+                </td>
+                <td>
+                    ${!p.pagado ? `
+                        <div class="btn-group">
+                            <button onclick="enviarPaseoACaja('${p.id}', '${p.perro_id}', '${p.fecha}', '${p.tipo_paseo}', ${p.precio})" class="btn btn-info btn-sm" title="Enviar a Caja para cobrar en ticket">
+                                💰 Caja
+                            </button>
+                            <button onclick="marcarPaseoPagado('${p.id}')" class="btn btn-success btn-sm" title="Marcar como pagado directamente (sin ticket)">
+                                ✓ Pagado
+                            </button>
+                        </div>
+                    ` : '<span class="text-muted">Ya pagado</span>'}
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    document.getElementById('paseos-pendiente-total').textContent = `$${totalPendiente.toFixed(2)}`;
+    document.getElementById('paseos-pagado-total').textContent = `$${totalPagado.toFixed(2)}`;
 }
 
 // Marcar paseo como pagado directamente
@@ -819,6 +865,7 @@ async function enviarPaseoACaja(paseoId, perroId, fecha, tipoPaseo, precio) {
 
 async function filtrarPaseos() {
     const perroId = document.getElementById('filtro-paseo-perro')?.value;
+    const estado = document.getElementById('filtro-paseo-estado')?.value;
     const desde = document.getElementById('filtro-paseo-desde')?.value;
     const hasta = document.getElementById('filtro-paseo-hasta')?.value;
 
@@ -830,45 +877,25 @@ async function filtrarPaseos() {
         if (desde) params.push(`fecha_inicio=${desde}`);
         if (hasta) params.push(`fecha_fin=${hasta}`);
 
+        // Filtro de estado (pagado/pendiente)
+        if (estado === 'pagado') params.push(`pagado=true`);
+        if (estado === 'pendiente') params.push(`pagado=false`);
+
         endpoint += params.join('&');
 
         const paseos = await apiGet(endpoint);
-        const tbody = document.getElementById('tabla-paseos');
-        if (!tbody) return;
 
         if (!paseos || paseos.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Sin paseos con esos filtros</td></tr>';
+            const tbody = document.getElementById('tabla-paseos');
+            if (tbody) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Sin paseos con esos filtros</td></tr>';
+            }
             document.getElementById('paseos-pendiente-total').textContent = '$0.00';
+            document.getElementById('paseos-pagado-total').textContent = '$0.00';
             return;
         }
 
-        let totalPendiente = 0;
-
-        tbody.innerHTML = paseos.map(p => {
-            const perroNombre = p.perros?.nombre || 'N/A';
-            if (!p.pagado) totalPendiente += p.precio || 0;
-            return `
-                <tr>
-                    <td>${formatDate(p.fecha)}</td>
-                    <td>${perroNombre}</td>
-                    <td>${p.tipo_paseo || 'N/A'}</td>
-                    <td>$${(p.precio || 0).toFixed(2)}</td>
-                    <td>
-                        <span class="badge ${p.pagado ? 'badge-success' : 'badge-warning'}">
-                            ${p.pagado ? 'Pagado' : 'Pendiente'}
-                        </span>
-                    </td>
-                    <td>
-                        ${!p.pagado ? `
-                            <button onclick="enviarPaseoACaja('${p.id}', '${p.perro_id}', '${p.fecha}', '${p.tipo_paseo}', ${p.precio})" class="btn btn-info btn-sm" title="Enviar a Caja">💰</button>
-                            <button onclick="marcarPaseoPagado('${p.id}')" class="btn btn-success btn-sm" title="Marcar Pagado">✓</button>
-                        ` : '<span class="text-muted">-</span>'}
-                    </td>
-                </tr>
-            `;
-        }).join('');
-
-        document.getElementById('paseos-pendiente-total').textContent = `$${totalPendiente.toFixed(2)}`;
+        renderTablaPaseosHistorial(paseos);
 
     } catch (error) {
         console.error('Error filtrando paseos:', error);
@@ -989,24 +1016,41 @@ function generarTicket() {
     let subtotal = cargosActuales.reduce((sum, c) => sum + (c.monto || 0), 0);
 
     const ticketHTML = `
-        <div class="ticket-compact" id="ticket-para-descargar">
-            <div class="ticket-header-compact">
-                <strong>ComfortCan</strong>
-                <span>${formatDate(new Date())}</span>
+        <div class="ticket" id="ticket-para-descargar">
+            <div class="ticket-header">
+                <img src="assets/logo.png" alt="ComfortCan" class="ticket-logo">
+                <div class="ticket-title">ComfortCan México</div>
+                <div class="ticket-subtitle">Train & Care</div>
             </div>
-            <div class="ticket-cliente">
-                ${propietario?.nombre || 'Cliente'} - ${perro?.nombre || 'Mascota'}
-            </div>
-            <div class="ticket-items-compact">
+            <div class="ticket-body">
+                <div class="ticket-row">
+                    <span>Fecha:</span>
+                    <span>${formatDate(new Date())}</span>
+                </div>
+                <div class="ticket-row">
+                    <span>Cliente:</span>
+                    <span>${propietario?.nombre || 'N/A'}</span>
+                </div>
+                <div class="ticket-row">
+                    <span>Mascota:</span>
+                    <span>${perro?.nombre || 'N/A'}</span>
+                </div>
+                <div class="ticket-divider"></div>
                 ${cargosActuales.map(c => `
-                    <div class="ticket-item-row">
-                        <span>${c.concepto}</span>
+                    <div class="ticket-row">
+                        <span>${c.concepto}<br><small style="color:#666">${formatDate(c.fecha_servicio || c.fecha_cargo)}</small></span>
                         <span>$${(c.monto || 0).toFixed(2)}</span>
                     </div>
                 `).join('')}
+                <div class="ticket-divider"></div>
+                <div class="ticket-row ticket-total">
+                    <span>TOTAL:</span>
+                    <span>$${subtotal.toFixed(2)}</span>
+                </div>
             </div>
-            <div class="ticket-total-compact">
-                TOTAL: $${subtotal.toFixed(2)}
+            <div class="ticket-footer">
+                ¡Gracias por confiar en nosotros!<br>
+                Tel: (555) 123-4567
             </div>
         </div>
     `;
@@ -1087,10 +1131,16 @@ function renderListaExpedientes() {
         <div class="expedientes-grid">
             ${perros.map(p => {
                 const propietario = p.propietarios || propietarios.find(prop => prop.id === p.propietario_id);
+                // Debug: mostrar si tiene foto
+                console.log(`Perro ${p.nombre} - foto_perro_url:`, p.foto_perro_url);
                 return `
                     <div class="expediente-card" onclick="cargarExpedienteDirecto('${p.id}')">
                         <div class="expediente-foto">
-                            ${p.foto_perro_url ? `<img src="${p.foto_perro_url}" alt="${p.nombre}">` : `<div class="sin-foto">${p.nombre.charAt(0)}</div>`}
+                            ${p.foto_perro_url ?
+                                `<img src="${p.foto_perro_url}" alt="${p.nombre}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                 <div class="sin-foto" style="display:none;">${p.nombre.charAt(0)}</div>` :
+                                `<div class="sin-foto">${p.nombre.charAt(0)}</div>`
+                            }
                         </div>
                         <div class="expediente-info">
                             <h4>${p.nombre}</h4>
@@ -1127,6 +1177,11 @@ async function cargarExpedienteDirecto(perroId) {
         const perro = await apiGet(`/perros/${perroId}`);
         const propietario = perro.propietarios || propietarios.find(p => p.id === perro.propietario_id);
 
+        // Debug: mostrar URLs de fotos
+        console.log('📷 Debug fotos de', perro.nombre);
+        console.log('  foto_perro_url:', perro.foto_perro_url || 'NO TIENE');
+        console.log('  foto_cartilla_url:', perro.foto_cartilla_url || 'NO TIENE');
+
         // Cargar historial de tickets
         let tickets = [];
         try {
@@ -1138,36 +1193,48 @@ async function cargarExpedienteDirecto(perroId) {
         const contenido = document.getElementById('expediente-contenido');
         contenido.innerHTML = `
             <div class="card mt-2">
-                <div class="expediente-header">
-                    <div class="expediente-fotos">
-                        <div class="foto-principal">
+                <!-- SECCIÓN DE FOTOS -->
+                <div class="fotos-expediente mb-3">
+                    <div class="flex gap-3" style="flex-wrap: wrap;">
+                        <div class="foto-box">
                             <p class="text-muted mb-1"><strong>📷 Foto del Perro:</strong></p>
                             ${perro.foto_perro_url ?
-                                `<img src="${perro.foto_perro_url}" alt="${perro.nombre}" style="max-width: 200px; max-height: 200px; border-radius: 8px; object-fit: cover; cursor: pointer;" onclick="window.open('${perro.foto_perro_url}', '_blank')">` :
+                                `<img src="${perro.foto_perro_url}" alt="${perro.nombre}" class="foto-expediente-img" onclick="window.open('${perro.foto_perro_url}', '_blank')" onerror="this.onerror=null; this.src=''; this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                 <div class="sin-foto-grande" style="display:none;">${perro.nombre.charAt(0).toUpperCase()}</div>` :
                                 `<div class="sin-foto-grande">${perro.nombre.charAt(0).toUpperCase()}</div>`
                             }
                         </div>
-                        <div class="foto-cartilla mt-2">
+                        <div class="foto-box">
                             <p class="text-muted mb-1"><strong>📋 Cartilla de Vacunación:</strong></p>
                             ${perro.foto_cartilla_url ?
-                                `<img src="${perro.foto_cartilla_url}" alt="Cartilla" style="max-width: 200px; max-height: 200px; border-radius: 8px; object-fit: cover; cursor: pointer;" onclick="window.open('${perro.foto_cartilla_url}', '_blank')">` :
+                                `<img src="${perro.foto_cartilla_url}" alt="Cartilla" class="foto-expediente-img" onclick="window.open('${perro.foto_cartilla_url}', '_blank')" onerror="this.onerror=null; this.src=''; this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                 <div class="sin-foto-grande" style="font-size: 1rem;">Sin cartilla</div>` :
                                 `<div class="sin-foto-grande" style="font-size: 1rem;">Sin cartilla</div>`
                             }
                         </div>
                     </div>
-                    <div class="expediente-datos">
-                        <h2>${perro.nombre}</h2>
-                        <p><strong>Raza:</strong> ${perro.raza || 'N/A'}</p>
-                        <p><strong>Edad:</strong> ${perro.edad || 'N/A'}</p>
-                        <p><strong>Género:</strong> ${perro.genero || 'N/A'}</p>
-                        <p><strong>Peso:</strong> ${perro.peso_kg ? perro.peso_kg + ' kg' : 'N/A'} ${perro.fecha_pesaje ? `(${formatDate(perro.fecha_pesaje)})` : ''}</p>
-                        <p><strong>Esterilizado:</strong> ${perro.esterilizado ? 'Sí' : 'No'}</p>
-                        <hr>
-                        <h4>Propietario</h4>
-                        <p><strong>Nombre:</strong> ${propietario?.nombre || 'N/A'}</p>
-                        <p><strong>Teléfono:</strong> ${propietario?.telefono || 'N/A'}</p>
-                        <p><strong>Email:</strong> ${propietario?.email || 'N/A'}</p>
-                        <p><strong>Dirección:</strong> ${propietario?.direccion || 'N/A'}</p>
+                </div>
+
+                <hr>
+
+                <!-- DATOS DEL PERRO -->
+                <div class="datos-expediente">
+                    <h2 style="font-size: 1.5rem; margin-bottom: 1rem;">${perro.nombre}</h2>
+                    <div class="form-row">
+                        <div>
+                            <p><strong>Raza:</strong> ${perro.raza || 'N/A'}</p>
+                            <p><strong>Edad:</strong> ${perro.edad || 'N/A'}</p>
+                            <p><strong>Género:</strong> ${perro.genero || 'N/A'}</p>
+                            <p><strong>Peso:</strong> ${perro.peso_kg ? perro.peso_kg + ' kg' : 'N/A'}</p>
+                            <p><strong>Esterilizado:</strong> ${perro.esterilizado ? 'Sí' : 'No'}</p>
+                        </div>
+                        <div>
+                            <h4>Propietario</h4>
+                            <p><strong>Nombre:</strong> ${propietario?.nombre || 'N/A'}</p>
+                            <p><strong>Teléfono:</strong> ${propietario?.telefono || 'N/A'}</p>
+                            <p><strong>Email:</strong> ${propietario?.email || 'N/A'}</p>
+                            <p><strong>Dirección:</strong> ${propietario?.direccion || 'N/A'}</p>
+                        </div>
                     </div>
                 </div>
 
@@ -1229,7 +1296,10 @@ async function cargarExpedienteDirecto(perroId) {
                     </div>
                 ` : '<p class="text-muted">Sin historial de tickets</p>'}
 
-                <button onclick="editarExpedienteCompleto('${perroId}')" class="btn btn-secondary mt-3">✏️ Editar Expediente</button>
+                <div class="flex gap-2 mt-3">
+                    <button onclick="editarExpedienteCompleto('${perroId}')" class="btn btn-secondary">✏️ Editar Expediente</button>
+                    <button onclick="subirFotosExpediente('${perroId}')" class="btn btn-primary">📷 Subir Fotos</button>
+                </div>
             </div>
         `;
 
@@ -1238,6 +1308,95 @@ async function cargarExpedienteDirecto(perroId) {
     } catch (error) {
         hideLoading();
         showToast('Error cargando expediente', 'error');
+    }
+}
+
+// Función para subir fotos desde el expediente
+function subirFotosExpediente(perroId) {
+    const perro = perros.find(p => p.id === perroId);
+
+    // Crear modal para subir fotos
+    const modalHTML = `
+        <div class="modal-overlay active" id="modal-fotos">
+            <div class="modal">
+                <div class="modal-header">
+                    <h3 class="modal-title">📷 Subir Fotos - ${perro?.nombre || 'Perro'}</h3>
+                    <button class="modal-close" onclick="cerrarModalFotos()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Foto del Perro</label>
+                        <input type="file" id="upload-foto-perro" accept="image/*" class="form-input">
+                        <small class="text-muted">JPG, PNG - Máximo 5MB</small>
+                    </div>
+                    <div class="form-group mt-2">
+                        <label class="form-label">Cartilla de Vacunación</label>
+                        <input type="file" id="upload-foto-cartilla" accept="image/*" class="form-input">
+                        <small class="text-muted">JPG, PNG - Máximo 5MB</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button onclick="cerrarModalFotos()" class="btn btn-secondary">Cancelar</button>
+                    <button onclick="ejecutarSubidaFotos('${perroId}')" class="btn btn-primary">📤 Subir Fotos</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+function cerrarModalFotos() {
+    const modal = document.getElementById('modal-fotos');
+    if (modal) modal.remove();
+}
+
+async function ejecutarSubidaFotos(perroId) {
+    const fotoPerroInput = document.getElementById('upload-foto-perro');
+    const fotoCartillaInput = document.getElementById('upload-foto-cartilla');
+
+    if (!fotoPerroInput?.files[0] && !fotoCartillaInput?.files[0]) {
+        showToast('Selecciona al menos una foto', 'error');
+        return;
+    }
+
+    showLoading();
+    let subidas = 0;
+
+    try {
+        if (fotoPerroInput?.files[0]) {
+            const url = await subirFoto(perroId, fotoPerroInput.files[0], 'foto-perro');
+            if (url) {
+                console.log('✅ Foto de perro subida:', url);
+                subidas++;
+            }
+        }
+
+        if (fotoCartillaInput?.files[0]) {
+            const url = await subirFoto(perroId, fotoCartillaInput.files[0], 'foto-cartilla');
+            if (url) {
+                console.log('✅ Foto de cartilla subida:', url);
+                subidas++;
+            }
+        }
+
+        // Recargar perros para actualizar URLs
+        const perrosActualizados = await apiGet('/perros');
+        perros = perrosActualizados || [];
+
+        cerrarModalFotos();
+        hideLoading();
+
+        if (subidas > 0) {
+            showToast(`${subidas} foto(s) subida(s) correctamente`, 'success');
+            // Recargar expediente
+            await cargarExpedienteDirecto(perroId);
+        } else {
+            showToast('No se pudo subir ninguna foto. Verifica la configuración de Supabase Storage.', 'error');
+        }
+    } catch (error) {
+        hideLoading();
+        showToast('Error: ' + error.message, 'error');
     }
 }
 
@@ -1755,7 +1914,39 @@ function formatDate(dateStr) {
 }
 
 // ============================================
+// DEBUG Y VERIFICACIÓN
+// ============================================
+
+// Función para verificar si una imagen es accesible
+async function verificarImagen(url) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve(true);
+        img.onerror = () => resolve(false);
+        img.src = url;
+    });
+}
+
+// Debug: verificar estado de fotos de perros
+async function debugFotosPerros() {
+    console.log('🔍 Debug - Verificando fotos de perros:');
+    for (const p of perros) {
+        if (p.foto_perro_url) {
+            const accesible = await verificarImagen(p.foto_perro_url);
+            console.log(`  ${p.nombre}: foto_perro_url = ${p.foto_perro_url}`);
+            console.log(`    -> Accesible: ${accesible ? '✅ SÍ' : '❌ NO (verificar políticas de Supabase Storage)'}`);
+        }
+        if (p.foto_cartilla_url) {
+            const accesible = await verificarImagen(p.foto_cartilla_url);
+            console.log(`  ${p.nombre}: foto_cartilla_url = ${p.foto_cartilla_url}`);
+            console.log(`    -> Accesible: ${accesible ? '✅ SÍ' : '❌ NO (verificar políticas de Supabase Storage)'}`);
+        }
+    }
+}
+
+// ============================================
 // VERIFICACIÓN FINAL
 // ============================================
-console.log('✅ ComfortCan México - App.js v3 CORREGIDO cargado');
+console.log('✅ ComfortCan México - App.js v4 cargado');
 console.log('📋 Módulos: Auth, Propietarios, Perros, Check-in, Paseos, Caja, Expedientes, Configuración');
+console.log('💡 Tip: Ejecuta debugFotosPerros() en la consola para verificar acceso a las imágenes');
