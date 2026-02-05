@@ -1725,57 +1725,48 @@ body {
     border: 2px solid rgba(255,255,255,0.3);
 }
 
-/* ========== CALENDARIO - PERROS APILADOS ========== */
-.calendario-dia-perros {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    width: 100%;
-    height: 100%;
-    min-height: 40px;
-}
-
-.estancia-barra-stack {
+/* ========== CALENDARIO - BARRA CONTINUA ========== */
+.estancia-barra-continua {
     display: flex;
     align-items: center;
     gap: 4px;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 0.7rem;
+    padding: 4px 8px;
+    font-size: 0.75rem;
     font-weight: 500;
     color: white;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     cursor: pointer;
-    min-height: 24px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    height: 100%;
+    min-height: 36px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
     transition: filter 0.2s;
 }
 
-.estancia-barra-stack:hover {
+.estancia-barra-continua:hover {
     filter: brightness(1.15);
     z-index: 2;
 }
 
-.estancia-barra-stack.inicio {
-    border-top-left-radius: 12px;
-    border-bottom-left-radius: 12px;
-    margin-left: 2px;
+.estancia-barra-continua.inicio {
+    border-top-left-radius: 18px;
+    border-bottom-left-radius: 18px;
+    margin-left: 3px;
 }
 
-.estancia-barra-stack.fin {
-    border-top-right-radius: 12px;
-    border-bottom-right-radius: 12px;
-    margin-right: 2px;
+.estancia-barra-continua.fin {
+    border-top-right-radius: 18px;
+    border-bottom-right-radius: 18px;
+    margin-right: 3px;
 }
 
-.estancia-barra-stack.unico {
-    border-radius: 12px;
-    margin: 0 2px;
+.estancia-barra-continua.unico {
+    border-radius: 18px;
+    margin: 0 3px;
 }
 
-.estancia-barra-stack.medio {
+.estancia-barra-continua.medio {
     border-radius: 0;
 }
 
@@ -1854,19 +1845,15 @@ body {
         height: 30px;
     }
 
-    .calendario-dia-perros {
-        min-height: 30px;
-    }
-
-    .estancia-barra-stack {
-        min-height: 20px;
+    .estancia-barra-continua {
+        min-height: 28px;
         font-size: 0.6rem;
-        padding: 1px 4px;
+        padding: 2px 4px;
     }
 
     .calendario-perro-foto-sm {
-        width: 16px;
-        height: 16px;
+        width: 18px;
+        height: 18px;
     }
 }
 
@@ -1876,13 +1863,13 @@ body {
         height: 26px;
     }
 
-    .estancia-barra-stack {
-        min-height: 18px;
+    .estancia-barra-continua {
+        min-height: 24px;
         font-size: 0.55rem;
     }
 
     .calendario-perro-foto-sm {
-        width: 14px;
-        height: 14px;
+        width: 16px;
+        height: 16px;
     }
 }

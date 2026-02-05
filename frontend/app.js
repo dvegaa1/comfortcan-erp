@@ -2397,12 +2397,12 @@ function renderCalendarioOcupacion() {
         html += '<div class="calendario-row">';
         html += `<div class="calendario-habitacion">${hab.nombre}</div>`;
 
-        dias.forEach((dia, idx) => {
-            const fechaStr = dia.toISOString().split('T')[0];
+        // Obtener estancias de esta habitación
+        const estanciasHab = estanciasActivas.filter(e => e.habitacion === hab.nombre);
 
-            // Buscar TODAS las estancias que ocupan este día en esta habitación
-            const estanciasEnDia = estanciasActivas.filter(e => {
-                if (e.habitacion !== hab.nombre) return false;
+        dias.forEach((dia, idx) => {
+            // Buscar estancias que ocupan este día
+            const estanciasEnDia = estanciasHab.filter(e => {
                 const entrada = new Date(e.fecha_entrada);
                 const salida = e.fecha_salida ? new Date(e.fecha_salida) : entrada;
                 entrada.setHours(0, 0, 0, 0);
@@ -2411,44 +2411,41 @@ function renderCalendarioOcupacion() {
             });
 
             if (estanciasEnDia.length > 0) {
+                // Tomar la primera estancia (principal)
+                const estancia = estanciasEnDia[0];
+                const entrada = new Date(estancia.fecha_entrada);
+                const salida = estancia.fecha_salida ? new Date(estancia.fecha_salida) : entrada;
+                entrada.setHours(0, 0, 0, 0);
+                salida.setHours(0, 0, 0, 0);
+
+                const esInicio = dia.getTime() === entrada.getTime();
+                const esFin = dia.getTime() === salida.getTime();
+                const esUnico = esInicio && esFin;
+                const perroNombre = estancia.perros?.nombre || 'Perro';
+                const perroFoto = estancia.perros?.foto_perro_url || null;
+                const color = estancia.color_etiqueta || '#45BF4D';
+                const colorTexto = catalogoColores.find(c => c.color === color)?.texto || '';
+
+                let barraClass = 'estancia-barra-continua';
+                if (esUnico) barraClass += ' unico';
+                else if (esInicio) barraClass += ' inicio';
+                else if (esFin) barraClass += ' fin';
+                else barraClass += ' medio';
+
                 html += `<div class="calendario-dia ocupado">`;
-                html += `<div class="calendario-dia-perros">`;
+                html += `<div class="${barraClass}" style="background-color: ${color};"
+                    title="${perroNombre}: ${formatDate(estancia.fecha_entrada)} - ${formatDate(estancia.fecha_salida)}${colorTexto ? ' (' + colorTexto + ')' : ''}"
+                    onclick="mostrarDetalleEstancia('${estancia.id}')">`;
 
-                estanciasEnDia.forEach((estancia, estanciaIdx) => {
-                    const entrada = new Date(estancia.fecha_entrada);
-                    const salida = estancia.fecha_salida ? new Date(estancia.fecha_salida) : entrada;
-                    entrada.setHours(0, 0, 0, 0);
-                    salida.setHours(0, 0, 0, 0);
-
-                    const esInicio = dia.getTime() === entrada.getTime();
-                    const esFin = dia.getTime() === salida.getTime();
-                    const esUnico = esInicio && esFin;
-                    const perroNombre = estancia.perros?.nombre || 'Perro';
-                    const perroFoto = estancia.perros?.foto_perro_url || null;
-                    const color = estancia.color_etiqueta || '#45BF4D';
-                    const colorTexto = catalogoColores.find(c => c.color === color)?.texto || '';
-
-                    let barraClass = 'estancia-barra-stack';
-                    if (esUnico) barraClass += ' unico';
-                    else if (esInicio) barraClass += ' inicio';
-                    else if (esFin) barraClass += ' fin';
-                    else barraClass += ' medio';
-
-                    // SIEMPRE mostrar foto y nombre en cada día
-                    html += `<div class="${barraClass}" style="background-color: ${color};"
-                        title="${perroNombre}: ${formatDate(estancia.fecha_entrada)} - ${formatDate(estancia.fecha_salida)}${colorTexto ? ' (' + colorTexto + ')' : ''}"
-                        onclick="mostrarDetalleEstancia('${estancia.id}')">`;
-
-                    // Siempre mostrar foto (o emoji si no tiene) + nombre
+                // Solo mostrar foto y nombre en el primer día visible o inicio
+                if (esInicio || idx === 0) {
                     if (perroFoto) {
                         html += `<img src="${perroFoto}" class="calendario-perro-foto-sm" alt="${perroNombre}">`;
                     } else {
                         html += `<span class="calendario-perro-emoji">🐕</span>`;
                     }
                     html += `<span class="calendario-perro-nombre-sm">${perroNombre}</span>`;
-
-                    html += `</div>`;
-                });
+                }
 
                 html += `</div></div>`;
             } else {
