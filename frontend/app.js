@@ -2411,72 +2411,99 @@ function renderCalendarioOcupacion() {
     // Filtrar estancias activas
     const estanciasActivas = estancias.filter(e => e.estado !== 'Completada');
 
-    // Filas por habitacion
+    // Filas por habitacion - CADA PERRO TIENE SU PROPIA SUB-FILA
     catalogoHabitaciones.forEach(hab => {
-        html += '<div class="calendario-row">';
-        html += `<div class="calendario-habitacion">${hab.nombre}</div>`;
-
-        // Obtener estancias de esta habitación
+        // Obtener estancias únicas de esta habitación (por perro)
         const estanciasHab = estanciasActivas.filter(e => e.habitacion === hab.nombre);
 
-        dias.forEach((dia, idx) => {
-            // Buscar estancias que ocupan este día
-            const estanciasEnDia = estanciasHab.filter(e => {
-                const entrada = new Date(e.fecha_entrada);
-                const salida = e.fecha_salida ? new Date(e.fecha_salida) : entrada;
-                entrada.setHours(0, 0, 0, 0);
-                salida.setHours(0, 0, 0, 0);
-                return dia >= entrada && dia <= salida;
-            });
+        // Agrupar por perro_id para que cada perro tenga su propia fila
+        const perrosUnicos = [];
+        const estanciasPorPerro = {};
 
-            if (estanciasEnDia.length > 0) {
-                // Mostrar TODAS las estancias apiladas verticalmente
-                html += `<div class="calendario-dia ocupado multiple-${estanciasEnDia.length}">`;
-
-                estanciasEnDia.forEach((estancia) => {
-                    const entrada = new Date(estancia.fecha_entrada);
-                    const salida = estancia.fecha_salida ? new Date(estancia.fecha_salida) : entrada;
-                    entrada.setHours(0, 0, 0, 0);
-                    salida.setHours(0, 0, 0, 0);
-
-                    const esInicio = dia.getTime() === entrada.getTime();
-                    const esFin = dia.getTime() === salida.getTime();
-                    const esUnico = esInicio && esFin;
-                    const perroNombre = estancia.perros?.nombre || 'Perro';
-                    const perroFoto = estancia.perros?.foto_perro_url || null;
-                    const color = estancia.color_etiqueta || '#45BF4D';
-                    const colorTexto = catalogoColores.find(c => c.color === color)?.texto || '';
-
-                    let barraClass = 'estancia-barra-continua';
-                    if (esUnico) barraClass += ' unico';
-                    else if (esInicio) barraClass += ' inicio';
-                    else if (esFin) barraClass += ' fin';
-                    else barraClass += ' medio';
-
-                    html += `<div class="${barraClass}" style="background-color: ${color};"
-                        title="${perroNombre}: ${formatDate(estancia.fecha_entrada)} - ${formatDate(estancia.fecha_salida)}${colorTexto ? ' (' + colorTexto + ')' : ''}"
-                        onclick="mostrarDetalleEstancia('${estancia.id}')">`;
-
-                    // Solo mostrar foto y nombre en el primer día visible o inicio
-                    if (esInicio || idx === 0) {
-                        if (perroFoto) {
-                            html += `<img src="${perroFoto}" class="calendario-perro-foto-sm" alt="${perroNombre}">`;
-                        } else {
-                            html += `<span class="calendario-perro-emoji">🐕</span>`;
-                        }
-                        html += `<span class="calendario-perro-nombre-sm">${perroNombre}</span>`;
-                    }
-
-                    html += `</div>`;
-                });
-
-                html += `</div>`;
-            } else {
-                html += '<div class="calendario-dia disponible"></div>';
+        estanciasHab.forEach(e => {
+            const perroId = e.perro_id || e.id; // usar id de estancia si no hay perro_id
+            if (!estanciasPorPerro[perroId]) {
+                estanciasPorPerro[perroId] = [];
+                perrosUnicos.push(perroId);
             }
+            estanciasPorPerro[perroId].push(e);
         });
 
-        html += '</div>';
+        // Si no hay estancias, mostrar una fila vacía para la habitación
+        if (perrosUnicos.length === 0) {
+            html += '<div class="calendario-row">';
+            html += `<div class="calendario-habitacion">${hab.nombre}</div>`;
+            dias.forEach(() => {
+                html += '<div class="calendario-dia disponible"></div>';
+            });
+            html += '</div>';
+        } else {
+            // Crear una sub-fila por cada perro
+            perrosUnicos.forEach((perroId, perroIdx) => {
+                const estanciasPerro = estanciasPorPerro[perroId];
+
+                html += '<div class="calendario-row">';
+
+                // Solo mostrar nombre de habitación en la primera sub-fila
+                if (perroIdx === 0) {
+                    html += `<div class="calendario-habitacion" style="grid-row: span ${perrosUnicos.length};">${hab.nombre}</div>`;
+                }
+
+                dias.forEach((dia, idx) => {
+                    // Buscar si este perro tiene estancia en este día
+                    const estanciaEnDia = estanciasPerro.find(e => {
+                        const entrada = new Date(e.fecha_entrada);
+                        const salida = e.fecha_salida ? new Date(e.fecha_salida) : entrada;
+                        entrada.setHours(0, 0, 0, 0);
+                        salida.setHours(0, 0, 0, 0);
+                        return dia >= entrada && dia <= salida;
+                    });
+
+                    if (estanciaEnDia) {
+                        const estancia = estanciaEnDia;
+                        const entrada = new Date(estancia.fecha_entrada);
+                        const salida = estancia.fecha_salida ? new Date(estancia.fecha_salida) : entrada;
+                        entrada.setHours(0, 0, 0, 0);
+                        salida.setHours(0, 0, 0, 0);
+
+                        const esInicio = dia.getTime() === entrada.getTime();
+                        const esFin = dia.getTime() === salida.getTime();
+                        const esUnico = esInicio && esFin;
+                        const perroNombre = estancia.perros?.nombre || 'Perro';
+                        const perroFoto = estancia.perros?.foto_perro_url || null;
+                        const color = estancia.color_etiqueta || '#45BF4D';
+                        const colorTexto = catalogoColores.find(c => c.color === color)?.texto || '';
+
+                        let barraClass = 'estancia-barra-continua';
+                        if (esUnico) barraClass += ' unico';
+                        else if (esInicio) barraClass += ' inicio';
+                        else if (esFin) barraClass += ' fin';
+                        else barraClass += ' medio';
+
+                        html += `<div class="calendario-dia ocupado">`;
+                        html += `<div class="${barraClass}" style="background-color: ${color};"
+                            title="${perroNombre}: ${formatDate(estancia.fecha_entrada)} - ${formatDate(estancia.fecha_salida)}${colorTexto ? ' (' + colorTexto + ')' : ''}"
+                            onclick="mostrarDetalleEstancia('${estancia.id}')">`;
+
+                        // Solo mostrar foto y nombre en el primer día visible o inicio
+                        if (esInicio || idx === 0) {
+                            if (perroFoto) {
+                                html += `<img src="${perroFoto}" class="calendario-perro-foto-sm" alt="${perroNombre}">`;
+                            } else {
+                                html += `<span class="calendario-perro-emoji">🐕</span>`;
+                            }
+                            html += `<span class="calendario-perro-nombre-sm">${perroNombre}</span>`;
+                        }
+
+                        html += `</div></div>`;
+                    } else {
+                        html += '<div class="calendario-dia disponible"></div>';
+                    }
+                });
+
+                html += '</div>';
+            });
+        }
     });
 
     container.innerHTML = html;
