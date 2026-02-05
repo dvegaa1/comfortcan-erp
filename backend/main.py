@@ -166,6 +166,11 @@ class TipoPaseoCreate(BaseModel):
     duracion_minutos: Optional[int] = None
     precio: float
 
+class HabitacionCreate(BaseModel):
+    nombre: str
+    capacidad: Optional[int] = 1
+    descripcion: Optional[str] = None
+
 # ============================================
 # ENDPOINTS: AUTH
 # ============================================
@@ -328,6 +333,33 @@ async def eliminar_tipo_paseo(id: str, authorization: str = Header(None)):
     token = await verify_token(authorization)
     await supabase_request("PATCH", f"catalogo_paseos?id=eq.{id}", {"activo": False}, token=token)
     return {"message": "Tipo de paseo desactivado"}
+
+# ============================================
+# ENDPOINTS: CATÁLOGO HABITACIONES
+# ============================================
+
+@app.get("/catalogo-habitaciones")
+async def listar_habitaciones(authorization: str = Header(None)):
+    token = await verify_token(authorization)
+    return await supabase_request("GET", "catalogo_habitaciones?select=*&activo=eq.true&order=nombre", token=token)
+
+@app.post("/catalogo-habitaciones")
+async def crear_habitacion(data: HabitacionCreate, authorization: str = Header(None)):
+    token = await verify_token(authorization)
+    result = await supabase_request("POST", "catalogo_habitaciones", data.model_dump(), token=token)
+    return result[0] if result else None
+
+@app.put("/catalogo-habitaciones/{id}")
+async def actualizar_habitacion(id: str, data: HabitacionCreate, authorization: str = Header(None)):
+    token = await verify_token(authorization)
+    result = await supabase_request("PATCH", f"catalogo_habitaciones?id=eq.{id}", data.model_dump(), token=token)
+    return result[0] if result else None
+
+@app.delete("/catalogo-habitaciones/{id}")
+async def eliminar_habitacion(id: str, authorization: str = Header(None)):
+    token = await verify_token(authorization)
+    await supabase_request("PATCH", f"catalogo_habitaciones?id=eq.{id}", {"activo": False}, token=token)
+    return {"message": "Habitacion desactivada"}
 
 # ============================================
 # ENDPOINTS: ESTANCIAS (CHECK-IN)

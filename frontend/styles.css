@@ -1477,3 +1477,198 @@ body {
         min-width: 280px;
     }
 }
+
+/* ========== CALENDARIO DE OCUPACION ========== */
+.calendario-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.calendario-rango {
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--color-text-primary);
+}
+
+.calendario-ocupacion-container {
+    overflow-x: auto;
+    margin: 1rem 0;
+}
+
+.calendario-ocupacion {
+    display: grid;
+    min-width: 800px;
+}
+
+.calendario-header {
+    display: contents;
+}
+
+.calendario-header-cell {
+    background: var(--color-bg-input);
+    padding: 0.75rem 0.5rem;
+    text-align: center;
+    font-weight: 600;
+    font-size: 0.85rem;
+    border-bottom: 2px solid var(--color-primary);
+}
+
+.calendario-header-cell.habitacion-col {
+    text-align: left;
+    padding-left: 1rem;
+    min-width: 150px;
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: var(--color-bg-input);
+}
+
+.calendario-row {
+    display: contents;
+}
+
+.calendario-habitacion {
+    padding: 0.75rem 1rem;
+    font-weight: 500;
+    background: var(--color-bg-card);
+    border-bottom: 1px solid var(--color-border);
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+}
+
+.calendario-dia {
+    padding: 0.5rem;
+    min-height: 50px;
+    border-bottom: 1px solid var(--color-border);
+    border-right: 1px solid var(--color-border);
+    position: relative;
+    background: var(--color-bg-card);
+}
+
+.calendario-dia.disponible {
+    background: var(--color-bg-card);
+}
+
+.calendario-dia.ocupado {
+    background: var(--color-primary-light);
+}
+
+.estancia-barra {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 30px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: white;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    z-index: 1;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.estancia-barra:hover {
+    filter: brightness(1.1);
+    z-index: 2;
+}
+
+.estancia-barra.inicio {
+    left: 4px;
+    border-top-left-radius: 15px;
+    border-bottom-left-radius: 15px;
+}
+
+.estancia-barra.fin {
+    right: 4px;
+    border-top-right-radius: 15px;
+    border-bottom-right-radius: 15px;
+}
+
+.estancia-barra.medio {
+    left: 0;
+    right: 0;
+    border-radius: 0;
+}
+
+.estancia-barra.unico {
+    left: 4px;
+    right: 4px;
+    border-radius: 15px;
+}
+
+.calendario-leyenda {
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+    padding: 0.5rem 0;
+}
+
+.leyenda-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--color-text-secondary);
+}
+
+.leyenda-color {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+}
+
+/* Responsive calendario */
+@media (max-width: 768px) {
+    .calendario-ocupacion {
+        min-width: 600px;
+    }
+
+    .calendario-header-cell,
+    .calendario-habitacion,
+    .calendario-dia {
+        padding: 0.5rem;
+        font-size: 0.8rem;
+    }
+
+    .calendario-header-cell.habitacion-col {
+        min-width: 100px;
+    }
+
+    .estancia-barra {
+        height: 24px;
+        font-size: 0.7rem;
+    }
+
+    .calendario-controls {
+        flex-direction: column;
+        text-align: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .calendario-ocupacion {
+        min-width: 500px;
+    }
+
+    .calendario-header-cell.habitacion-col {
+        min-width: 80px;
+    }
+
+    .estancia-barra {
+        height: 20px;
+        font-size: 0.65rem;
+        padding: 0 4px;
+    }
+}

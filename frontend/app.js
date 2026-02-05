@@ -36,8 +36,11 @@ let propietarios = [];
 let perros = [];
 let catalogoServicios = [];
 let catalogoPaseos = [];
+let catalogoHabitaciones = [];
+let estancias = [];
 let cargosActuales = [];
 let serviciosSeleccionados = [];
+let calendarioSemanaInicio = null;
 
 // ============================================
 // INICIALIZACIÓN
@@ -135,7 +138,10 @@ function setupEventListeners() {
     document.getElementById('btn-descargar')?.addEventListener('click', descargarTicket);
     document.getElementById('btn-guardar-servicio')?.addEventListener('click', handleNuevoServicio);
     document.getElementById('btn-guardar-tipo-paseo')?.addEventListener('click', handleNuevoTipoPaseo);
+    document.getElementById('btn-guardar-habitacion')?.addEventListener('click', handleNuevaHabitacion);
     document.getElementById('btn-agregar-servicio')?.addEventListener('click', agregarServicioCheckIn);
+    document.getElementById('btn-semana-anterior')?.addEventListener('click', () => cambiarSemanaCalendario(-1));
+    document.getElementById('btn-semana-siguiente')?.addEventListener('click', () => cambiarSemanaCalendario(1));
 
     // Selects dinámicos
     document.getElementById('caja-perro')?.addEventListener('change', cargarCargosPerro);
@@ -294,22 +300,28 @@ async function loadInitialData() {
     try {
         showLoading();
 
-        const [props, dogs, servicios, paseos] = await Promise.all([
+        const [props, dogs, servicios, paseos, habitaciones, estanciasData] = await Promise.all([
             apiGet('/propietarios'),
             apiGet('/perros'),
             apiGet('/catalogo-servicios'),
-            apiGet('/catalogo-paseos')
+            apiGet('/catalogo-paseos'),
+            apiGet('/catalogo-habitaciones'),
+            apiGet('/estancias')
         ]);
 
         propietarios = props || [];
         perros = dogs || [];
         catalogoServicios = servicios || [];
         catalogoPaseos = paseos || [];
+        catalogoHabitaciones = habitaciones || [];
+        estancias = estanciasData || [];
 
         llenarSelectPropietarios();
         llenarSelectPerros();
         llenarSelectServicios();
         llenarSelectPaseos();
+        llenarSelectHabitaciones();
+        renderTablaHabitaciones();
 
         hideLoading();
         showToast('Datos cargados', 'success');
@@ -394,9 +406,11 @@ function navigateToSection(sectionId) {
 
     if (sectionId === 'paseos') cargarPaseos();
     if (sectionId === 'expedientes') renderListaExpedientes();
+    if (sectionId === 'calendario') renderCalendarioOcupacion();
     if (sectionId === 'configuracion') {
         renderTablaServicios();
         renderTablaPaseos();
+        renderTablaHabitaciones();
     }
 }
 
@@ -2093,6 +2107,208 @@ async function eliminarTipoPaseo(paseoId) {
     } catch (error) {
         showToast(error.message, 'error');
     }
+}
+
+// ============================================
+// HABITACIONES
+// ============================================
+function llenarSelectHabitaciones() {
+    const select = document.getElementById('checkin-habitacion');
+    if (select) {
+        select.innerHTML = '<option value="">-- Seleccionar habitacion --</option>';
+        catalogoHabitaciones.forEach(h => {
+            select.innerHTML += `<option value="${h.nombre}">${h.nombre} (Cap: ${h.capacidad || 1})</option>`;
+        });
+    }
+}
+
+function renderTablaHabitaciones() {
+    const tbody = document.getElementById('tabla-habitaciones');
+    if (!tbody) return;
+
+    if (catalogoHabitaciones.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Sin habitaciones</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = catalogoHabitaciones.map(h => `
+        <tr>
+            <td>${h.nombre}</td>
+            <td>${h.capacidad || 1}</td>
+            <td>${h.descripcion || '-'}</td>
+            <td><button onclick="eliminarHabitacion('${h.id}')" class="btn btn-danger btn-sm">X</button></td>
+        </tr>
+    `).join('');
+}
+
+async function handleNuevaHabitacion() {
+    const nombre = document.getElementById('nueva-habitacion-nombre')?.value;
+    const capacidad = document.getElementById('nueva-habitacion-capacidad')?.value;
+    const descripcion = document.getElementById('nueva-habitacion-descripcion')?.value;
+
+    if (!nombre) {
+        showToast('El nombre es requerido', 'error');
+        return;
+    }
+
+    try {
+        showLoading();
+        const nueva = await apiPost('/catalogo-habitaciones', {
+            nombre: nombre,
+            capacidad: parseInt(capacidad) || 1,
+            descripcion: descripcion || null
+        });
+
+        catalogoHabitaciones.push(nueva);
+        llenarSelectHabitaciones();
+        renderTablaHabitaciones();
+
+        document.getElementById('nueva-habitacion-nombre').value = '';
+        document.getElementById('nueva-habitacion-capacidad').value = '1';
+        document.getElementById('nueva-habitacion-descripcion').value = '';
+
+        hideLoading();
+        showToast('Habitacion agregada', 'success');
+    } catch (error) {
+        hideLoading();
+        showToast(error.message, 'error');
+    }
+}
+
+async function eliminarHabitacion(habitacionId) {
+    if (!confirm('¿Eliminar esta habitacion?')) return;
+
+    try {
+        await apiDelete(`/catalogo-habitaciones/${habitacionId}`);
+        catalogoHabitaciones = catalogoHabitaciones.filter(h => h.id !== habitacionId);
+        llenarSelectHabitaciones();
+        renderTablaHabitaciones();
+        showToast('Habitacion eliminada', 'success');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+// ============================================
+// CALENDARIO DE OCUPACION
+// ============================================
+function renderCalendarioOcupacion() {
+    const container = document.getElementById('calendario-ocupacion');
+    const rangoLabel = document.getElementById('calendario-rango-fechas');
+    if (!container) return;
+
+    // Inicializar semana actual si no existe
+    if (!calendarioSemanaInicio) {
+        const hoy = new Date();
+        // Ir al lunes de esta semana
+        const diaSemana = hoy.getDay();
+        const diffLunes = diaSemana === 0 ? -6 : 1 - diaSemana;
+        calendarioSemanaInicio = new Date(hoy);
+        calendarioSemanaInicio.setDate(hoy.getDate() + diffLunes);
+        calendarioSemanaInicio.setHours(0, 0, 0, 0);
+    }
+
+    // Calcular los 14 dias a mostrar (2 semanas)
+    const dias = [];
+    for (let i = 0; i < 14; i++) {
+        const fecha = new Date(calendarioSemanaInicio);
+        fecha.setDate(calendarioSemanaInicio.getDate() + i);
+        dias.push(fecha);
+    }
+
+    // Actualizar label de rango
+    const fechaInicio = dias[0];
+    const fechaFin = dias[dias.length - 1];
+    if (rangoLabel) {
+        rangoLabel.textContent = `${fechaInicio.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} - ${fechaFin.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+    }
+
+    // Si no hay habitaciones, mostrar mensaje
+    if (catalogoHabitaciones.length === 0) {
+        container.innerHTML = '<p class="text-center text-muted">No hay habitaciones configuradas. Ve a Servicios y Precios para agregar habitaciones.</p>';
+        return;
+    }
+
+    // Filtrar estancias activas
+    const estanciasActivas = estancias.filter(e => e.estado !== 'Completada');
+
+    // Construir grid
+    const numCols = dias.length + 1; // +1 para columna de habitacion
+    container.style.gridTemplateColumns = `150px repeat(${dias.length}, minmax(60px, 1fr))`;
+
+    let html = '';
+
+    // Header
+    html += '<div class="calendario-header">';
+    html += '<div class="calendario-header-cell habitacion-col">Habitacion</div>';
+    dias.forEach(d => {
+        const nombreDia = d.toLocaleDateString('es-MX', { weekday: 'short' });
+        const numDia = d.getDate();
+        html += `<div class="calendario-header-cell">${nombreDia}<br>${numDia}</div>`;
+    });
+    html += '</div>';
+
+    // Filas por habitacion
+    catalogoHabitaciones.forEach(hab => {
+        html += '<div class="calendario-row">';
+        html += `<div class="calendario-habitacion">${hab.nombre}</div>`;
+
+        dias.forEach((dia, idx) => {
+            const fechaStr = dia.toISOString().split('T')[0];
+
+            // Buscar estancia que ocupe este dia en esta habitacion
+            const estancia = estanciasActivas.find(e => {
+                if (e.habitacion !== hab.nombre) return false;
+                const entrada = new Date(e.fecha_entrada);
+                const salida = e.fecha_salida ? new Date(e.fecha_salida) : entrada;
+                entrada.setHours(0, 0, 0, 0);
+                salida.setHours(0, 0, 0, 0);
+                return dia >= entrada && dia <= salida;
+            });
+
+            if (estancia) {
+                const entrada = new Date(estancia.fecha_entrada);
+                const salida = estancia.fecha_salida ? new Date(estancia.fecha_salida) : entrada;
+                entrada.setHours(0, 0, 0, 0);
+                salida.setHours(0, 0, 0, 0);
+
+                const esInicio = dia.getTime() === entrada.getTime();
+                const esFin = dia.getTime() === salida.getTime();
+                const esUnico = esInicio && esFin;
+                const perroNombre = estancia.perros?.nombre || 'Perro';
+                const color = estancia.color_etiqueta || '#45BF4D';
+
+                let barraClass = 'estancia-barra';
+                if (esUnico) barraClass += ' unico';
+                else if (esInicio) barraClass += ' inicio';
+                else if (esFin) barraClass += ' fin';
+                else barraClass += ' medio';
+
+                const mostrarNombre = esInicio || (idx === 0 && !esInicio);
+
+                html += `<div class="calendario-dia ocupado">`;
+                html += `<div class="${barraClass}" style="background-color: ${color};" title="${perroNombre}: ${formatDate(estancia.fecha_entrada)} - ${formatDate(estancia.fecha_salida)}">`;
+                if (mostrarNombre) {
+                    html += perroNombre;
+                }
+                html += `</div></div>`;
+            } else {
+                html += '<div class="calendario-dia disponible"></div>';
+            }
+        });
+
+        html += '</div>';
+    });
+
+    container.innerHTML = html;
+}
+
+function cambiarSemanaCalendario(direccion) {
+    if (!calendarioSemanaInicio) {
+        calendarioSemanaInicio = new Date();
+    }
+    calendarioSemanaInicio.setDate(calendarioSemanaInicio.getDate() + (direccion * 14));
+    renderCalendarioOcupacion();
 }
 
 // ============================================

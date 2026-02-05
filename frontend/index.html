@@ -68,6 +68,9 @@
                 <a class="nav-item" data-section="gestion">
                     Editar Datos
                 </a>
+                <a class="nav-item" data-section="calendario">
+                    Calendario Ocupacion
+                </a>
                 <a class="nav-item" data-section="configuracion">
                     Servicios y Precios
                 </a>
@@ -345,12 +348,9 @@
                         </div>
                         
                         <div class="form-group">
-                            <label class="form-label">Habitación</label>
+                            <label class="form-label">Habitacion</label>
                             <select id="checkin-habitacion" class="form-select">
-                                <option value="Suite 1">Suite 1</option>
-                                <option value="Suite 2">Suite 2</option>
-                                <option value="Suite 3">Suite 3</option>
-                                <option value="Área Común">Área Común</option>
+                                <option value="">-- Seleccionar habitacion --</option>
                             </select>
                         </div>
                         
@@ -670,7 +670,34 @@
                     </div>
                 </div>
             </section>
-            
+
+            <!-- ========== SECCION: CALENDARIO DE OCUPACION ========== -->
+            <section id="section-calendario" class="section">
+                <div class="page-header">
+                    <h1 class="page-title">Calendario de Ocupacion</h1>
+                </div>
+
+                <div class="card">
+                    <div class="calendario-controls mb-2">
+                        <button type="button" id="btn-semana-anterior" class="btn btn-secondary">&lt; Anterior</button>
+                        <span id="calendario-rango-fechas" class="calendario-rango">Cargando...</span>
+                        <button type="button" id="btn-semana-siguiente" class="btn btn-secondary">Siguiente &gt;</button>
+                    </div>
+
+                    <div class="calendario-ocupacion-container">
+                        <div id="calendario-ocupacion" class="calendario-ocupacion">
+                            <!-- Se llena dinámicamente con JavaScript -->
+                            <p class="text-center text-muted">Cargando calendario...</p>
+                        </div>
+                    </div>
+
+                    <div class="calendario-leyenda mt-2">
+                        <span class="leyenda-item"><span class="leyenda-color" style="background: #45BF4D;"></span> Ocupado</span>
+                        <span class="leyenda-item"><span class="leyenda-color" style="background: #e0e0e0;"></span> Disponible</span>
+                    </div>
+                </div>
+            </section>
+
             <!-- ========== SECCION: SERVICIOS Y PRECIOS ========== -->
             <section id="section-configuracion" class="section">
                 <div class="page-header">
@@ -726,9 +753,9 @@
                     
                     <!-- Tipos de Paseo -->
                     <div class="card">
-                        <h3 class="mb-1">Catálogo de Paseos</h3>
+                        <h3 class="mb-1">Catalogo de Paseos</h3>
                         <p class="text-muted mb-2">Tipos de paseo disponibles.</p>
-                        
+
                         <details>
                             <summary style="cursor: pointer; color: var(--color-primary);">+ Nuevo Tipo de Paseo</summary>
                             <div class="card mt-2" style="background: var(--color-bg-input);">
@@ -738,7 +765,7 @@
                                         <input type="text" id="nuevo-paseo-nombre" class="form-input" placeholder="Ej: Paseo Corto">
                                     </div>
                                     <div class="form-group">
-                                        <label class="form-label">Duración (min)</label>
+                                        <label class="form-label">Duracion (min)</label>
                                         <input type="number" id="nuevo-paseo-duracion" class="form-input">
                                     </div>
                                     <div class="form-group">
@@ -749,7 +776,7 @@
                                 <button type="button" id="btn-guardar-tipo-paseo" class="btn btn-primary">Guardar Paseo</button>
                             </div>
                         </details>
-                        
+
                         <div class="table-container mt-2">
                             <table class="table">
                                 <thead>
@@ -764,6 +791,49 @@
                                 </tbody>
                             </table>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Habitaciones -->
+                <div class="card mt-2">
+                    <h3 class="mb-1">Catalogo de Habitaciones</h3>
+                    <p class="text-muted mb-2">Habitaciones disponibles para hospedaje.</p>
+
+                    <details>
+                        <summary style="cursor: pointer; color: var(--color-primary);">+ Nueva Habitacion</summary>
+                        <div class="card mt-2" style="background: var(--color-bg-input);">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Nombre</label>
+                                    <input type="text" id="nueva-habitacion-nombre" class="form-input" placeholder="Ej: Suite 1">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Capacidad (perros)</label>
+                                    <input type="number" id="nueva-habitacion-capacidad" class="form-input" value="1" min="1">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Descripcion</label>
+                                    <input type="text" id="nueva-habitacion-descripcion" class="form-input" placeholder="Opcional">
+                                </div>
+                            </div>
+                            <button type="button" id="btn-guardar-habitacion" class="btn btn-primary">Guardar Habitacion</button>
+                        </div>
+                    </details>
+
+                    <div class="table-container mt-2">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Habitacion</th>
+                                    <th>Capacidad</th>
+                                    <th>Descripcion</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-habitaciones">
+                                <tr><td colspan="4" class="text-center text-muted">Cargando...</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </section>
