@@ -2383,27 +2383,22 @@ function renderCalendarioOcupacion() {
         rangoLabel.textContent = `${fechaInicio.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} - ${fechaFin.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}`;
     }
 
-    // Construir grid aunque no haya habitaciones
-    const numCols = dias.length + 1;
-    container.style.gridTemplateColumns = `150px repeat(${dias.length}, minmax(60px, 1fr))`;
+    // Usar TABLA HTML para mejor control de rowspan
+    container.style.gridTemplateColumns = '';  // Limpiar grid
 
-    let html = '';
-
-    // Header
-    html += '<div class="calendario-header">';
-    html += '<div class="calendario-header-cell habitacion-col">Habitacion</div>';
+    let html = '<table class="calendario-tabla"><thead><tr>';
+    html += '<th class="calendario-th-habitacion">Habitación</th>';
     dias.forEach(d => {
         const nombreDia = d.toLocaleDateString('es-MX', { weekday: 'short' });
         const numDia = d.getDate();
-        html += `<div class="calendario-header-cell">${nombreDia}<br>${numDia}</div>`;
+        html += `<th class="calendario-th-dia">${nombreDia}<br>${numDia}</th>`;
     });
-    html += '</div>';
+    html += '</tr></thead><tbody>';
 
-    // Si no hay habitaciones, mostrar fila vacía con mensaje
+    // Si no hay habitaciones
     if (catalogoHabitaciones.length === 0) {
-        html += '<div class="calendario-row">';
-        html += '<div class="calendario-habitacion" style="grid-column: span ' + numCols + '; text-align: center; color: var(--color-text-muted);">No hay habitaciones configuradas. Ve a Servicios y Precios para agregar.</div>';
-        html += '</div>';
+        html += `<tr><td colspan="${dias.length + 1}" class="text-center text-muted">No hay habitaciones configuradas.</td></tr>`;
+        html += '</tbody></table>';
         container.innerHTML = html;
         return;
     }
@@ -2411,17 +2406,16 @@ function renderCalendarioOcupacion() {
     // Filtrar estancias activas
     const estanciasActivas = estancias.filter(e => e.estado !== 'Completada');
 
-    // Filas por habitacion - CADA PERRO TIENE SU PROPIA SUB-FILA
+    // Filas por habitacion
     catalogoHabitaciones.forEach(hab => {
-        // Obtener estancias únicas de esta habitación (por perro)
         const estanciasHab = estanciasActivas.filter(e => e.habitacion === hab.nombre);
 
-        // Agrupar por perro_id para que cada perro tenga su propia fila
+        // Agrupar por perro_id
         const perrosUnicos = [];
         const estanciasPorPerro = {};
 
         estanciasHab.forEach(e => {
-            const perroId = e.perro_id || e.id; // usar id de estancia si no hay perro_id
+            const perroId = e.perro_id || e.id;
             if (!estanciasPorPerro[perroId]) {
                 estanciasPorPerro[perroId] = [];
                 perrosUnicos.push(perroId);
@@ -2429,30 +2423,28 @@ function renderCalendarioOcupacion() {
             estanciasPorPerro[perroId].push(e);
         });
 
-        // Si no hay estancias, mostrar una fila vacía para la habitación
+        const numFilas = Math.max(1, perrosUnicos.length);
+
+        // Si no hay estancias, una fila vacía
         if (perrosUnicos.length === 0) {
-            html += '<div class="calendario-row">';
-            html += `<div class="calendario-habitacion">${hab.nombre}</div>`;
+            html += '<tr>';
+            html += `<td class="calendario-td-habitacion">${hab.nombre}</td>`;
             dias.forEach(() => {
-                html += '<div class="calendario-dia disponible"></div>';
+                html += '<td class="calendario-td-dia"></td>';
             });
-            html += '</div>';
+            html += '</tr>';
         } else {
-            // Crear una sub-fila por cada perro
+            // Una fila por cada perro
             perrosUnicos.forEach((perroId, perroIdx) => {
                 const estanciasPerro = estanciasPorPerro[perroId];
+                html += '<tr>';
 
-                html += '<div class="calendario-row">';
-
-                // Mostrar nombre de habitación solo en primera fila, vacío en las demás
+                // Celda de habitación con rowspan solo en primera fila
                 if (perroIdx === 0) {
-                    html += `<div class="calendario-habitacion">${hab.nombre}</div>`;
-                } else {
-                    html += `<div class="calendario-habitacion sub-fila"></div>`;
+                    html += `<td class="calendario-td-habitacion" rowspan="${numFilas}">${hab.nombre}</td>`;
                 }
 
                 dias.forEach((dia, idx) => {
-                    // Buscar si este perro tiene estancia en este día
                     const estanciaEnDia = estanciasPerro.find(e => {
                         const entrada = new Date(e.fecha_entrada);
                         const salida = e.fecha_salida ? new Date(e.fecha_salida) : entrada;
@@ -2476,38 +2468,38 @@ function renderCalendarioOcupacion() {
                         const color = estancia.color_etiqueta || '#45BF4D';
                         const colorTexto = catalogoColores.find(c => c.color === color)?.texto || '';
 
-                        let barraClass = 'estancia-barra-continua';
+                        let barraClass = 'estancia-barra';
                         if (esUnico) barraClass += ' unico';
                         else if (esInicio) barraClass += ' inicio';
                         else if (esFin) barraClass += ' fin';
                         else barraClass += ' medio';
 
-                        html += `<div class="calendario-dia ocupado">`;
+                        html += `<td class="calendario-td-dia ocupado">`;
                         html += `<div class="${barraClass}" style="background-color: ${color};"
                             title="${perroNombre}: ${formatDate(estancia.fecha_entrada)} - ${formatDate(estancia.fecha_salida)}${colorTexto ? ' (' + colorTexto + ')' : ''}"
                             onclick="mostrarDetalleEstancia('${estancia.id}')">`;
 
-                        // Solo mostrar foto y nombre en el primer día visible o inicio
                         if (esInicio || idx === 0) {
                             if (perroFoto) {
-                                html += `<img src="${perroFoto}" class="calendario-perro-foto-sm" alt="${perroNombre}">`;
+                                html += `<img src="${perroFoto}" class="calendario-perro-foto" alt="${perroNombre}">`;
                             } else {
                                 html += `<span class="calendario-perro-emoji">🐕</span>`;
                             }
-                            html += `<span class="calendario-perro-nombre-sm">${perroNombre}</span>`;
+                            html += `<span class="calendario-perro-nombre">${perroNombre}</span>`;
                         }
 
-                        html += `</div></div>`;
+                        html += `</div></td>`;
                     } else {
-                        html += '<div class="calendario-dia disponible"></div>';
+                        html += '<td class="calendario-td-dia"></td>';
                     }
                 });
 
-                html += '</div>';
+                html += '</tr>';
             });
         }
     });
 
+    html += '</tbody></table>';
     container.innerHTML = html;
 }
 

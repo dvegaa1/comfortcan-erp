@@ -1498,34 +1498,130 @@ body {
     margin: 1rem 0;
 }
 
+/* ========== CALENDARIO TABLA ========== */
 .calendario-ocupacion {
-    display: grid;
-    min-width: 800px;
+    overflow-x: auto;
+    min-width: 100%;
 }
 
-.calendario-header {
-    display: contents;
+.calendario-tabla {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
 }
 
-.calendario-header-cell {
+.calendario-tabla th,
+.calendario-tabla td {
+    border: 1px solid var(--color-border);
+    padding: 0;
+}
+
+.calendario-th-habitacion {
     background: var(--color-bg-input);
-    padding: 0.75rem 0.5rem;
-    text-align: center;
-    font-weight: 600;
-    font-size: 0.85rem;
-    border-bottom: 2px solid var(--color-primary);
-}
-
-.calendario-header-cell.habitacion-col {
+    padding: 0.75rem 1rem;
     text-align: left;
-    padding-left: 1rem;
-    min-width: 150px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    min-width: 120px;
+    width: 120px;
     position: sticky;
     left: 0;
     z-index: 2;
-    background: var(--color-bg-input);
 }
 
+.calendario-th-dia {
+    background: var(--color-bg-input);
+    padding: 0.5rem 0.25rem;
+    text-align: center;
+    font-weight: 600;
+    font-size: 0.8rem;
+    min-width: 70px;
+}
+
+.calendario-td-habitacion {
+    background: var(--color-bg-card);
+    padding: 0.5rem 1rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+    vertical-align: middle;
+    position: sticky;
+    left: 0;
+    z-index: 1;
+}
+
+.calendario-td-dia {
+    background: var(--color-bg-card);
+    height: 50px;
+    padding: 4px 0;
+    vertical-align: middle;
+}
+
+.calendario-td-dia.ocupado {
+    padding: 4px 0;
+}
+
+/* Barra de estancia en tabla */
+.estancia-barra {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    height: 40px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: white;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.estancia-barra:hover {
+    filter: brightness(1.1);
+}
+
+.estancia-barra.inicio {
+    border-top-left-radius: 20px;
+    border-bottom-left-radius: 20px;
+    margin-left: 4px;
+}
+
+.estancia-barra.fin {
+    border-top-right-radius: 20px;
+    border-bottom-right-radius: 20px;
+    margin-right: 4px;
+}
+
+.estancia-barra.unico {
+    border-radius: 20px;
+    margin: 0 4px;
+}
+
+.estancia-barra.medio {
+    border-radius: 0;
+}
+
+.calendario-perro-foto {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(255,255,255,0.5);
+    flex-shrink: 0;
+}
+
+.calendario-perro-nombre {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.calendario-perro-emoji {
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+/* Ocultar estilos grid antiguos */
+.calendario-header,
 .calendario-row {
     display: contents;
 }
