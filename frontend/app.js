@@ -146,17 +146,7 @@ function setupEventListeners() {
     document.getElementById('btn-semana-anterior')?.addEventListener('click', () => cambiarSemanaCalendario(-1));
     document.getElementById('btn-semana-siguiente')?.addEventListener('click', () => cambiarSemanaCalendario(1));
 
-    // Scroll horizontal en calendario (PC)
-    document.querySelector('.calendario-ocupacion-container')?.addEventListener('wheel', (e) => {
-        if (e.deltaX !== 0 || e.shiftKey) {
-            // Solo si hay scroll horizontal o shift+wheel
-            e.preventDefault();
-            const direction = (e.deltaX > 0 || e.deltaY > 0) ? 1 : -1;
-            cambiarSemanaCalendario(direction);
-        }
-    }, { passive: false });
-
-    // Swipe en calendario (móvil)
+    // Swipe en calendario (móvil) - solo touch, no trackpad
     const calendarioContainer = document.querySelector('.calendario-ocupacion-container');
     if (calendarioContainer) {
         calendarioContainer.addEventListener('touchstart', (e) => {
@@ -166,7 +156,7 @@ function setupEventListeners() {
         calendarioContainer.addEventListener('touchend', (e) => {
             const touchEndX = e.changedTouches[0].clientX;
             const diff = calendarioTouchStartX - touchEndX;
-            if (Math.abs(diff) > 50) { // Umbral de 50px
+            if (Math.abs(diff) > 100) { // Umbral de 100px para evitar cambios accidentales
                 cambiarSemanaCalendario(diff > 0 ? 1 : -1);
             }
         }, { passive: true });
