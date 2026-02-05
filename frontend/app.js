@@ -2276,6 +2276,7 @@ function renderCalendarioOcupacion() {
                 const esFin = dia.getTime() === salida.getTime();
                 const esUnico = esInicio && esFin;
                 const perroNombre = estancia.perros?.nombre || 'Perro';
+                const perroFoto = estancia.perros?.foto_perro_url || null;
                 const color = estancia.color_etiqueta || '#45BF4D';
 
                 let barraClass = 'estancia-barra';
@@ -2284,12 +2285,15 @@ function renderCalendarioOcupacion() {
                 else if (esFin) barraClass += ' fin';
                 else barraClass += ' medio';
 
-                const mostrarNombre = esInicio || (idx === 0 && !esInicio);
+                const mostrarInfo = esInicio || (idx === 0 && !esInicio);
 
                 html += `<div class="calendario-dia ocupado">`;
                 html += `<div class="${barraClass}" style="background-color: ${color};" title="${perroNombre}: ${formatDate(estancia.fecha_entrada)} - ${formatDate(estancia.fecha_salida)}">`;
-                if (mostrarNombre) {
-                    html += perroNombre;
+                if (mostrarInfo) {
+                    if (perroFoto) {
+                        html += `<img src="${perroFoto}" class="calendario-perro-foto" alt="${perroNombre}">`;
+                    }
+                    html += `<span class="calendario-perro-nombre">${perroNombre}</span>`;
                 }
                 html += `</div></div>`;
             } else {

@@ -1563,10 +1563,11 @@ body {
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    height: 30px;
+    height: 36px;
     border-radius: 4px;
     display: flex;
     align-items: center;
+    gap: 6px;
     padding: 0 8px;
     font-size: 0.75rem;
     font-weight: 500;
@@ -1577,6 +1578,20 @@ body {
     cursor: pointer;
     z-index: 1;
     box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.calendario-perro-foto {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(255,255,255,0.5);
+    flex-shrink: 0;
+}
+
+.calendario-perro-nombre {
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .estancia-barra:hover {
