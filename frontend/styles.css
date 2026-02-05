@@ -1559,43 +1559,69 @@ body {
 
 .calendario-dia.ocupado {
     background: transparent;
-    padding: 2px 0;
+    padding: 3px 0;
     flex-direction: column;
-    gap: 2px;
+    gap: 3px;
 }
 
 /* Múltiples perros en la misma celda - apilar verticalmente */
-.calendario-dia.multiple-2,
-.calendario-dia.multiple-3,
+.calendario-dia.multiple-2 {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 4px 0;
+    justify-content: center;
+    min-height: 80px;
+}
+
+.calendario-dia.multiple-3 {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 3px 0;
+    justify-content: center;
+    min-height: 110px;
+}
+
 .calendario-dia.multiple-4 {
     display: flex;
     flex-direction: column;
     gap: 2px;
     padding: 2px 0;
     justify-content: center;
+    min-height: 140px;
 }
 
-.calendario-dia.multiple-2 .estancia-barra-continua,
-.calendario-dia.multiple-3 .estancia-barra-continua,
+.calendario-dia.multiple-2 .estancia-barra-continua {
+    height: auto;
+    min-height: 28px;
+    padding: 4px 6px;
+    font-size: 0.7rem;
+}
+
+.calendario-dia.multiple-3 .estancia-barra-continua {
+    height: auto;
+    min-height: 26px;
+    padding: 3px 5px;
+    font-size: 0.65rem;
+}
+
 .calendario-dia.multiple-4 .estancia-barra-continua {
     height: auto;
-    min-height: 18px;
+    min-height: 24px;
     padding: 2px 4px;
     font-size: 0.6rem;
 }
 
 .calendario-dia.multiple-2 .calendario-perro-foto-sm,
-.calendario-dia.multiple-3 .calendario-perro-foto-sm,
-.calendario-dia.multiple-4 .calendario-perro-foto-sm {
-    width: 14px;
-    height: 14px;
+.calendario-dia.multiple-3 .calendario-perro-foto-sm {
+    width: 18px;
+    height: 18px;
 }
 
-.calendario-dia.multiple-3 .estancia-barra-continua,
-.calendario-dia.multiple-4 .estancia-barra-continua {
-    min-height: 14px;
-    padding: 1px 3px;
-    font-size: 0.55rem;
+.calendario-dia.multiple-4 .calendario-perro-foto-sm {
+    width: 16px;
+    height: 16px;
 }
 
 .estancia-barra {
