@@ -385,7 +385,10 @@
                         
                         <div class="form-group mt-2">
                             <label class="form-label">Color Etiqueta</label>
-                            <input type="color" id="checkin-color" value="#45BF4D" class="form-input" style="width: 60px; height: 40px; padding: 0;">
+                            <div id="checkin-colores-container" class="colores-selector">
+                                <p class="text-muted">Cargando colores...</p>
+                            </div>
+                            <input type="hidden" id="checkin-color" value="#45BF4D">
                         </div>
                         
                         <button type="button" id="btn-confirmar-estancia" class="btn btn-success btn-lg mt-2">Confirmar Estancia</button>
@@ -691,8 +694,8 @@
                         </div>
                     </div>
 
-                    <div class="calendario-leyenda mt-2">
-                        <span class="leyenda-item"><span class="leyenda-color" style="background: #45BF4D;"></span> Ocupado</span>
+                    <div id="calendario-leyenda" class="calendario-leyenda mt-2">
+                        <!-- Se llena dinámicamente con los colores del catálogo -->
                         <span class="leyenda-item"><span class="leyenda-color" style="background: #e0e0e0;"></span> Disponible</span>
                     </div>
                 </div>
@@ -791,6 +794,44 @@
                                 </tbody>
                             </table>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Colores de Etiqueta -->
+                <div class="card mt-2">
+                    <h3 class="mb-1">Colores de Etiqueta</h3>
+                    <p class="text-muted mb-2">Colores para identificar estados de pago en el calendario.</p>
+
+                    <details>
+                        <summary style="cursor: pointer; color: var(--color-primary);">+ Nuevo Color</summary>
+                        <div class="card mt-2" style="background: var(--color-bg-input);">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Color</label>
+                                    <input type="color" id="nuevo-color-valor" class="form-input" value="#45BF4D" style="width: 60px; height: 40px; padding: 0;">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Texto (significado)</label>
+                                    <input type="text" id="nuevo-color-texto" class="form-input" placeholder="Ej: Pagado, Pendiente">
+                                </div>
+                            </div>
+                            <button type="button" id="btn-guardar-color" class="btn btn-primary">Guardar Color</button>
+                        </div>
+                    </details>
+
+                    <div class="table-container mt-2">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Color</th>
+                                    <th>Texto</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-colores">
+                                <tr><td colspan="3" class="text-center text-muted">Cargando...</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 

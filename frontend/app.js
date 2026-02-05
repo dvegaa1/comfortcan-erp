@@ -37,10 +37,12 @@ let perros = [];
 let catalogoServicios = [];
 let catalogoPaseos = [];
 let catalogoHabitaciones = [];
+let catalogoColores = [];
 let estancias = [];
 let cargosActuales = [];
 let serviciosSeleccionados = [];
 let calendarioSemanaInicio = null;
+let calendarioTouchStartX = 0;
 
 // ============================================
 // INICIALIZACIÓN
@@ -139,9 +141,36 @@ function setupEventListeners() {
     document.getElementById('btn-guardar-servicio')?.addEventListener('click', handleNuevoServicio);
     document.getElementById('btn-guardar-tipo-paseo')?.addEventListener('click', handleNuevoTipoPaseo);
     document.getElementById('btn-guardar-habitacion')?.addEventListener('click', handleNuevaHabitacion);
+    document.getElementById('btn-guardar-color')?.addEventListener('click', handleNuevoColor);
     document.getElementById('btn-agregar-servicio')?.addEventListener('click', agregarServicioCheckIn);
     document.getElementById('btn-semana-anterior')?.addEventListener('click', () => cambiarSemanaCalendario(-1));
     document.getElementById('btn-semana-siguiente')?.addEventListener('click', () => cambiarSemanaCalendario(1));
+
+    // Scroll horizontal en calendario (PC)
+    document.querySelector('.calendario-ocupacion-container')?.addEventListener('wheel', (e) => {
+        if (e.deltaX !== 0 || e.shiftKey) {
+            // Solo si hay scroll horizontal o shift+wheel
+            e.preventDefault();
+            const direction = (e.deltaX > 0 || e.deltaY > 0) ? 1 : -1;
+            cambiarSemanaCalendario(direction);
+        }
+    }, { passive: false });
+
+    // Swipe en calendario (móvil)
+    const calendarioContainer = document.querySelector('.calendario-ocupacion-container');
+    if (calendarioContainer) {
+        calendarioContainer.addEventListener('touchstart', (e) => {
+            calendarioTouchStartX = e.touches[0].clientX;
+        }, { passive: true });
+
+        calendarioContainer.addEventListener('touchend', (e) => {
+            const touchEndX = e.changedTouches[0].clientX;
+            const diff = calendarioTouchStartX - touchEndX;
+            if (Math.abs(diff) > 50) { // Umbral de 50px
+                cambiarSemanaCalendario(diff > 0 ? 1 : -1);
+            }
+        }, { passive: true });
+    }
 
     // Selects dinámicos
     document.getElementById('caja-perro')?.addEventListener('change', cargarCargosPerro);
@@ -300,12 +329,13 @@ async function loadInitialData() {
     try {
         showLoading();
 
-        const [props, dogs, servicios, paseos, habitaciones, estanciasData] = await Promise.all([
+        const [props, dogs, servicios, paseos, habitaciones, colores, estanciasData] = await Promise.all([
             apiGet('/propietarios'),
             apiGet('/perros'),
             apiGet('/catalogo-servicios'),
             apiGet('/catalogo-paseos'),
             apiGet('/catalogo-habitaciones'),
+            apiGet('/catalogo-colores').catch(() => []),
             apiGet('/estancias')
         ]);
 
@@ -314,6 +344,7 @@ async function loadInitialData() {
         catalogoServicios = servicios || [];
         catalogoPaseos = paseos || [];
         catalogoHabitaciones = habitaciones || [];
+        catalogoColores = colores || [];
         estancias = estanciasData || [];
 
         llenarSelectPropietarios();
@@ -322,6 +353,8 @@ async function loadInitialData() {
         llenarSelectPaseos();
         llenarSelectHabitaciones();
         renderTablaHabitaciones();
+        renderTablaColores();
+        renderColoresCheckIn();
 
         hideLoading();
         showToast('Datos cargados', 'success');
@@ -411,6 +444,7 @@ function navigateToSection(sectionId) {
         renderTablaServicios();
         renderTablaPaseos();
         renderTablaHabitaciones();
+        renderTablaColores();
     }
 }
 
@@ -2190,12 +2224,129 @@ async function eliminarHabitacion(habitacionId) {
 }
 
 // ============================================
+// COLORES DE ETIQUETA
+// ============================================
+function renderTablaColores() {
+    const tbody = document.getElementById('tabla-colores');
+    if (!tbody) return;
+
+    if (!catalogoColores || catalogoColores.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">Sin colores configurados</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = catalogoColores.map(c => `
+        <tr>
+            <td><span class="color-muestra" style="background-color: ${c.color}; display: inline-block; width: 30px; height: 30px; border-radius: 4px; border: 2px solid var(--color-border);"></span></td>
+            <td>${c.texto}</td>
+            <td><button onclick="eliminarColor('${c.id}')" class="btn btn-danger btn-sm">X</button></td>
+        </tr>
+    `).join('');
+}
+
+function renderColoresCheckIn() {
+    const container = document.getElementById('checkin-colores-container');
+    if (!container) return;
+
+    if (!catalogoColores || catalogoColores.length === 0) {
+        container.innerHTML = '<p class="text-muted">No hay colores configurados. Ve a Servicios y Precios para agregar colores.</p>';
+        return;
+    }
+
+    container.innerHTML = catalogoColores.map((c, idx) => `
+        <label class="color-option ${idx === 0 ? 'selected' : ''}" data-color="${c.color}" title="${c.texto}">
+            <input type="radio" name="color-etiqueta" value="${c.color}" ${idx === 0 ? 'checked' : ''} style="display: none;">
+            <span class="color-circle" style="background-color: ${c.color};"></span>
+        </label>
+    `).join('');
+
+    // Establecer valor inicial
+    if (catalogoColores.length > 0) {
+        document.getElementById('checkin-color').value = catalogoColores[0].color;
+    }
+
+    // Event listeners para selección de color
+    container.querySelectorAll('.color-option').forEach(opt => {
+        opt.addEventListener('click', () => {
+            container.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
+            opt.classList.add('selected');
+            document.getElementById('checkin-color').value = opt.dataset.color;
+        });
+    });
+}
+
+function renderLeyendaColores() {
+    const container = document.getElementById('calendario-leyenda');
+    if (!container) return;
+
+    let html = '';
+
+    if (catalogoColores && catalogoColores.length > 0) {
+        html = catalogoColores.map(c =>
+            `<span class="leyenda-item"><span class="leyenda-color" style="background: ${c.color};"></span> ${c.texto}</span>`
+        ).join('');
+    }
+
+    html += '<span class="leyenda-item"><span class="leyenda-color" style="background: #e0e0e0;"></span> Disponible</span>';
+
+    container.innerHTML = html;
+}
+
+async function handleNuevoColor() {
+    const color = document.getElementById('nuevo-color-valor')?.value;
+    const texto = document.getElementById('nuevo-color-texto')?.value;
+
+    if (!color || !texto) {
+        showToast('Completa color y texto', 'error');
+        return;
+    }
+
+    try {
+        showLoading();
+        const nuevo = await apiPost('/catalogo-colores', {
+            color: color,
+            texto: texto,
+            orden: catalogoColores.length
+        });
+
+        catalogoColores.push(nuevo);
+        renderTablaColores();
+        renderColoresCheckIn();
+
+        document.getElementById('nuevo-color-texto').value = '';
+
+        hideLoading();
+        showToast('Color agregado', 'success');
+    } catch (error) {
+        hideLoading();
+        showToast(error.message, 'error');
+    }
+}
+
+async function eliminarColor(colorId) {
+    if (!confirm('¿Eliminar este color?')) return;
+
+    try {
+        await apiDelete(`/catalogo-colores/${colorId}`);
+        catalogoColores = catalogoColores.filter(c => c.id !== colorId);
+        renderTablaColores();
+        renderColoresCheckIn();
+        showToast('Color eliminado', 'success');
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+// ============================================
 // CALENDARIO DE OCUPACION
 // ============================================
 function renderCalendarioOcupacion() {
     const container = document.getElementById('calendario-ocupacion');
     const rangoLabel = document.getElementById('calendario-rango-fechas');
     if (!container) return;
+
+    // Renderizar leyenda con colores del catálogo
+    renderLeyendaColores();
 
     // Inicializar semana actual si no existe
     if (!calendarioSemanaInicio) {
@@ -2223,17 +2374,8 @@ function renderCalendarioOcupacion() {
         rangoLabel.textContent = `${fechaInicio.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} - ${fechaFin.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}`;
     }
 
-    // Si no hay habitaciones, mostrar mensaje
-    if (catalogoHabitaciones.length === 0) {
-        container.innerHTML = '<p class="text-center text-muted">No hay habitaciones configuradas. Ve a Servicios y Precios para agregar habitaciones.</p>';
-        return;
-    }
-
-    // Filtrar estancias activas
-    const estanciasActivas = estancias.filter(e => e.estado !== 'Completada');
-
-    // Construir grid
-    const numCols = dias.length + 1; // +1 para columna de habitacion
+    // Construir grid aunque no haya habitaciones
+    const numCols = dias.length + 1;
     container.style.gridTemplateColumns = `150px repeat(${dias.length}, minmax(60px, 1fr))`;
 
     let html = '';
@@ -2248,6 +2390,18 @@ function renderCalendarioOcupacion() {
     });
     html += '</div>';
 
+    // Si no hay habitaciones, mostrar fila vacía con mensaje
+    if (catalogoHabitaciones.length === 0) {
+        html += '<div class="calendario-row">';
+        html += '<div class="calendario-habitacion" style="grid-column: span ' + numCols + '; text-align: center; color: var(--color-text-muted);">No hay habitaciones configuradas. Ve a Servicios y Precios para agregar.</div>';
+        html += '</div>';
+        container.innerHTML = html;
+        return;
+    }
+
+    // Filtrar estancias activas
+    const estanciasActivas = estancias.filter(e => e.estado !== 'Completada');
+
     // Filas por habitacion
     catalogoHabitaciones.forEach(hab => {
         html += '<div class="calendario-row">';
@@ -2256,8 +2410,8 @@ function renderCalendarioOcupacion() {
         dias.forEach((dia, idx) => {
             const fechaStr = dia.toISOString().split('T')[0];
 
-            // Buscar estancia que ocupe este dia en esta habitacion
-            const estancia = estanciasActivas.find(e => {
+            // Buscar TODAS las estancias que ocupan este día en esta habitación
+            const estanciasEnDia = estanciasActivas.filter(e => {
                 if (e.habitacion !== hab.nombre) return false;
                 const entrada = new Date(e.fecha_entrada);
                 const salida = e.fecha_salida ? new Date(e.fecha_salida) : entrada;
@@ -2266,35 +2420,44 @@ function renderCalendarioOcupacion() {
                 return dia >= entrada && dia <= salida;
             });
 
-            if (estancia) {
-                const entrada = new Date(estancia.fecha_entrada);
-                const salida = estancia.fecha_salida ? new Date(estancia.fecha_salida) : entrada;
-                entrada.setHours(0, 0, 0, 0);
-                salida.setHours(0, 0, 0, 0);
-
-                const esInicio = dia.getTime() === entrada.getTime();
-                const esFin = dia.getTime() === salida.getTime();
-                const esUnico = esInicio && esFin;
-                const perroNombre = estancia.perros?.nombre || 'Perro';
-                const perroFoto = estancia.perros?.foto_perro_url || null;
-                const color = estancia.color_etiqueta || '#45BF4D';
-
-                let barraClass = 'estancia-barra';
-                if (esUnico) barraClass += ' unico';
-                else if (esInicio) barraClass += ' inicio';
-                else if (esFin) barraClass += ' fin';
-                else barraClass += ' medio';
-
-                const mostrarInfo = esInicio || (idx === 0 && !esInicio);
-
+            if (estanciasEnDia.length > 0) {
                 html += `<div class="calendario-dia ocupado">`;
-                html += `<div class="${barraClass}" style="background-color: ${color};" title="${perroNombre}: ${formatDate(estancia.fecha_entrada)} - ${formatDate(estancia.fecha_salida)}">`;
-                if (mostrarInfo) {
-                    if (perroFoto) {
-                        html += `<img src="${perroFoto}" class="calendario-perro-foto" alt="${perroNombre}">`;
+                html += `<div class="calendario-dia-perros">`;
+
+                estanciasEnDia.forEach((estancia, estanciaIdx) => {
+                    const entrada = new Date(estancia.fecha_entrada);
+                    const salida = estancia.fecha_salida ? new Date(estancia.fecha_salida) : entrada;
+                    entrada.setHours(0, 0, 0, 0);
+                    salida.setHours(0, 0, 0, 0);
+
+                    const esInicio = dia.getTime() === entrada.getTime();
+                    const esFin = dia.getTime() === salida.getTime();
+                    const esUnico = esInicio && esFin;
+                    const perroNombre = estancia.perros?.nombre || 'Perro';
+                    const perroFoto = estancia.perros?.foto_perro_url || null;
+                    const color = estancia.color_etiqueta || '#45BF4D';
+                    const colorTexto = catalogoColores.find(c => c.color === color)?.texto || '';
+
+                    let barraClass = 'estancia-barra-stack';
+                    if (esUnico) barraClass += ' unico';
+                    else if (esInicio) barraClass += ' inicio';
+                    else if (esFin) barraClass += ' fin';
+                    else barraClass += ' medio';
+
+                    const mostrarInfo = esInicio || (idx === 0 && !esInicio);
+
+                    html += `<div class="${barraClass}" style="background-color: ${color};"
+                        title="${perroNombre}: ${formatDate(estancia.fecha_entrada)} - ${formatDate(estancia.fecha_salida)}${colorTexto ? ' (' + colorTexto + ')' : ''}"
+                        onclick="mostrarDetalleEstancia('${estancia.id}')">`;
+                    if (mostrarInfo) {
+                        if (perroFoto) {
+                            html += `<img src="${perroFoto}" class="calendario-perro-foto-sm" alt="${perroNombre}">`;
+                        }
+                        html += `<span class="calendario-perro-nombre-sm">${perroNombre}</span>`;
                     }
-                    html += `<span class="calendario-perro-nombre">${perroNombre}</span>`;
-                }
+                    html += `</div>`;
+                });
+
                 html += `</div></div>`;
             } else {
                 html += '<div class="calendario-dia disponible"></div>';
@@ -2305,6 +2468,71 @@ function renderCalendarioOcupacion() {
     });
 
     container.innerHTML = html;
+}
+
+// Mostrar detalle de estancia con opción de eliminar
+async function mostrarDetalleEstancia(estanciaId) {
+    const estancia = estancias.find(e => e.id === estanciaId);
+    if (!estancia) return;
+
+    const perro = estancia.perros || {};
+    const colorTexto = catalogoColores.find(c => c.color === estancia.color_etiqueta)?.texto || '';
+
+    const modalHTML = `
+        <div class="modal-overlay active" id="modal-estancia-detalle">
+            <div class="modal">
+                <div class="modal-header">
+                    <h3 class="modal-title">Detalle de Estancia</h3>
+                    <button class="modal-close" onclick="cerrarModalEstancia()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="estancia-detalle-info">
+                        ${perro.foto_perro_url ? `<img src="${perro.foto_perro_url}" alt="${perro.nombre}" class="estancia-detalle-foto">` : ''}
+                        <h4>${perro.nombre || 'Perro'}</h4>
+                        <p><strong>Habitación:</strong> ${estancia.habitacion || 'N/A'}</p>
+                        <p><strong>Entrada:</strong> ${formatDate(estancia.fecha_entrada)}</p>
+                        <p><strong>Salida:</strong> ${formatDate(estancia.fecha_salida)}</p>
+                        <p><strong>Estado:</strong>
+                            <span class="color-muestra-inline" style="background-color: ${estancia.color_etiqueta || '#45BF4D'};"></span>
+                            ${colorTexto || 'Sin estado'}
+                        </p>
+                        <p><strong>Total estimado:</strong> $${(estancia.total_estimado || 0).toFixed(2)}</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button onclick="cerrarModalEstancia()" class="btn btn-secondary">Cerrar</button>
+                    <button onclick="eliminarEstancia('${estanciaId}')" class="btn btn-danger">Eliminar Estancia</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+function cerrarModalEstancia() {
+    const modal = document.getElementById('modal-estancia-detalle');
+    if (modal) modal.remove();
+}
+
+async function eliminarEstancia(estanciaId) {
+    if (!confirm('¿Estás seguro de eliminar esta estancia? Esta acción no se puede deshacer.')) return;
+
+    try {
+        showLoading();
+        await apiDelete(`/estancias/${estanciaId}`);
+
+        // Actualizar lista local
+        estancias = estancias.filter(e => e.id !== estanciaId);
+
+        cerrarModalEstancia();
+        renderCalendarioOcupacion();
+        hideLoading();
+        showToast('Estancia eliminada', 'success');
+    } catch (error) {
+        hideLoading();
+        showToast('Error al eliminar: ' + error.message, 'error');
+    }
 }
 
 function cambiarSemanaCalendario(direccion) {

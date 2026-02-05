@@ -171,6 +171,11 @@ class HabitacionCreate(BaseModel):
     capacidad: Optional[int] = 1
     descripcion: Optional[str] = None
 
+class ColorEtiquetaCreate(BaseModel):
+    color: str
+    texto: str
+    orden: Optional[int] = 0
+
 # ============================================
 # ENDPOINTS: AUTH
 # ============================================
@@ -362,6 +367,33 @@ async def eliminar_habitacion(id: str, authorization: str = Header(None)):
     return {"message": "Habitacion desactivada"}
 
 # ============================================
+# ENDPOINTS: CATÁLOGO COLORES ETIQUETA
+# ============================================
+
+@app.get("/catalogo-colores")
+async def listar_colores(authorization: str = Header(None)):
+    token = await verify_token(authorization)
+    return await supabase_request("GET", "catalogo_colores?select=*&activo=eq.true&order=orden", token=token)
+
+@app.post("/catalogo-colores")
+async def crear_color(data: ColorEtiquetaCreate, authorization: str = Header(None)):
+    token = await verify_token(authorization)
+    result = await supabase_request("POST", "catalogo_colores", data.model_dump(), token=token)
+    return result[0] if result else None
+
+@app.put("/catalogo-colores/{id}")
+async def actualizar_color(id: str, data: ColorEtiquetaCreate, authorization: str = Header(None)):
+    token = await verify_token(authorization)
+    result = await supabase_request("PATCH", f"catalogo_colores?id=eq.{id}", data.model_dump(), token=token)
+    return result[0] if result else None
+
+@app.delete("/catalogo-colores/{id}")
+async def eliminar_color(id: str, authorization: str = Header(None)):
+    token = await verify_token(authorization)
+    await supabase_request("PATCH", f"catalogo_colores?id=eq.{id}", {"activo": False}, token=token)
+    return {"message": "Color desactivado"}
+
+# ============================================
 # ENDPOINTS: ESTANCIAS (CHECK-IN)
 # ============================================
 
@@ -398,6 +430,12 @@ async def completar_estancia(id: str, authorization: str = Header(None)):
     token = await verify_token(authorization)
     result = await supabase_request("PATCH", f"estancias?id=eq.{id}", {"estado": "Completada"}, token=token)
     return result[0] if result else None
+
+@app.delete("/estancias/{id}")
+async def eliminar_estancia(id: str, authorization: str = Header(None)):
+    token = await verify_token(authorization)
+    await supabase_request("DELETE", f"estancias?id=eq.{id}", token=token)
+    return {"message": "Estancia eliminada"}
 
 # ============================================
 # ENDPOINTS: PASEOS
