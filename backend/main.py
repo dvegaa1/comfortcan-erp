@@ -126,6 +126,9 @@ class EstanciaCreate(BaseModel):
     color_etiqueta: Optional[str] = "#45BF4D"
     notas: Optional[str] = None
 
+class EstanciaColorUpdate(BaseModel):
+    color_etiqueta: str
+
 class PaseoCreate(BaseModel):
     perro_id: str
     catalogo_paseo_id: Optional[str] = None
@@ -429,6 +432,12 @@ async def actualizar_estancia(id: str, data: EstanciaCreate, authorization: str 
 async def completar_estancia(id: str, authorization: str = Header(None)):
     token = await verify_token(authorization)
     result = await supabase_request("PATCH", f"estancias?id=eq.{id}", {"estado": "Completada"}, token=token)
+    return result[0] if result else None
+
+@app.patch("/estancias/{id}/color")
+async def actualizar_color_estancia(id: str, data: EstanciaColorUpdate, authorization: str = Header(None)):
+    token = await verify_token(authorization)
+    result = await supabase_request("PATCH", f"estancias?id=eq.{id}", {"color_etiqueta": data.color_etiqueta}, token=token)
     return result[0] if result else None
 
 @app.delete("/estancias/{id}")

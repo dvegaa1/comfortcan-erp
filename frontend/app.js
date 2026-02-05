@@ -303,6 +303,19 @@ async function apiPut(endpoint, data) {
     return response.json();
 }
 
+async function apiPatch(endpoint, data) {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+        method: 'PATCH',
+        headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    });
+    if (!response.ok) throw new Error('Error al actualizar');
+    return response.json();
+}
+
 async function apiDelete(endpoint) {
     const response = await fetch(`${API_URL}${endpoint}`, {
         method: 'DELETE',
@@ -2459,13 +2472,25 @@ function renderCalendarioOcupacion() {
     container.innerHTML = html;
 }
 
-// Mostrar detalle de estancia con opción de eliminar
+// Mostrar detalle de estancia con opción de eliminar y cambiar color
 async function mostrarDetalleEstancia(estanciaId) {
     const estancia = estancias.find(e => e.id === estanciaId);
     if (!estancia) return;
 
     const perro = estancia.perros || {};
-    const colorTexto = catalogoColores.find(c => c.color === estancia.color_etiqueta)?.texto || '';
+    const colorActual = estancia.color_etiqueta || '#45BF4D';
+    const colorTexto = catalogoColores.find(c => c.color === colorActual)?.texto || '';
+
+    // Generar opciones de colores
+    let coloresHTML = '';
+    catalogoColores.forEach(c => {
+        const selected = c.color === colorActual ? 'selected' : '';
+        coloresHTML += `
+            <div class="color-option ${selected}" onclick="seleccionarColorEstancia('${c.color}', '${estanciaId}')" title="${c.texto}">
+                <span class="color-circle" style="background-color: ${c.color};"></span>
+            </div>
+        `;
+    });
 
     const modalHTML = `
         <div class="modal-overlay active" id="modal-estancia-detalle">
@@ -2481,16 +2506,20 @@ async function mostrarDetalleEstancia(estanciaId) {
                         <p><strong>Habitación:</strong> ${estancia.habitacion || 'N/A'}</p>
                         <p><strong>Entrada:</strong> ${formatDate(estancia.fecha_entrada)}</p>
                         <p><strong>Salida:</strong> ${formatDate(estancia.fecha_salida)}</p>
-                        <p><strong>Estado:</strong>
-                            <span class="color-muestra-inline" style="background-color: ${estancia.color_etiqueta || '#45BF4D'};"></span>
-                            ${colorTexto || 'Sin estado'}
-                        </p>
                         <p><strong>Total estimado:</strong> $${(estancia.total_estimado || 0).toFixed(2)}</p>
+                    </div>
+                    <div class="estancia-cambiar-color">
+                        <label><strong>Cambiar estado/color:</strong></label>
+                        <div class="colores-selector modal-colores">
+                            ${coloresHTML || '<p class="text-muted">No hay colores configurados</p>'}
+                        </div>
+                        <input type="hidden" id="estancia-color-seleccionado" value="${colorActual}">
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button onclick="cerrarModalEstancia()" class="btn btn-secondary">Cerrar</button>
-                    <button onclick="eliminarEstancia('${estanciaId}')" class="btn btn-danger">Eliminar Estancia</button>
+                    <button onclick="guardarColorEstancia('${estanciaId}')" class="btn btn-primary">Guardar Color</button>
+                    <button onclick="eliminarEstancia('${estanciaId}')" class="btn btn-danger">Eliminar</button>
                 </div>
             </div>
         </div>
@@ -2502,6 +2531,40 @@ async function mostrarDetalleEstancia(estanciaId) {
 function cerrarModalEstancia() {
     const modal = document.getElementById('modal-estancia-detalle');
     if (modal) modal.remove();
+}
+
+function seleccionarColorEstancia(color, estanciaId) {
+    // Actualizar visual
+    document.querySelectorAll('#modal-estancia-detalle .color-option').forEach(opt => {
+        opt.classList.remove('selected');
+    });
+    event.currentTarget.classList.add('selected');
+
+    // Guardar valor
+    document.getElementById('estancia-color-seleccionado').value = color;
+}
+
+async function guardarColorEstancia(estanciaId) {
+    const nuevoColor = document.getElementById('estancia-color-seleccionado').value;
+
+    try {
+        showLoading();
+        await apiPatch(`/estancias/${estanciaId}/color`, { color_etiqueta: nuevoColor });
+
+        // Actualizar lista local
+        const estancia = estancias.find(e => e.id === estanciaId);
+        if (estancia) {
+            estancia.color_etiqueta = nuevoColor;
+        }
+
+        cerrarModalEstancia();
+        renderCalendarioOcupacion();
+        hideLoading();
+        showToast('Color actualizado', 'success');
+    } catch (error) {
+        hideLoading();
+        showToast('Error al actualizar color: ' + error.message, 'error');
+    }
 }
 
 async function eliminarEstancia(estanciaId) {

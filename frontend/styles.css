@@ -1815,6 +1815,22 @@ body {
     font-size: 0.9rem;
 }
 
+.estancia-cambiar-color {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--color-border);
+}
+
+.estancia-cambiar-color label {
+    display: block;
+    margin-bottom: 0.75rem;
+    color: var(--color-text-primary);
+}
+
+.modal-colores {
+    justify-content: flex-start;
+}
+
 .color-muestra-inline {
     display: inline-block;
     width: 16px;
