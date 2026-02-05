@@ -1552,12 +1552,13 @@ body {
 .calendario-td-dia {
     background: var(--color-bg-card);
     height: 50px;
-    padding: 4px 0;
+    padding: 5px 0;
     vertical-align: middle;
+    position: relative;
 }
 
 .calendario-td-dia.ocupado {
-    padding: 4px 0;
+    padding: 5px 0;
 }
 
 /* Barra de estancia en tabla */
@@ -1566,7 +1567,10 @@ body {
     align-items: center;
     gap: 6px;
     padding: 6px 8px;
-    height: 40px;
+    height: 38px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
     font-size: 0.8rem;
     font-weight: 600;
     color: white;
@@ -1574,6 +1578,7 @@ body {
     box-shadow: 0 2px 4px rgba(0,0,0,0.3);
     white-space: nowrap;
     overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .estancia-barra:hover {
@@ -1583,22 +1588,26 @@ body {
 .estancia-barra.inicio {
     border-top-left-radius: 20px;
     border-bottom-left-radius: 20px;
-    margin-left: 4px;
+    margin-left: 3px;
+    width: calc(100% - 3px);
 }
 
 .estancia-barra.fin {
     border-top-right-radius: 20px;
     border-bottom-right-radius: 20px;
-    margin-right: 4px;
+    margin-right: 3px;
+    width: calc(100% - 3px);
 }
 
 .estancia-barra.unico {
     border-radius: 20px;
-    margin: 0 4px;
+    margin: 0 3px;
+    width: calc(100% - 6px);
 }
 
 .estancia-barra.medio {
     border-radius: 0;
+    width: 100%;
 }
 
 .calendario-perro-foto {
