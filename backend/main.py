@@ -400,7 +400,7 @@ async def eliminar_color(id: str, authorization: str = Header(None)):
 @app.get("/estancias")
 async def listar_estancias(estado: Optional[str] = None, authorization: str = Header(None)):
     token = await verify_token(authorization)
-    endpoint = "estancias?select=*,perros(id,nombre,propietarios(nombre,telefono))&order=fecha_entrada.desc"
+    endpoint = "estancias?select=*,perros(id,nombre,foto_perro_url,propietarios(nombre,telefono))&order=fecha_entrada.desc"
     if estado:
         endpoint += f"&estado=eq.{estado}"
     return await supabase_request("GET", endpoint, token=token)
