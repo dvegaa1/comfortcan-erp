@@ -791,6 +791,12 @@ async function handleCheckIn() {
             });
         }
 
+        // Agregar la nueva estancia a la lista local
+        estancias.push(estancia);
+
+        // Actualizar el calendario si está visible
+        renderCalendarioOcupacion();
+
         // Limpiar formulario
         document.getElementById('checkin-perro').value = '';
         document.getElementById('checkin-entrada').value = '';
