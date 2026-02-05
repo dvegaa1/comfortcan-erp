@@ -1794,6 +1794,11 @@ body {
     font-size: 0.65rem;
 }
 
+.calendario-perro-emoji {
+    font-size: 0.8rem;
+    flex-shrink: 0;
+}
+
 /* ========== MODAL ESTANCIA DETALLE ========== */
 .estancia-detalle-info {
     text-align: center;

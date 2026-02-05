@@ -2434,17 +2434,19 @@ function renderCalendarioOcupacion() {
                     else if (esFin) barraClass += ' fin';
                     else barraClass += ' medio';
 
-                    const mostrarInfo = esInicio || (idx === 0 && !esInicio);
-
+                    // SIEMPRE mostrar foto y nombre en cada día
                     html += `<div class="${barraClass}" style="background-color: ${color};"
                         title="${perroNombre}: ${formatDate(estancia.fecha_entrada)} - ${formatDate(estancia.fecha_salida)}${colorTexto ? ' (' + colorTexto + ')' : ''}"
                         onclick="mostrarDetalleEstancia('${estancia.id}')">`;
-                    if (mostrarInfo) {
-                        if (perroFoto) {
-                            html += `<img src="${perroFoto}" class="calendario-perro-foto-sm" alt="${perroNombre}">`;
-                        }
-                        html += `<span class="calendario-perro-nombre-sm">${perroNombre}</span>`;
+
+                    // Siempre mostrar foto (o emoji si no tiene) + nombre
+                    if (perroFoto) {
+                        html += `<img src="${perroFoto}" class="calendario-perro-foto-sm" alt="${perroNombre}">`;
+                    } else {
+                        html += `<span class="calendario-perro-emoji">🐕</span>`;
                     }
+                    html += `<span class="calendario-perro-nombre-sm">${perroNombre}</span>`;
+
                     html += `</div>`;
                 });
 
