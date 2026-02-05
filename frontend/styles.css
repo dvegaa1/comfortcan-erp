@@ -1532,7 +1532,8 @@ body {
 
 .calendario-habitacion {
     padding: 0.75rem 1rem;
-    font-weight: 500;
+    font-weight: 600;
+    font-size: 0.95rem;
     background: var(--color-bg-card);
     border-bottom: 1px solid var(--color-border);
     position: sticky;
@@ -1540,6 +1541,12 @@ body {
     z-index: 1;
     display: flex;
     align-items: center;
+}
+
+/* Sub-filas de perros adicionales - sin borde superior para unir visualmente */
+.calendario-habitacion.sub-fila {
+    border-top: none;
+    padding-top: 0;
 }
 
 .calendario-dia {

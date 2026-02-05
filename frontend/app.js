@@ -2444,9 +2444,11 @@ function renderCalendarioOcupacion() {
 
                 html += '<div class="calendario-row">';
 
-                // Solo mostrar nombre de habitación en la primera sub-fila
+                // Mostrar nombre de habitación solo en primera fila, vacío en las demás
                 if (perroIdx === 0) {
-                    html += `<div class="calendario-habitacion" style="grid-row: span ${perrosUnicos.length};">${hab.nombre}</div>`;
+                    html += `<div class="calendario-habitacion">${hab.nombre}</div>`;
+                } else {
+                    html += `<div class="calendario-habitacion sub-fila"></div>`;
                 }
 
                 dias.forEach((dia, idx) => {
