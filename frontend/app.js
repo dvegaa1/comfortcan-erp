@@ -2026,18 +2026,17 @@ function renderTablaServicios() {
     }
 
     tbody.innerHTML = catalogoServicios.map(s => {
-        // Determinar tipo de cobro basado en nombre
-        const nombreLower = s.nombre.toLowerCase();
-        const esPorDia = nombreLower.includes('guardería') || nombreLower.includes('guarderia') ||
-                        nombreLower.includes('hospedaje') || nombreLower.includes('escuela') ||
-                        nombreLower.includes('daycare');
-        const tipoTexto = esPorDia ? 'Por día' : 'Único';
+        const tipoCobro = s.tipo_cobro || 'unico';
+        const tipoTexto = tipoCobro === 'por_dia' ? 'Por día' : 'Único';
         return `
             <tr>
                 <td>${s.nombre}</td>
                 <td>$${(s.precio || 0).toFixed(2)}</td>
                 <td>${tipoTexto}</td>
-                <td><button onclick="eliminarServicioCatalogo('${s.id}')" class="btn btn-danger btn-sm">X</button></td>
+                <td>
+                    <button onclick="editarServicioCatalogo('${s.id}')" class="btn btn-sm" style="background: var(--color-primary); color: #fff; margin-right: 4px;">✎</button>
+                    <button onclick="eliminarServicioCatalogo('${s.id}')" class="btn btn-danger btn-sm">X</button>
+                </td>
             </tr>
         `;
     }).join('');
@@ -2088,6 +2087,48 @@ async function eliminarServicioCatalogo(servicioId) {
     }
 }
 
+function editarServicioCatalogo(servicioId) {
+    const s = catalogoServicios.find(x => x.id === servicioId);
+    if (!s) return;
+    const tbody = document.getElementById('tabla-servicios');
+    const row = tbody.querySelector(`button[onclick*="${servicioId}"]`).closest('tr');
+    const tipoCobro = s.tipo_cobro || 'unico';
+    row.innerHTML = `
+        <td><input type="text" class="form-input" id="edit-serv-nombre-${servicioId}" value="${s.nombre}" style="min-width:100px"></td>
+        <td><input type="number" step="0.01" class="form-input" id="edit-serv-precio-${servicioId}" value="${s.precio || 0}" style="width:80px"></td>
+        <td><select class="form-select" id="edit-serv-tipo-${servicioId}">
+            <option value="unico" ${tipoCobro === 'unico' ? 'selected' : ''}>Único</option>
+            <option value="por_dia" ${tipoCobro === 'por_dia' ? 'selected' : ''}>Por día</option>
+        </select></td>
+        <td>
+            <button onclick="guardarEdicionServicio('${servicioId}')" class="btn btn-sm" style="background: var(--color-success); color: #fff; margin-right: 4px;">✓</button>
+            <button onclick="renderTablaServicios()" class="btn btn-sm" style="background: var(--color-border); color: #fff;">✕</button>
+        </td>
+    `;
+}
+
+async function guardarEdicionServicio(servicioId) {
+    const nombre = document.getElementById(`edit-serv-nombre-${servicioId}`)?.value;
+    const precio = document.getElementById(`edit-serv-precio-${servicioId}`)?.value;
+    const tipo = document.getElementById(`edit-serv-tipo-${servicioId}`)?.value;
+    if (!nombre || !precio) { showToast('Completa nombre y precio', 'error'); return; }
+    try {
+        showLoading();
+        const actualizado = await apiPut(`/catalogo-servicios/${servicioId}`, {
+            nombre, precio: parseFloat(precio), tipo_cobro: tipo || 'unico'
+        });
+        const idx = catalogoServicios.findIndex(s => s.id === servicioId);
+        if (idx !== -1) catalogoServicios[idx] = { ...catalogoServicios[idx], ...actualizado };
+        llenarSelectServicios();
+        renderTablaServicios();
+        hideLoading();
+        showToast('Servicio actualizado', 'success');
+    } catch (error) {
+        hideLoading();
+        showToast(error.message, 'error');
+    }
+}
+
 function renderTablaPaseos() {
     const tbody = document.getElementById('tabla-tipos-paseo');
     if (!tbody) return;
@@ -2101,7 +2142,10 @@ function renderTablaPaseos() {
         <tr>
             <td>${p.nombre}</td>
             <td>$${(p.precio || 0).toFixed(2)}</td>
-            <td><button onclick="eliminarTipoPaseo('${p.id}')" class="btn btn-danger btn-sm">X</button></td>
+            <td>
+                <button onclick="editarTipoPaseo('${p.id}')" class="btn btn-sm" style="background: var(--color-primary); color: #fff; margin-right: 4px;">✎</button>
+                <button onclick="eliminarTipoPaseo('${p.id}')" class="btn btn-danger btn-sm">X</button>
+            </td>
         </tr>
     `).join('');
 }
@@ -2152,6 +2196,43 @@ async function eliminarTipoPaseo(paseoId) {
     }
 }
 
+function editarTipoPaseo(paseoId) {
+    const p = catalogoPaseos.find(x => x.id === paseoId);
+    if (!p) return;
+    const tbody = document.getElementById('tabla-tipos-paseo');
+    const row = tbody.querySelector(`button[onclick*="${paseoId}"]`).closest('tr');
+    row.innerHTML = `
+        <td><input type="text" class="form-input" id="edit-paseo-nombre-${paseoId}" value="${p.nombre}" style="min-width:100px"></td>
+        <td><input type="number" step="0.01" class="form-input" id="edit-paseo-precio-${paseoId}" value="${p.precio || 0}" style="width:80px"></td>
+        <td>
+            <button onclick="guardarEdicionPaseo('${paseoId}')" class="btn btn-sm" style="background: var(--color-success); color: #fff; margin-right: 4px;">✓</button>
+            <button onclick="renderTablaPaseos()" class="btn btn-sm" style="background: var(--color-border); color: #fff;">✕</button>
+        </td>
+    `;
+}
+
+async function guardarEdicionPaseo(paseoId) {
+    const nombre = document.getElementById(`edit-paseo-nombre-${paseoId}`)?.value;
+    const precio = document.getElementById(`edit-paseo-precio-${paseoId}`)?.value;
+    if (!nombre || !precio) { showToast('Completa nombre y precio', 'error'); return; }
+    try {
+        showLoading();
+        const p = catalogoPaseos.find(x => x.id === paseoId);
+        const actualizado = await apiPut(`/catalogo-paseos/${paseoId}`, {
+            nombre, duracion_minutos: p?.duracion_minutos || null, precio: parseFloat(precio)
+        });
+        const idx = catalogoPaseos.findIndex(x => x.id === paseoId);
+        if (idx !== -1) catalogoPaseos[idx] = { ...catalogoPaseos[idx], ...actualizado };
+        llenarSelectPaseos();
+        renderTablaPaseos();
+        hideLoading();
+        showToast('Tipo de paseo actualizado', 'success');
+    } catch (error) {
+        hideLoading();
+        showToast(error.message, 'error');
+    }
+}
+
 // ============================================
 // HABITACIONES
 // ============================================
@@ -2179,7 +2260,10 @@ function renderTablaHabitaciones() {
             <td>${h.nombre}</td>
             <td>${h.capacidad || 1}</td>
             <td>${h.descripcion || '-'}</td>
-            <td><button onclick="eliminarHabitacion('${h.id}')" class="btn btn-danger btn-sm">X</button></td>
+            <td>
+                <button onclick="editarHabitacion('${h.id}')" class="btn btn-sm" style="background: var(--color-primary); color: #fff; margin-right: 4px;">✎</button>
+                <button onclick="eliminarHabitacion('${h.id}')" class="btn btn-danger btn-sm">X</button>
+            </td>
         </tr>
     `).join('');
 }
@@ -2232,6 +2316,44 @@ async function eliminarHabitacion(habitacionId) {
     }
 }
 
+function editarHabitacion(habitacionId) {
+    const h = catalogoHabitaciones.find(x => x.id === habitacionId);
+    if (!h) return;
+    const tbody = document.getElementById('tabla-habitaciones');
+    const row = tbody.querySelector(`button[onclick*="${habitacionId}"]`).closest('tr');
+    row.innerHTML = `
+        <td><input type="text" class="form-input" id="edit-hab-nombre-${habitacionId}" value="${h.nombre}" style="min-width:100px"></td>
+        <td><input type="number" class="form-input" id="edit-hab-capacidad-${habitacionId}" value="${h.capacidad || 1}" min="1" style="width:60px"></td>
+        <td><input type="text" class="form-input" id="edit-hab-descripcion-${habitacionId}" value="${h.descripcion || ''}" style="min-width:100px"></td>
+        <td>
+            <button onclick="guardarEdicionHabitacion('${habitacionId}')" class="btn btn-sm" style="background: var(--color-success); color: #fff; margin-right: 4px;">✓</button>
+            <button onclick="renderTablaHabitaciones()" class="btn btn-sm" style="background: var(--color-border); color: #fff;">✕</button>
+        </td>
+    `;
+}
+
+async function guardarEdicionHabitacion(habitacionId) {
+    const nombre = document.getElementById(`edit-hab-nombre-${habitacionId}`)?.value;
+    const capacidad = document.getElementById(`edit-hab-capacidad-${habitacionId}`)?.value;
+    const descripcion = document.getElementById(`edit-hab-descripcion-${habitacionId}`)?.value;
+    if (!nombre) { showToast('El nombre es requerido', 'error'); return; }
+    try {
+        showLoading();
+        const actualizado = await apiPut(`/catalogo-habitaciones/${habitacionId}`, {
+            nombre, capacidad: parseInt(capacidad) || 1, descripcion: descripcion || null
+        });
+        const idx = catalogoHabitaciones.findIndex(x => x.id === habitacionId);
+        if (idx !== -1) catalogoHabitaciones[idx] = { ...catalogoHabitaciones[idx], ...actualizado };
+        llenarSelectHabitaciones();
+        renderTablaHabitaciones();
+        hideLoading();
+        showToast('Habitacion actualizada', 'success');
+    } catch (error) {
+        hideLoading();
+        showToast(error.message, 'error');
+    }
+}
+
 // ============================================
 // COLORES DE ETIQUETA
 // ============================================
@@ -2248,7 +2370,10 @@ function renderTablaColores() {
         <tr>
             <td><span class="color-muestra" style="background-color: ${c.color}; display: inline-block; width: 30px; height: 30px; border-radius: 4px; border: 2px solid var(--color-border);"></span></td>
             <td>${c.texto}</td>
-            <td><button onclick="eliminarColor('${c.id}')" class="btn btn-danger btn-sm">X</button></td>
+            <td>
+                <button onclick="editarColor('${c.id}')" class="btn btn-sm" style="background: var(--color-primary); color: #fff; margin-right: 4px;">✎</button>
+                <button onclick="eliminarColor('${c.id}')" class="btn btn-danger btn-sm">X</button>
+            </td>
         </tr>
     `).join('');
 }
@@ -2346,6 +2471,40 @@ async function eliminarColor(colorId) {
     }
 }
 
+function editarColor(colorId) {
+    const c = catalogoColores.find(x => x.id === colorId);
+    if (!c) return;
+    const tbody = document.getElementById('tabla-colores');
+    const row = tbody.querySelector(`button[onclick*="${colorId}"]`).closest('tr');
+    row.innerHTML = `
+        <td><input type="color" class="form-input" id="edit-color-valor-${colorId}" value="${c.color}" style="width:60px; height:40px; padding:0;"></td>
+        <td><input type="text" class="form-input" id="edit-color-texto-${colorId}" value="${c.texto}" style="min-width:100px"></td>
+        <td>
+            <button onclick="guardarEdicionColor('${colorId}')" class="btn btn-sm" style="background: var(--color-success); color: #fff; margin-right: 4px;">✓</button>
+            <button onclick="renderTablaColores()" class="btn btn-sm" style="background: var(--color-border); color: #fff;">✕</button>
+        </td>
+    `;
+}
+
+async function guardarEdicionColor(colorId) {
+    const color = document.getElementById(`edit-color-valor-${colorId}`)?.value;
+    const texto = document.getElementById(`edit-color-texto-${colorId}`)?.value;
+    if (!color || !texto) { showToast('Completa color y texto', 'error'); return; }
+    try {
+        showLoading();
+        const actualizado = await apiPut(`/catalogo-colores/${colorId}`, { color, texto });
+        const idx = catalogoColores.findIndex(x => x.id === colorId);
+        if (idx !== -1) catalogoColores[idx] = { ...catalogoColores[idx], ...actualizado };
+        renderTablaColores();
+        renderColoresCheckIn();
+        hideLoading();
+        showToast('Color actualizado', 'success');
+    } catch (error) {
+        hideLoading();
+        showToast(error.message, 'error');
+    }
+}
+
 // ============================================
 // CALENDARIO DE OCUPACION
 // ============================================
@@ -2406,8 +2565,13 @@ function renderCalendarioOcupacion() {
     // Filtrar estancias activas
     const estanciasActivas = estancias.filter(e => e.estado !== 'Completada');
 
+    // Ordenar habitaciones numéricamente (natural sort)
+    const habsOrdenadas = [...catalogoHabitaciones].sort((a, b) => {
+        return a.nombre.localeCompare(b.nombre, undefined, { numeric: true, sensitivity: 'base' });
+    });
+
     // Filas por habitacion
-    catalogoHabitaciones.forEach(hab => {
+    habsOrdenadas.forEach(hab => {
         const estanciasHab = estanciasActivas.filter(e => e.habitacion === hab.nombre);
 
         // Agrupar por perro_id
