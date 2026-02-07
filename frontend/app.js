@@ -2630,6 +2630,7 @@ function renderCalendarioOcupacion() {
                         const perroNombre = estancia.perros?.nombre || 'Perro';
                         const perroFoto = estancia.perros?.foto_perro_url || null;
                         const color = estancia.color_etiqueta || '#45BF4D';
+                        const textColor = esColorClaro(color) ? '#000' : '#fff';
                         const colorTexto = catalogoColores.find(c => c.color === color)?.texto || '';
 
                         let barraClass = 'estancia-barra';
@@ -2639,7 +2640,7 @@ function renderCalendarioOcupacion() {
                         else barraClass += ' medio';
 
                         html += `<td class="calendario-td-dia ocupado">`;
-                        html += `<div class="${barraClass}" style="background-color: ${color};"
+                        html += `<div class="${barraClass}" style="background-color: ${color}; color: ${textColor};"
                             title="${perroNombre}: ${formatDate(estancia.fecha_entrada)} - ${formatDate(estancia.fecha_salida)}${colorTexto ? ' (' + colorTexto + ')' : ''}"
                             onclick="mostrarDetalleEstancia('${estancia.id}')">`;
 
@@ -2793,6 +2794,15 @@ function cambiarSemanaCalendario(direccion) {
 // ============================================
 // UTILIDADES
 // ============================================
+function esColorClaro(hex) {
+    const c = hex.replace('#', '');
+    const r = parseInt(c.substring(0, 2), 16);
+    const g = parseInt(c.substring(2, 4), 16);
+    const b = parseInt(c.substring(4, 6), 16);
+    const luminancia = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return luminancia > 0.6;
+}
+
 function formatDate(dateStr) {
     if (!dateStr) return 'N/A';
     const date = new Date(dateStr);
