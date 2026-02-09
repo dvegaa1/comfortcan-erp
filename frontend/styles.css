@@ -1508,12 +1508,12 @@ body {
 
 /* ========== CALENDARIO TABLA ========== */
 .calendario-ocupacion {
-    overflow-x: auto;
     min-width: 100%;
 }
 
 .calendario-tabla {
-    width: 100%;
+    min-width: 1200px;
+    width: max-content;
     border-collapse: collapse;
     table-layout: fixed;
 }
@@ -1543,7 +1543,8 @@ body {
     text-align: center;
     font-weight: 600;
     font-size: 0.8rem;
-    min-width: 70px;
+    min-width: 90px;
+    width: 90px;
 }
 
 .calendario-td-habitacion {
