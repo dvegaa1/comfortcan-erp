@@ -1494,8 +1494,16 @@ body {
 }
 
 .calendario-ocupacion-container {
-    overflow-x: auto;
+    overflow: auto;
     margin: 1rem 0;
+    cursor: grab;
+    -webkit-overflow-scrolling: touch;
+    max-height: 75vh;
+}
+
+.calendario-ocupacion-container.grabbing {
+    cursor: grabbing;
+    user-select: none;
 }
 
 /* ========== CALENDARIO TABLA ========== */

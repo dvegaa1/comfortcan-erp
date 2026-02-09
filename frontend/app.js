@@ -146,20 +146,42 @@ function setupEventListeners() {
     document.getElementById('btn-semana-anterior')?.addEventListener('click', () => cambiarSemanaCalendario(-1));
     document.getElementById('btn-semana-siguiente')?.addEventListener('click', () => cambiarSemanaCalendario(1));
 
-    // Swipe en calendario (móvil) - solo touch, no trackpad
+    // Drag-to-scroll en calendario (mouse y touch)
     const calendarioContainer = document.querySelector('.calendario-ocupacion-container');
     if (calendarioContainer) {
-        calendarioContainer.addEventListener('touchstart', (e) => {
-            calendarioTouchStartX = e.touches[0].clientX;
-        }, { passive: true });
+        let isDown = false;
+        let startX, startY, scrollLeft, scrollTop;
 
-        calendarioContainer.addEventListener('touchend', (e) => {
-            const touchEndX = e.changedTouches[0].clientX;
-            const diff = calendarioTouchStartX - touchEndX;
-            if (Math.abs(diff) > 100) { // Umbral de 100px para evitar cambios accidentales
-                cambiarSemanaCalendario(diff > 0 ? 1 : -1);
-            }
-        }, { passive: true });
+        calendarioContainer.addEventListener('mousedown', (e) => {
+            // No activar si click fue en barra de estancia
+            if (e.target.closest('.estancia-barra')) return;
+            isDown = true;
+            calendarioContainer.classList.add('grabbing');
+            startX = e.pageX - calendarioContainer.offsetLeft;
+            startY = e.pageY - calendarioContainer.offsetTop;
+            scrollLeft = calendarioContainer.scrollLeft;
+            scrollTop = calendarioContainer.scrollTop;
+            e.preventDefault();
+        });
+
+        calendarioContainer.addEventListener('mouseleave', () => {
+            isDown = false;
+            calendarioContainer.classList.remove('grabbing');
+        });
+
+        calendarioContainer.addEventListener('mouseup', () => {
+            isDown = false;
+            calendarioContainer.classList.remove('grabbing');
+        });
+
+        calendarioContainer.addEventListener('mousemove', (e) => {
+            if (!isDown) return;
+            e.preventDefault();
+            const x = e.pageX - calendarioContainer.offsetLeft;
+            const y = e.pageY - calendarioContainer.offsetTop;
+            calendarioContainer.scrollLeft = scrollLeft - (x - startX);
+            calendarioContainer.scrollTop = scrollTop - (y - startY);
+        });
     }
 
     // Selects dinámicos
