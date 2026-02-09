@@ -146,61 +146,10 @@ function setupEventListeners() {
     document.getElementById('btn-semana-anterior')?.addEventListener('click', () => cambiarSemanaCalendario(-1));
     document.getElementById('btn-semana-siguiente')?.addEventListener('click', () => cambiarSemanaCalendario(1));
 
-    // Navegación del calendario con gestos y scroll
-    const calendarioContainer = document.querySelector('.calendario-ocupacion-container');
-    if (calendarioContainer) {
-        let dragStartX = 0;
-        let isDragging = false;
-
-        // Mouse drag: arrastrar para cambiar semana
-        calendarioContainer.addEventListener('mousedown', (e) => {
-            if (e.target.closest('.estancia-barra')) return;
-            isDragging = true;
-            dragStartX = e.clientX;
-            calendarioContainer.classList.add('grabbing');
-            e.preventDefault();
-        });
-
-        document.addEventListener('mouseup', (e) => {
-            if (!isDragging) return;
-            isDragging = false;
-            calendarioContainer.classList.remove('grabbing');
-            const diff = dragStartX - e.clientX;
-            if (Math.abs(diff) > 60) {
-                cambiarSemanaCalendario(diff > 0 ? 1 : -1);
-            }
-        });
-
-        document.addEventListener('mousemove', (e) => {
-            if (!isDragging) return;
-            e.preventDefault();
-        });
-
-        // Touch swipe: deslizar para cambiar semana
-        let touchStartX = 0;
-        calendarioContainer.addEventListener('touchstart', (e) => {
-            touchStartX = e.touches[0].clientX;
-        }, { passive: true });
-
-        calendarioContainer.addEventListener('touchend', (e) => {
-            const diff = touchStartX - e.changedTouches[0].clientX;
-            if (Math.abs(diff) > 60) {
-                cambiarSemanaCalendario(diff > 0 ? 1 : -1);
-            }
-        }, { passive: true });
-
-        // Scroll wheel: rueda/trackpad para cambiar semana
-        let wheelTimeout = null;
-        calendarioContainer.addEventListener('wheel', (e) => {
-            e.preventDefault();
-            if (wheelTimeout) return; // debounce
-            const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
-            if (Math.abs(delta) > 20) {
-                cambiarSemanaCalendario(delta > 0 ? 1 : -1);
-                wheelTimeout = setTimeout(() => { wheelTimeout = null; }, 400);
-            }
-        }, { passive: false });
-    }
+    // Botón "Hoy" en calendario
+    document.getElementById('btn-calendario-hoy')?.addEventListener('click', () => {
+        scrollCalendarioAHoy();
+    });
 
     // Selects dinámicos
     document.getElementById('caja-perro')?.addEventListener('change', cargarCargosPerro);
@@ -482,7 +431,10 @@ function navigateToSection(sectionId) {
 
     if (sectionId === 'paseos') cargarPaseos();
     if (sectionId === 'expedientes') renderListaExpedientes();
-    if (sectionId === 'calendario') renderCalendarioOcupacion();
+    if (sectionId === 'calendario') {
+        renderCalendarioOcupacion();
+        setTimeout(() => scrollCalendarioAHoy(true), 100);
+    }
     if (sectionId === 'configuracion') {
         renderTablaServicios();
         renderTablaPaseos();
@@ -2612,20 +2564,21 @@ function renderCalendarioOcupacion() {
     // Renderizar leyenda con colores del catálogo
     renderLeyendaColores();
 
-    // Inicializar semana actual si no existe
+    // Inicializar inicio del calendario si no existe
     if (!calendarioSemanaInicio) {
         const hoy = new Date();
-        // Ir al lunes de esta semana
+        // Empezar 7 días antes del lunes de esta semana
         const diaSemana = hoy.getDay();
         const diffLunes = diaSemana === 0 ? -6 : 1 - diaSemana;
         calendarioSemanaInicio = new Date(hoy);
-        calendarioSemanaInicio.setDate(hoy.getDate() + diffLunes);
+        calendarioSemanaInicio.setDate(hoy.getDate() + diffLunes - 7);
         calendarioSemanaInicio.setHours(0, 0, 0, 0);
     }
 
-    // Calcular los 14 dias a mostrar (2 semanas)
+    // Calcular 60 días continuos (aprox 2 meses)
+    const TOTAL_DIAS = 60;
     const dias = [];
-    for (let i = 0; i < 14; i++) {
+    for (let i = 0; i < TOTAL_DIAS; i++) {
         const fecha = new Date(calendarioSemanaInicio);
         fecha.setDate(calendarioSemanaInicio.getDate() + i);
         dias.push(fecha);
@@ -2638,14 +2591,16 @@ function renderCalendarioOcupacion() {
         rangoLabel.textContent = `${fechaInicio.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} - ${fechaFin.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}`;
     }
 
-    // Usar TABLA HTML para mejor control de rowspan
-    container.style.gridTemplateColumns = '';  // Limpiar grid
+    container.style.gridTemplateColumns = '';
 
     const hoyStr = new Date().toDateString();
 
     let html = '<table class="calendario-tabla"><thead><tr>';
     html += '<th class="calendario-th-habitacion">Habitación</th>';
-    dias.forEach(d => {
+
+    let mesAnterior = -1;
+    dias.forEach((d, i) => {
+        const mes = d.getMonth();
         const nombreDia = d.toLocaleDateString('es-MX', { weekday: 'short' });
         const numDia = d.getDate();
         const esHoy = d.toDateString() === hoyStr;
@@ -2653,7 +2608,12 @@ function renderCalendarioOcupacion() {
         let clases = 'calendario-th-dia';
         if (esHoy) clases += ' calendario-hoy';
         if (esFinde) clases += ' calendario-finde';
-        html += `<th class="${clases}">${nombreDia}<br>${numDia}</th>`;
+        // Marcar inicio de mes con separador
+        if (mes !== mesAnterior && i > 0) clases += ' calendario-nuevo-mes';
+        mesAnterior = mes;
+
+        const mesLabel = numDia === 1 || i === 0 ? `<span class="calendario-mes-label">${d.toLocaleDateString('es-MX', { month: 'short' })}</span>` : '';
+        html += `<th class="${clases}" data-date="${d.toDateString()}">${mesLabel}${nombreDia}<br>${numDia}</th>`;
     });
     html += '</tr></thead><tbody>';
 
@@ -2934,8 +2894,28 @@ function cambiarSemanaCalendario(direccion) {
     if (!calendarioSemanaInicio) {
         calendarioSemanaInicio = new Date();
     }
-    calendarioSemanaInicio.setDate(calendarioSemanaInicio.getDate() + (direccion * 14));
+    calendarioSemanaInicio.setDate(calendarioSemanaInicio.getDate() + (direccion * 30));
     renderCalendarioOcupacion();
+    // Después de renderizar, scroll al inicio
+    const cont = document.querySelector('.calendario-ocupacion-container');
+    if (cont) cont.scrollLeft = 0;
+}
+
+function scrollCalendarioAHoy(soloScroll = false) {
+    if (!soloScroll) {
+        // Resetear para que hoy quede visible
+        calendarioSemanaInicio = null;
+        renderCalendarioOcupacion();
+    }
+    // Scroll horizontal hasta la columna de hoy
+    setTimeout(() => {
+        const cont = document.querySelector('.calendario-ocupacion-container');
+        const hoyTh = cont?.querySelector('.calendario-hoy');
+        if (cont && hoyTh) {
+            const offset = hoyTh.offsetLeft - 140;
+            cont.scrollLeft = Math.max(0, offset);
+        }
+    }, 50);
 }
 
 // ============================================

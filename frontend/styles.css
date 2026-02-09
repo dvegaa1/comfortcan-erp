@@ -1494,16 +1494,10 @@ body {
 }
 
 .calendario-ocupacion-container {
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: auto;
     margin: 1rem 0;
-    cursor: grab;
     max-height: 80vh;
-}
-
-.calendario-ocupacion-container.grabbing {
-    cursor: grabbing;
-    user-select: none;
+    -webkit-overflow-scrolling: touch;
 }
 
 /* ========== CALENDARIO TABLA ========== */
@@ -1512,9 +1506,9 @@ body {
 }
 
 .calendario-tabla {
-    width: 100%;
     border-collapse: collapse;
     table-layout: fixed;
+    width: max-content;
 }
 
 .calendario-tabla th,
@@ -1541,8 +1535,9 @@ body {
     padding: 0.5rem 0.25rem;
     text-align: center;
     font-weight: 600;
-    font-size: 0.8rem;
-    min-width: 70px;
+    font-size: 0.75rem;
+    min-width: 65px;
+    width: 65px;
 }
 
 .calendario-td-habitacion {
@@ -1597,6 +1592,20 @@ th.calendario-finde {
 
 .calendario-tabla tbody tr:nth-child(even) td.calendario-hoy {
     background-color: rgba(255, 193, 7, 0.12) !important;
+}
+
+/* Separador de mes */
+.calendario-nuevo-mes {
+    border-left: 3px solid var(--color-primary) !important;
+}
+
+.calendario-mes-label {
+    display: block;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    color: var(--color-primary);
+    letter-spacing: 0.5px;
+    margin-bottom: 1px;
 }
 
 /* Barra de estancia en tabla */
