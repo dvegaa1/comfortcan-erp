@@ -1494,11 +1494,11 @@ body {
 }
 
 .calendario-ocupacion-container {
-    overflow: auto;
+    overflow-y: auto;
+    overflow-x: hidden;
     margin: 1rem 0;
     cursor: grab;
-    -webkit-overflow-scrolling: touch;
-    max-height: 75vh;
+    max-height: 80vh;
 }
 
 .calendario-ocupacion-container.grabbing {
@@ -1512,8 +1512,7 @@ body {
 }
 
 .calendario-tabla {
-    min-width: 1200px;
-    width: max-content;
+    width: 100%;
     border-collapse: collapse;
     table-layout: fixed;
 }
@@ -1543,8 +1542,7 @@ body {
     text-align: center;
     font-weight: 600;
     font-size: 0.8rem;
-    min-width: 90px;
-    width: 90px;
+    min-width: 70px;
 }
 
 .calendario-td-habitacion {

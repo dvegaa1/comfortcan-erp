@@ -146,42 +146,60 @@ function setupEventListeners() {
     document.getElementById('btn-semana-anterior')?.addEventListener('click', () => cambiarSemanaCalendario(-1));
     document.getElementById('btn-semana-siguiente')?.addEventListener('click', () => cambiarSemanaCalendario(1));
 
-    // Drag-to-scroll en calendario (mouse y touch)
+    // Navegación del calendario con gestos y scroll
     const calendarioContainer = document.querySelector('.calendario-ocupacion-container');
     if (calendarioContainer) {
-        let isDown = false;
-        let startX, startY, scrollLeft, scrollTop;
+        let dragStartX = 0;
+        let isDragging = false;
 
+        // Mouse drag: arrastrar para cambiar semana
         calendarioContainer.addEventListener('mousedown', (e) => {
-            // No activar si click fue en barra de estancia
             if (e.target.closest('.estancia-barra')) return;
-            isDown = true;
+            isDragging = true;
+            dragStartX = e.clientX;
             calendarioContainer.classList.add('grabbing');
-            startX = e.pageX - calendarioContainer.offsetLeft;
-            startY = e.pageY - calendarioContainer.offsetTop;
-            scrollLeft = calendarioContainer.scrollLeft;
-            scrollTop = calendarioContainer.scrollTop;
             e.preventDefault();
         });
 
-        calendarioContainer.addEventListener('mouseleave', () => {
-            isDown = false;
+        document.addEventListener('mouseup', (e) => {
+            if (!isDragging) return;
+            isDragging = false;
             calendarioContainer.classList.remove('grabbing');
+            const diff = dragStartX - e.clientX;
+            if (Math.abs(diff) > 60) {
+                cambiarSemanaCalendario(diff > 0 ? 1 : -1);
+            }
         });
 
-        calendarioContainer.addEventListener('mouseup', () => {
-            isDown = false;
-            calendarioContainer.classList.remove('grabbing');
-        });
-
-        calendarioContainer.addEventListener('mousemove', (e) => {
-            if (!isDown) return;
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
             e.preventDefault();
-            const x = e.pageX - calendarioContainer.offsetLeft;
-            const y = e.pageY - calendarioContainer.offsetTop;
-            calendarioContainer.scrollLeft = scrollLeft - (x - startX);
-            calendarioContainer.scrollTop = scrollTop - (y - startY);
         });
+
+        // Touch swipe: deslizar para cambiar semana
+        let touchStartX = 0;
+        calendarioContainer.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+        }, { passive: true });
+
+        calendarioContainer.addEventListener('touchend', (e) => {
+            const diff = touchStartX - e.changedTouches[0].clientX;
+            if (Math.abs(diff) > 60) {
+                cambiarSemanaCalendario(diff > 0 ? 1 : -1);
+            }
+        }, { passive: true });
+
+        // Scroll wheel: rueda/trackpad para cambiar semana
+        let wheelTimeout = null;
+        calendarioContainer.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            if (wheelTimeout) return; // debounce
+            const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+            if (Math.abs(delta) > 20) {
+                cambiarSemanaCalendario(delta > 0 ? 1 : -1);
+                wheelTimeout = setTimeout(() => { wheelTimeout = null; }, 400);
+            }
+        }, { passive: false });
     }
 
     // Selects dinámicos
