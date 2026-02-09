@@ -1561,6 +1561,37 @@ body {
     padding: 5px 0;
 }
 
+/* Hoy resaltado */
+.calendario-hoy {
+    background-color: rgba(255, 193, 7, 0.15) !important;
+    border-left: 2px solid #FFC107 !important;
+    border-right: 2px solid #FFC107 !important;
+}
+
+th.calendario-hoy {
+    background-color: rgba(255, 193, 7, 0.3) !important;
+    color: #FFC107;
+    border-bottom: 3px solid #FFC107 !important;
+}
+
+/* Fines de semana */
+.calendario-finde {
+    background-color: rgba(255, 255, 255, 0.03);
+}
+
+th.calendario-finde {
+    color: #f87171;
+}
+
+/* Filas alternas para mejor legibilidad */
+.calendario-tabla tbody tr:nth-child(even) td {
+    background-color: rgba(255, 255, 255, 0.02);
+}
+
+.calendario-tabla tbody tr:nth-child(even) td.calendario-hoy {
+    background-color: rgba(255, 193, 7, 0.12) !important;
+}
+
 /* Barra de estancia en tabla */
 .estancia-barra {
     display: flex;

@@ -716,8 +716,8 @@ function calcularTotalCheckIn() {
         return;
     }
 
-    const entrada = new Date(fechaEntrada);
-    const salida = new Date(fechaSalida);
+    const entrada = parseDateLocal(fechaEntrada);
+    const salida = parseDateLocal(fechaSalida);
     const dias = Math.max(1, Math.ceil((salida - entrada) / (1000 * 60 * 60 * 24)));
 
     let total = 0;
@@ -751,8 +751,8 @@ async function handleCheckIn() {
     }
 
     // Calcular total
-    const entrada = new Date(fechaEntrada);
-    const salida = new Date(fechaSalida);
+    const entrada = parseDateLocal(fechaEntrada);
+    const salida = parseDateLocal(fechaSalida);
     const dias = Math.max(1, Math.ceil((salida - entrada) / (1000 * 60 * 60 * 24)));
 
     let total = 0;
@@ -1851,8 +1851,9 @@ async function editarExpedienteCompleto(perroId) {
                     </div>
 
                     <div class="flex gap-2 mt-3">
-                        <button type="submit" class="btn btn-primary btn-lg">💾 Guardar Todos los Cambios</button>
+                        <button type="submit" class="btn btn-primary btn-lg">Guardar Todos los Cambios</button>
                         <button type="button" onclick="cancelarEdicion()" class="btn btn-secondary">Cancelar</button>
+                        <button type="button" onclick="eliminarPerroPermanente('${perroId}')" class="btn btn-danger">Eliminar Perro</button>
                     </div>
                 </form>
             </div>
@@ -1977,7 +1978,10 @@ function cargarFormularioCliente() {
                 <label class="form-label">Email</label>
                 <input type="email" id="edit-cliente-email" class="form-input" value="${cliente.email || ''}">
             </div>
-            <button type="submit" class="btn btn-primary">Guardar</button>
+            <div class="flex gap-2 mt-2">
+                <button type="submit" class="btn btn-primary">Guardar</button>
+                <button type="button" onclick="eliminarClientePermanente('${clienteId}')" class="btn btn-danger">Eliminar Cliente</button>
+            </div>
         </form>
     `;
     formContainer.classList.remove('hidden');
@@ -2010,6 +2014,58 @@ async function guardarEdicionCliente(e, clienteId) {
     } catch (error) {
         hideLoading();
         showToast(error.message, 'error');
+    }
+}
+
+async function eliminarPerroPermanente(perroId) {
+    const perro = perros.find(p => p.id === perroId);
+    const nombre = perro?.nombre || 'este perro';
+    if (!confirm(`¿Eliminar PERMANENTEMENTE a "${nombre}"? Se borrarán todas sus estancias, cargos y paseos. Esta acción NO se puede deshacer.`)) return;
+    if (!confirm(`¿Estás SEGURO? Esto eliminará a "${nombre}" y TODOS sus datos para siempre.`)) return;
+
+    try {
+        showLoading();
+        await apiDelete(`/perros/${perroId}/permanente`);
+        perros = perros.filter(p => p.id !== perroId);
+        estancias = estancias.filter(e => e.perro_id !== perroId);
+        llenarSelectPerros();
+        cancelarEdicion();
+        renderCalendarioOcupacion();
+        hideLoading();
+        showToast(`"${nombre}" eliminado permanentemente`, 'success');
+    } catch (error) {
+        hideLoading();
+        showToast('Error al eliminar: ' + error.message, 'error');
+    }
+}
+
+async function eliminarClientePermanente(clienteId) {
+    const cliente = propietarios.find(p => p.id === clienteId);
+    const nombre = cliente?.nombre || 'este cliente';
+    if (!confirm(`¿Eliminar PERMANENTEMENTE a "${nombre}" y TODOS sus perros? Se borrarán todas las estancias, cargos y paseos. Esta acción NO se puede deshacer.`)) return;
+    if (!confirm(`¿Estás SEGURO? Esto eliminará a "${nombre}", todos sus perros y TODOS sus datos para siempre.`)) return;
+
+    try {
+        showLoading();
+        // Obtener perros del cliente para limpiar datos locales
+        const perrosCliente = perros.filter(p => p.propietario_id === clienteId);
+        await apiDelete(`/propietarios/${clienteId}/permanente`);
+        propietarios = propietarios.filter(p => p.id !== clienteId);
+        perrosCliente.forEach(pc => {
+            perros = perros.filter(p => p.id !== pc.id);
+            estancias = estancias.filter(e => e.perro_id !== pc.id);
+        });
+        llenarSelectPropietarios();
+        llenarSelectPerros();
+        document.getElementById('gestion-cliente-form').innerHTML = '';
+        document.getElementById('gestion-cliente-form').classList.add('hidden');
+        document.getElementById('gestion-cliente-select').value = '';
+        renderCalendarioOcupacion();
+        hideLoading();
+        showToast(`"${nombre}" y sus perros eliminados permanentemente`, 'success');
+    } catch (error) {
+        hideLoading();
+        showToast('Error al eliminar: ' + error.message, 'error');
     }
 }
 
@@ -2545,12 +2601,19 @@ function renderCalendarioOcupacion() {
     // Usar TABLA HTML para mejor control de rowspan
     container.style.gridTemplateColumns = '';  // Limpiar grid
 
+    const hoyStr = new Date().toDateString();
+
     let html = '<table class="calendario-tabla"><thead><tr>';
     html += '<th class="calendario-th-habitacion">Habitación</th>';
     dias.forEach(d => {
         const nombreDia = d.toLocaleDateString('es-MX', { weekday: 'short' });
         const numDia = d.getDate();
-        html += `<th class="calendario-th-dia">${nombreDia}<br>${numDia}</th>`;
+        const esHoy = d.toDateString() === hoyStr;
+        const esFinde = d.getDay() === 0 || d.getDay() === 6;
+        let clases = 'calendario-th-dia';
+        if (esHoy) clases += ' calendario-hoy';
+        if (esFinde) clases += ' calendario-finde';
+        html += `<th class="${clases}">${nombreDia}<br>${numDia}</th>`;
     });
     html += '</tr></thead><tbody>';
 
@@ -2593,8 +2656,9 @@ function renderCalendarioOcupacion() {
         if (perrosUnicos.length === 0) {
             html += '<tr>';
             html += `<td class="calendario-td-habitacion">${hab.nombre}</td>`;
-            dias.forEach(() => {
-                html += '<td class="calendario-td-dia"></td>';
+            dias.forEach(d => {
+                const clsDia = diaClases(d, hoyStr);
+                html += `<td class="calendario-td-dia${clsDia}"></td>`;
             });
             html += '</tr>';
         } else {
@@ -2610,19 +2674,15 @@ function renderCalendarioOcupacion() {
 
                 dias.forEach((dia, idx) => {
                     const estanciaEnDia = estanciasPerro.find(e => {
-                        const entrada = new Date(e.fecha_entrada);
-                        const salida = e.fecha_salida ? new Date(e.fecha_salida) : entrada;
-                        entrada.setHours(0, 0, 0, 0);
-                        salida.setHours(0, 0, 0, 0);
+                        const entrada = parseDateLocal(e.fecha_entrada);
+                        const salida = e.fecha_salida ? parseDateLocal(e.fecha_salida) : entrada;
                         return dia >= entrada && dia <= salida;
                     });
 
                     if (estanciaEnDia) {
                         const estancia = estanciaEnDia;
-                        const entrada = new Date(estancia.fecha_entrada);
-                        const salida = estancia.fecha_salida ? new Date(estancia.fecha_salida) : entrada;
-                        entrada.setHours(0, 0, 0, 0);
-                        salida.setHours(0, 0, 0, 0);
+                        const entrada = parseDateLocal(estancia.fecha_entrada);
+                        const salida = estancia.fecha_salida ? parseDateLocal(estancia.fecha_salida) : entrada;
 
                         const esInicio = dia.getTime() === entrada.getTime();
                         const esFin = dia.getTime() === salida.getTime();
@@ -2639,7 +2699,8 @@ function renderCalendarioOcupacion() {
                         else if (esFin) barraClass += ' fin';
                         else barraClass += ' medio';
 
-                        html += `<td class="calendario-td-dia ocupado">`;
+                        const clsDia = diaClases(dia, hoyStr);
+                        html += `<td class="calendario-td-dia ocupado${clsDia}">`;
                         html += `<div class="${barraClass}" style="background-color: ${color}; color: ${textColor};"
                             title="${perroNombre}: ${formatDate(estancia.fecha_entrada)} - ${formatDate(estancia.fecha_salida)}${colorTexto ? ' (' + colorTexto + ')' : ''}"
                             onclick="mostrarDetalleEstancia('${estancia.id}')">`;
@@ -2655,7 +2716,8 @@ function renderCalendarioOcupacion() {
 
                         html += `</div></td>`;
                     } else {
-                        html += '<td class="calendario-td-dia"></td>';
+                        const clsDia = diaClases(dia, hoyStr);
+                        html += `<td class="calendario-td-dia${clsDia}"></td>`;
                     }
                 });
 
@@ -2688,6 +2750,17 @@ async function mostrarDetalleEstancia(estanciaId) {
         `;
     });
 
+    // Formatear fechas para inputs date (YYYY-MM-DD)
+    const fechaEntradaVal = estancia.fecha_entrada ? estancia.fecha_entrada.split('T')[0] : '';
+    const fechaSalidaVal = estancia.fecha_salida ? estancia.fecha_salida.split('T')[0] : '';
+
+    // Generar opciones de habitaciones
+    let habOptions = '<option value="">-- Sin habitación --</option>';
+    catalogoHabitaciones.forEach(h => {
+        const sel = h.nombre === estancia.habitacion ? 'selected' : '';
+        habOptions += `<option value="${h.nombre}" ${sel}>${h.nombre}</option>`;
+    });
+
     const modalHTML = `
         <div class="modal-overlay active" id="modal-estancia-detalle">
             <div class="modal">
@@ -2699,13 +2772,26 @@ async function mostrarDetalleEstancia(estanciaId) {
                     <div class="estancia-detalle-info">
                         ${perro.foto_perro_url ? `<img src="${perro.foto_perro_url}" alt="${perro.nombre}" class="estancia-detalle-foto">` : ''}
                         <h4>${perro.nombre || 'Perro'}</h4>
-                        <p><strong>Habitación:</strong> ${estancia.habitacion || 'N/A'}</p>
-                        <p><strong>Entrada:</strong> ${formatDate(estancia.fecha_entrada)}</p>
-                        <p><strong>Salida:</strong> ${formatDate(estancia.fecha_salida)}</p>
-                        <p><strong>Total estimado:</strong> $${(estancia.total_estimado || 0).toFixed(2)}</p>
                     </div>
-                    <div class="estancia-cambiar-color">
-                        <label><strong>Cambiar estado/color:</strong></label>
+                    <div class="form-row mt-2">
+                        <div class="form-group">
+                            <label class="form-label">Habitación</label>
+                            <select id="edit-estancia-habitacion" class="form-select">${habOptions}</select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Fecha Entrada</label>
+                            <input type="date" id="edit-estancia-entrada" class="form-input" value="${fechaEntradaVal}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Fecha Salida</label>
+                            <input type="date" id="edit-estancia-salida" class="form-input" value="${fechaSalidaVal}">
+                        </div>
+                    </div>
+                    <p class="text-muted" style="font-size:0.85rem;">Total estimado: $${(estancia.total_estimado || 0).toFixed(2)}</p>
+                    <div class="estancia-cambiar-color mt-2">
+                        <label><strong>Estado/Color:</strong></label>
                         <div class="colores-selector modal-colores">
                             ${coloresHTML || '<p class="text-muted">No hay colores configurados</p>'}
                         </div>
@@ -2714,7 +2800,7 @@ async function mostrarDetalleEstancia(estanciaId) {
                 </div>
                 <div class="modal-footer">
                     <button onclick="cerrarModalEstancia()" class="btn btn-secondary">Cerrar</button>
-                    <button onclick="guardarColorEstancia('${estanciaId}')" class="btn btn-primary">Guardar Color</button>
+                    <button onclick="guardarEdicionEstancia('${estanciaId}')" class="btn btn-primary">Guardar</button>
                     <button onclick="eliminarEstancia('${estanciaId}')" class="btn btn-danger">Eliminar</button>
                 </div>
             </div>
@@ -2740,26 +2826,47 @@ function seleccionarColorEstancia(color, estanciaId) {
     document.getElementById('estancia-color-seleccionado').value = color;
 }
 
-async function guardarColorEstancia(estanciaId) {
+async function guardarEdicionEstancia(estanciaId) {
     const nuevoColor = document.getElementById('estancia-color-seleccionado').value;
+    const nuevaEntrada = document.getElementById('edit-estancia-entrada').value;
+    const nuevaSalida = document.getElementById('edit-estancia-salida').value;
+    const nuevaHabitacion = document.getElementById('edit-estancia-habitacion').value;
+
+    if (!nuevaEntrada || !nuevaSalida) {
+        showToast('Las fechas son requeridas', 'error');
+        return;
+    }
 
     try {
         showLoading();
-        await apiPatch(`/estancias/${estanciaId}/color`, { color_etiqueta: nuevoColor });
+        const estancia = estancias.find(e => e.id === estanciaId);
+        if (!estancia) return;
+
+        // Actualizar estancia completa
+        await apiPut(`/estancias/${estanciaId}`, {
+            perro_id: estancia.perro_id,
+            habitacion: nuevaHabitacion || estancia.habitacion,
+            fecha_entrada: nuevaEntrada,
+            fecha_salida: nuevaSalida,
+            servicios_ids: estancia.servicios_ids || [],
+            servicios_nombres: estancia.servicios_nombres || [],
+            total_estimado: estancia.total_estimado || 0,
+            color_etiqueta: nuevoColor
+        });
 
         // Actualizar lista local
-        const estancia = estancias.find(e => e.id === estanciaId);
-        if (estancia) {
-            estancia.color_etiqueta = nuevoColor;
-        }
+        estancia.fecha_entrada = nuevaEntrada;
+        estancia.fecha_salida = nuevaSalida;
+        estancia.habitacion = nuevaHabitacion || estancia.habitacion;
+        estancia.color_etiqueta = nuevoColor;
 
         cerrarModalEstancia();
         renderCalendarioOcupacion();
         hideLoading();
-        showToast('Color actualizado', 'success');
+        showToast('Estancia actualizada', 'success');
     } catch (error) {
         hideLoading();
-        showToast('Error al actualizar color: ' + error.message, 'error');
+        showToast('Error al actualizar: ' + error.message, 'error');
     }
 }
 
@@ -2794,6 +2901,20 @@ function cambiarSemanaCalendario(direccion) {
 // ============================================
 // UTILIDADES
 // ============================================
+// Parsear fecha YYYY-MM-DD como local (no UTC) para evitar desfase de timezone
+function parseDateLocal(dateStr) {
+    if (!dateStr) return null;
+    const parts = dateStr.split('T')[0].split('-');
+    return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+}
+
+function diaClases(dia, hoyStr) {
+    let cls = '';
+    if (dia.toDateString() === hoyStr) cls += ' calendario-hoy';
+    if (dia.getDay() === 0 || dia.getDay() === 6) cls += ' calendario-finde';
+    return cls;
+}
+
 function esColorClaro(hex) {
     const c = hex.replace('#', '');
     const r = parseInt(c.substring(0, 2), 16);

@@ -247,6 +247,23 @@ async def eliminar_propietario(id: str, authorization: str = Header(None)):
     await supabase_request("PATCH", f"propietarios?id=eq.{id}", {"activo": False}, token=token)
     return {"message": "Propietario desactivado"}
 
+@app.delete("/propietarios/{id}/permanente")
+async def eliminar_propietario_permanente(id: str, authorization: str = Header(None)):
+    token = await verify_token(authorization)
+    # Obtener perros del propietario
+    perros = await supabase_request("GET", f"perros?propietario_id=eq.{id}&select=id", token=token)
+    # Eliminar datos relacionados de cada perro
+    for perro in perros:
+        pid = perro["id"]
+        await supabase_request("DELETE", f"estancias?perro_id=eq.{pid}", token=token)
+        await supabase_request("DELETE", f"cargos?perro_id=eq.{pid}", token=token)
+        await supabase_request("DELETE", f"paseos?perro_id=eq.{pid}", token=token)
+    # Eliminar todos los perros del propietario
+    await supabase_request("DELETE", f"perros?propietario_id=eq.{id}", token=token)
+    # Eliminar el propietario
+    await supabase_request("DELETE", f"propietarios?id=eq.{id}", token=token)
+    return {"message": "Propietario y sus perros eliminados permanentemente"}
+
 # ============================================
 # ENDPOINTS: PERROS
 # ============================================
@@ -287,6 +304,19 @@ async def eliminar_perro(id: str, authorization: str = Header(None)):
     token = await verify_token(authorization)
     await supabase_request("PATCH", f"perros?id=eq.{id}", {"activo": False}, token=token)
     return {"message": "Perro desactivado"}
+
+@app.delete("/perros/{id}/permanente")
+async def eliminar_perro_permanente(id: str, authorization: str = Header(None)):
+    token = await verify_token(authorization)
+    # Primero eliminar estancias relacionadas
+    await supabase_request("DELETE", f"estancias?perro_id=eq.{id}", token=token)
+    # Eliminar cargos relacionados
+    await supabase_request("DELETE", f"cargos?perro_id=eq.{id}", token=token)
+    # Eliminar paseos relacionados
+    await supabase_request("DELETE", f"paseos?perro_id=eq.{id}", token=token)
+    # Eliminar el perro
+    await supabase_request("DELETE", f"perros?id=eq.{id}", token=token)
+    return {"message": "Perro eliminado permanentemente"}
 
 # ============================================
 # ENDPOINTS: CATÁLOGO SERVICIOS
