@@ -2636,7 +2636,13 @@ function renderCalendarioOcupacion() {
 
     // Filas por habitación
     habsOrdenadas.forEach(hab => {
-        const estanciasHab = estanciasActivas.filter(e => e.habitacion === hab.nombre);
+        const estanciasHab = estanciasActivas
+            .filter(e => e.habitacion === hab.nombre)
+            .sort((a, b) => {
+                const fA = parseDateLocal(a.fecha_entrada);
+                const fB = parseDateLocal(b.fecha_entrada);
+                return fA - fB;
+            });
 
         html += `<div class="gantt-row" style="height: ${ROW_H}px;">`;
         html += `<div class="gantt-hab-label" style="width: ${HAB_W}px;">${hab.nombre}</div>`;
@@ -2652,7 +2658,7 @@ function renderCalendarioOcupacion() {
             html += `<div class="${cls}" style="left:${i * COL_W}px; width:${COL_W}px; height:${ROW_H}px;"></div>`;
         });
 
-        // Barras — todas ocupan toda la fila, skew diagonal crea efecto de cruce visual
+        // Barras — ordenadas por fecha, skew crea efecto paralelogramo
         estanciasHab.forEach((estancia, idx) => {
             const entrada = parseDateLocal(estancia.fecha_entrada);
             const salida = estancia.fecha_salida ? parseDateLocal(estancia.fecha_salida) : entrada;
