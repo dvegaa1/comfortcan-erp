@@ -2658,25 +2658,67 @@ function renderCalendarioOcupacion() {
             html += `<div class="${cls}" style="left:${i * COL_W}px; width:${COL_W}px; height:${ROW_H}px;"></div>`;
         });
 
-        // Barras — ordenadas por fecha, skew crea efecto paralelogramo
-        estanciasHab.forEach((estancia, idx) => {
+        // Pre-calcular rangos de días para detectar overlaps
+        const barrasInfo = estanciasHab.map(estancia => {
             const entrada = parseDateLocal(estancia.fecha_entrada);
             const salida = estancia.fecha_salida ? parseDateLocal(estancia.fecha_salida) : entrada;
+            const startDay = Math.max(0, Math.round((entrada - primerDia) / 86400000));
+            const endDay = Math.min(TOTAL_DIAS - 1, Math.round((salida - primerDia) / 86400000));
+            return { estancia, startDay, endDay };
+        }).filter(b => b.endDay >= 0 && b.startDay < TOTAL_DIAS);
+
+        // Barras con clip-path diagonal donde hay overlap
+        barrasInfo.forEach((bInfo, idx) => {
+            const { estancia, startDay, endDay } = bInfo;
             const perroNombre = estancia.perros?.nombre || 'Perro';
             const perroFoto = estancia.perros?.foto_perro_url || null;
             const color = estancia.color_etiqueta || '#45BF4D';
             const textColor = esColorClaro(color) ? '#000' : '#fff';
             const colorTexto = catalogoColores.find(c => c.color === color)?.texto || '';
 
-            // Calcular posición horizontal
-            const startDay = Math.max(0, Math.round((entrada - primerDia) / 86400000));
-            const endDay = Math.min(TOTAL_DIAS - 1, Math.round((salida - primerDia) / 86400000));
-            if (endDay < 0 || startDay >= TOTAL_DIAS) return;
-
             const left = startDay * COL_W;
-            const width = (endDay - startDay + 1) * COL_W;
+            const barW = (endDay - startDay + 1) * COL_W;
 
-            html += `<div class="gantt-bar" style="left:${left}px; width:${width}px; top:0; height:${ROW_H}px; background-color:${color}; color:${textColor}; z-index:${2 + idx};"
+            // Detectar overlaps para clip-path diagonal
+            // Buscar barra que se solape al FINAL de esta (una barra posterior que empieza antes de que esta termine)
+            const nextOverlap = barrasInfo.find((b, i) => i > idx && b.startDay <= endDay && b.startDay > startDay);
+            // Buscar barra que se solape al INICIO de esta (una barra anterior que termina después de que esta empieza)
+            const prevOverlap = barrasInfo.find((b, i) => i < idx && b.endDay >= startDay && b.endDay < endDay);
+
+            // Construir clip-path: polygon con 4 esquinas, modificando donde hay overlap
+            // Esquinas normales: 0,0 -> W,0 -> W,H -> 0,H
+            let topLeft = '0 0';
+            let topRight = `${barW}px 0`;
+            let bottomRight = `${barW}px ${ROW_H}px`;
+            let bottomLeft = `0 ${ROW_H}px`;
+
+            let needsClip = false;
+
+            if (nextOverlap) {
+                // Diagonal en el extremo derecho: cortar desde arriba
+                // La zona de overlap empieza donde la siguiente barra comienza
+                const cutX = (nextOverlap.startDay - startDay) * COL_W;
+                // Esquina superior derecha se mueve a la izquierda (al inicio del overlap)
+                topRight = `${cutX}px 0`;
+                // Esquina inferior derecha se queda al final
+                bottomRight = `${barW}px ${ROW_H}px`;
+                needsClip = true;
+            }
+
+            if (prevOverlap) {
+                // Diagonal en el extremo izquierdo: cortar desde abajo
+                // La zona de overlap termina donde la barra anterior termina
+                const cutX = (prevOverlap.endDay - startDay + 1) * COL_W;
+                // Esquina inferior izquierda se mueve a la derecha
+                bottomLeft = `${cutX}px ${ROW_H}px`;
+                // Esquina superior izquierda se queda al inicio
+                topLeft = '0 0';
+                needsClip = true;
+            }
+
+            const clipStyle = needsClip ? `clip-path: polygon(${topLeft}, ${topRight}, ${bottomRight}, ${bottomLeft});` : '';
+
+            html += `<div class="gantt-bar" style="left:${left}px; width:${barW}px; top:0; height:${ROW_H}px; background-color:${color}; color:${textColor}; z-index:${2 + idx}; ${clipStyle}"
                 title="${perroNombre}: ${formatDate(estancia.fecha_entrada)} - ${formatDate(estancia.fecha_salida)}${colorTexto ? ' (' + colorTexto + ')' : ''}"
                 onclick="mostrarDetalleEstancia('${estancia.id}')">`;
             html += `<div class="gantt-bar-content">`;
