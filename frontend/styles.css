@@ -1527,7 +1527,8 @@ body {
     width: 120px;
     position: sticky;
     left: 0;
-    z-index: 2;
+    top: 0;
+    z-index: 4;
 }
 
 .calendario-th-dia {
@@ -1538,6 +1539,9 @@ body {
     font-size: 0.75rem;
     min-width: 65px;
     width: 65px;
+    position: sticky;
+    top: 0;
+    z-index: 3;
 }
 
 .calendario-td-habitacion {
@@ -1553,14 +1557,23 @@ body {
 
 .calendario-td-dia {
     background: var(--color-bg-card);
-    height: 50px;
-    padding: 5px 0;
-    vertical-align: middle;
+    min-height: 50px;
+    height: auto;
+    padding: 0;
+    vertical-align: top;
     position: relative;
 }
 
 .calendario-td-dia.ocupado {
-    padding: 5px 0;
+    padding: 0;
+}
+
+.barras-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 2px 0;
+    min-height: 46px;
 }
 
 /* Hoy resaltado */
@@ -1612,177 +1625,70 @@ th.calendario-finde {
 .estancia-barra {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 8px;
-    height: 38px;
+    gap: 4px;
+    padding: 2px 6px;
+    height: 22px;
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
-    font-size: 0.8rem;
+    font-size: 0.7rem;
     font-weight: 600;
     color: white;
     cursor: pointer;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    transition: filter 0.15s;
 }
 
 .estancia-barra:hover {
-    filter: brightness(1.1);
-}
-
-.estancia-barra.inicio {
-    border-top-left-radius: 20px;
-    border-bottom-left-radius: 20px;
-    margin-left: 3px;
-    width: calc(100% - 3px);
-}
-
-.estancia-barra.fin {
-    border-top-right-radius: 20px;
-    border-bottom-right-radius: 20px;
-    margin-right: 3px;
-    width: calc(100% - 3px);
-}
-
-.estancia-barra.unico {
-    border-radius: 20px;
-    margin: 0 3px;
-    width: calc(100% - 6px);
-}
-
-.estancia-barra.medio {
-    border-radius: 0;
-    width: 100%;
-}
-
-.calendario-perro-foto {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 2px solid rgba(255,255,255,0.5);
-    flex-shrink: 0;
-}
-
-.calendario-perro-nombre {
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.calendario-perro-emoji {
-    font-size: 1rem;
-    flex-shrink: 0;
-}
-
-/* Ocultar estilos grid antiguos */
-.calendario-header,
-.calendario-row {
-    display: contents;
-}
-
-.calendario-habitacion {
-    padding: 0.75rem 1rem;
-    font-weight: 600;
-    font-size: 0.95rem;
-    background: var(--color-bg-card);
-    border-bottom: 1px solid var(--color-border);
-    position: sticky;
-    left: 0;
-    z-index: 1;
-    display: flex;
-    align-items: center;
-}
-
-/* Sub-filas de perros adicionales - sin borde superior para unir visualmente */
-.calendario-habitacion.sub-fila {
-    border-top: none;
-    padding-top: 0;
-}
-
-.calendario-dia {
-    padding: 6px 0;
-    min-height: 55px;
-    border-bottom: 1px solid var(--color-border);
-    border-right: 1px solid var(--color-border);
-    position: relative;
-    background: var(--color-bg-card);
-    display: flex;
-    align-items: center;
-}
-
-.calendario-dia.disponible {
-    background: var(--color-bg-card);
-}
-
-.calendario-dia.ocupado {
-    background: transparent;
-    padding: 6px 0;
-}
-
-.estancia-barra {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    height: 36px;
-    border-radius: 4px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 0 8px;
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: white;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    cursor: pointer;
-    z-index: 1;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-}
-
-.calendario-perro-foto {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 2px solid rgba(255,255,255,0.5);
-    flex-shrink: 0;
-}
-
-.calendario-perro-nombre {
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.estancia-barra:hover {
-    filter: brightness(1.1);
+    filter: brightness(1.15);
     z-index: 2;
 }
 
 .estancia-barra.inicio {
-    left: 4px;
-    border-top-left-radius: 15px;
-    border-bottom-left-radius: 15px;
+    border-top-left-radius: 12px;
+    border-bottom-left-radius: 12px;
+    margin-left: 2px;
+    width: calc(100% - 2px);
 }
 
 .estancia-barra.fin {
-    right: 4px;
-    border-top-right-radius: 15px;
-    border-bottom-right-radius: 15px;
-}
-
-.estancia-barra.medio {
-    left: 0;
-    right: 0;
-    border-radius: 0;
+    border-top-right-radius: 12px;
+    border-bottom-right-radius: 12px;
+    margin-right: 2px;
+    width: calc(100% - 2px);
 }
 
 .estancia-barra.unico {
-    left: 4px;
-    right: 4px;
-    border-radius: 15px;
+    border-radius: 12px;
+    margin: 0 2px;
+    width: calc(100% - 4px);
+}
+
+.estancia-barra.medio {
+    border-radius: 0;
+    width: 100%;
+}
+
+.calendario-perro-foto {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid rgba(255,255,255,0.5);
+    flex-shrink: 0;
+}
+
+.calendario-perro-nombre {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1;
+}
+
+.calendario-perro-emoji {
+    font-size: 0.75rem;
+    flex-shrink: 0;
 }
 
 .calendario-leyenda {

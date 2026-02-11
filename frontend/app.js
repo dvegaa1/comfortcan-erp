@@ -2633,97 +2633,68 @@ function renderCalendarioOcupacion() {
         return a.nombre.localeCompare(b.nombre, undefined, { numeric: true, sensitivity: 'base' });
     });
 
-    // Filas por habitacion
+    // Una sola fila por habitación con barras apiladas
     habsOrdenadas.forEach(hab => {
         const estanciasHab = estanciasActivas.filter(e => e.habitacion === hab.nombre);
 
-        // Agrupar por perro_id
-        const perrosUnicos = [];
-        const estanciasPorPerro = {};
+        html += '<tr>';
+        html += `<td class="calendario-td-habitacion">${hab.nombre}</td>`;
 
-        estanciasHab.forEach(e => {
-            const perroId = e.perro_id || e.id;
-            if (!estanciasPorPerro[perroId]) {
-                estanciasPorPerro[perroId] = [];
-                perrosUnicos.push(perroId);
-            }
-            estanciasPorPerro[perroId].push(e);
-        });
+        dias.forEach((dia, idx) => {
+            const clsDia = diaClases(dia, hoyStr);
 
-        const numFilas = Math.max(1, perrosUnicos.length);
-
-        // Si no hay estancias, una fila vacía
-        if (perrosUnicos.length === 0) {
-            html += '<tr>';
-            html += `<td class="calendario-td-habitacion">${hab.nombre}</td>`;
-            dias.forEach(d => {
-                const clsDia = diaClases(d, hoyStr);
-                html += `<td class="calendario-td-dia${clsDia}"></td>`;
+            // Buscar TODAS las estancias que caen en este día para esta habitación
+            const estanciasEnDia = estanciasHab.filter(e => {
+                const entrada = parseDateLocal(e.fecha_entrada);
+                const salida = e.fecha_salida ? parseDateLocal(e.fecha_salida) : entrada;
+                return dia >= entrada && dia <= salida;
             });
-            html += '</tr>';
-        } else {
-            // Una fila por cada perro
-            perrosUnicos.forEach((perroId, perroIdx) => {
-                const estanciasPerro = estanciasPorPerro[perroId];
-                html += '<tr>';
 
-                // Celda de habitación con rowspan solo en primera fila
-                if (perroIdx === 0) {
-                    html += `<td class="calendario-td-habitacion" rowspan="${numFilas}">${hab.nombre}</td>`;
-                }
+            if (estanciasEnDia.length > 0) {
+                html += `<td class="calendario-td-dia ocupado${clsDia}">`;
+                html += '<div class="barras-stack">';
 
-                dias.forEach((dia, idx) => {
-                    const estanciaEnDia = estanciasPerro.find(e => {
-                        const entrada = parseDateLocal(e.fecha_entrada);
-                        const salida = e.fecha_salida ? parseDateLocal(e.fecha_salida) : entrada;
-                        return dia >= entrada && dia <= salida;
-                    });
+                estanciasEnDia.forEach(estancia => {
+                    const entrada = parseDateLocal(estancia.fecha_entrada);
+                    const salida = estancia.fecha_salida ? parseDateLocal(estancia.fecha_salida) : entrada;
+                    const esInicio = dia.getTime() === entrada.getTime();
+                    const esFin = dia.getTime() === salida.getTime();
+                    const esUnico = esInicio && esFin;
+                    const perroNombre = estancia.perros?.nombre || 'Perro';
+                    const perroFoto = estancia.perros?.foto_perro_url || null;
+                    const color = estancia.color_etiqueta || '#45BF4D';
+                    const textColor = esColorClaro(color) ? '#000' : '#fff';
+                    const colorTexto = catalogoColores.find(c => c.color === color)?.texto || '';
 
-                    if (estanciaEnDia) {
-                        const estancia = estanciaEnDia;
-                        const entrada = parseDateLocal(estancia.fecha_entrada);
-                        const salida = estancia.fecha_salida ? parseDateLocal(estancia.fecha_salida) : entrada;
+                    let barraClass = 'estancia-barra';
+                    if (esUnico) barraClass += ' unico';
+                    else if (esInicio) barraClass += ' inicio';
+                    else if (esFin) barraClass += ' fin';
+                    else barraClass += ' medio';
 
-                        const esInicio = dia.getTime() === entrada.getTime();
-                        const esFin = dia.getTime() === salida.getTime();
-                        const esUnico = esInicio && esFin;
-                        const perroNombre = estancia.perros?.nombre || 'Perro';
-                        const perroFoto = estancia.perros?.foto_perro_url || null;
-                        const color = estancia.color_etiqueta || '#45BF4D';
-                        const textColor = esColorClaro(color) ? '#000' : '#fff';
-                        const colorTexto = catalogoColores.find(c => c.color === color)?.texto || '';
+                    html += `<div class="${barraClass}" style="background-color: ${color}; color: ${textColor};"
+                        title="${perroNombre}: ${formatDate(estancia.fecha_entrada)} - ${formatDate(estancia.fecha_salida)}${colorTexto ? ' (' + colorTexto + ')' : ''}"
+                        onclick="mostrarDetalleEstancia('${estancia.id}')">`;
 
-                        let barraClass = 'estancia-barra';
-                        if (esUnico) barraClass += ' unico';
-                        else if (esInicio) barraClass += ' inicio';
-                        else if (esFin) barraClass += ' fin';
-                        else barraClass += ' medio';
-
-                        const clsDia = diaClases(dia, hoyStr);
-                        html += `<td class="calendario-td-dia ocupado${clsDia}">`;
-                        html += `<div class="${barraClass}" style="background-color: ${color}; color: ${textColor};"
-                            title="${perroNombre}: ${formatDate(estancia.fecha_entrada)} - ${formatDate(estancia.fecha_salida)}${colorTexto ? ' (' + colorTexto + ')' : ''}"
-                            onclick="mostrarDetalleEstancia('${estancia.id}')">`;
-
-                        if (esInicio || idx === 0) {
-                            if (perroFoto) {
-                                html += `<img src="${perroFoto}" class="calendario-perro-foto" alt="${perroNombre}">`;
-                            } else {
-                                html += `<span class="calendario-perro-emoji">🐕</span>`;
-                            }
-                            html += `<span class="calendario-perro-nombre">${perroNombre}</span>`;
+                    if (esInicio || idx === 0) {
+                        if (perroFoto) {
+                            html += `<img src="${perroFoto}" class="calendario-perro-foto" alt="${perroNombre}">`;
+                        } else {
+                            html += `<span class="calendario-perro-emoji">🐕</span>`;
                         }
-
-                        html += `</div></td>`;
-                    } else {
-                        const clsDia = diaClases(dia, hoyStr);
-                        html += `<td class="calendario-td-dia${clsDia}"></td>`;
+                        html += `<span class="calendario-perro-nombre">${perroNombre}</span>`;
                     }
+
+                    html += `</div>`;
                 });
 
-                html += '</tr>';
-            });
-        }
+                html += '</div></td>';
+            } else {
+                html += `<td class="calendario-td-dia${clsDia}"></td>`;
+            }
+        });
+
+        html += '</tr>';
     });
 
     html += '</tbody></table>';
