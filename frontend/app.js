@@ -2597,6 +2597,13 @@ function renderCalendarioOcupacion() {
     const ROW_H = 60; // altura fija de cada fila
     const primerDia = dias[0];
 
+    // Función robusta para calcular diferencia en días (sin problemas de DST/milisegundos)
+    function diffDays(dateA, dateB) {
+        const a = new Date(dateA.getFullYear(), dateA.getMonth(), dateA.getDate());
+        const b = new Date(dateB.getFullYear(), dateB.getMonth(), dateB.getDate());
+        return Math.round((a - b) / 86400000);
+    }
+
     // Filtrar estancias activas
     const estanciasActivas = estancias.filter(e => e.estado !== 'Completada');
 
@@ -2662,8 +2669,8 @@ function renderCalendarioOcupacion() {
         const barrasInfo = estanciasHab.map(estancia => {
             const entrada = parseDateLocal(estancia.fecha_entrada);
             const salida = estancia.fecha_salida ? parseDateLocal(estancia.fecha_salida) : entrada;
-            const startDay = Math.max(0, Math.round((entrada - primerDia) / 86400000));
-            const endDay = Math.min(TOTAL_DIAS - 1, Math.round((salida - primerDia) / 86400000));
+            const startDay = Math.max(0, diffDays(entrada, primerDia));
+            const endDay = Math.min(TOTAL_DIAS - 1, diffDays(salida, primerDia));
             return { estancia, startDay, endDay };
         }).filter(b => b.endDay >= 0 && b.startDay < TOTAL_DIAS);
 
