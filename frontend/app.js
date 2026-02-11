@@ -2594,7 +2594,7 @@ function renderCalendarioOcupacion() {
     const hoyStr = new Date().toDateString();
     const COL_W = 65; // ancho de cada columna de día en px
     const HAB_W = 120; // ancho columna habitación
-    const ROW_H = 56; // altura fija de cada fila
+    const ROW_H = 60; // altura fija de cada fila
     const primerDia = dias[0];
 
     // Filtrar estancias activas
@@ -2638,27 +2638,7 @@ function renderCalendarioOcupacion() {
     habsOrdenadas.forEach(hab => {
         const estanciasHab = estanciasActivas.filter(e => e.habitacion === hab.nombre);
 
-        // Calcular slots — barras que se solapan en fechas van a slots diferentes
-        const slots = [];
-        const estanciaSlotMap = new Map(); // estancia.id -> slotIdx
-        estanciasHab.forEach(est => {
-            const entrada = parseDateLocal(est.fecha_entrada);
-            const salida = est.fecha_salida ? parseDateLocal(est.fecha_salida) : entrada;
-            let slotIdx = 0;
-            while (slots[slotIdx] && slots[slotIdx].some(s => {
-                const sEnt = parseDateLocal(s.fecha_entrada);
-                const sSal = s.fecha_salida ? parseDateLocal(s.fecha_salida) : sEnt;
-                return entrada <= sSal && salida >= sEnt;
-            })) { slotIdx++; }
-            if (!slots[slotIdx]) slots[slotIdx] = [];
-            slots[slotIdx].push(est);
-            estanciaSlotMap.set(est.id, slotIdx);
-        });
-
-        const numSlots = Math.max(1, slots.length);
-        const rowHeight = ROW_H * numSlots;
-
-        html += `<div class="gantt-row" style="height: ${rowHeight}px;">`;
+        html += `<div class="gantt-row" style="height: ${ROW_H}px;">`;
         html += `<div class="gantt-hab-label" style="width: ${HAB_W}px;">${hab.nombre}</div>`;
         html += `<div class="gantt-timeline" style="left: ${HAB_W}px; width: ${TOTAL_DIAS * COL_W}px;">`;
 
@@ -2669,10 +2649,10 @@ function renderCalendarioOcupacion() {
             let cls = 'gantt-cell';
             if (esHoy) cls += ' gantt-hoy';
             if (esFinde) cls += ' gantt-finde';
-            html += `<div class="${cls}" style="left:${i * COL_W}px; width:${COL_W}px; height:${rowHeight}px;"></div>`;
+            html += `<div class="${cls}" style="left:${i * COL_W}px; width:${COL_W}px; height:${ROW_H}px;"></div>`;
         });
 
-        // Barras — cada una ocupa su franja vertical (mitad y mitad cuando hay 2, tercio cuando hay 3, etc.)
+        // Barras — todas ocupan toda la fila, skew diagonal crea efecto de cruce visual
         estanciasHab.forEach((estancia, idx) => {
             const entrada = parseDateLocal(estancia.fecha_entrada);
             const salida = estancia.fecha_salida ? parseDateLocal(estancia.fecha_salida) : entrada;
@@ -2689,11 +2669,8 @@ function renderCalendarioOcupacion() {
 
             const left = startDay * COL_W;
             const width = (endDay - startDay + 1) * COL_W;
-            const slotIdx = estanciaSlotMap.get(estancia.id);
-            const barTop = slotIdx * ROW_H;
-            const barHeight = ROW_H;
 
-            html += `<div class="gantt-bar" style="left:${left}px; width:${width}px; top:${barTop}px; height:${barHeight}px; background-color:${color}; color:${textColor}; z-index:${2 + idx};"
+            html += `<div class="gantt-bar" style="left:${left}px; width:${width}px; top:0; height:${ROW_H}px; background-color:${color}; color:${textColor}; z-index:${2 + idx};"
                 title="${perroNombre}: ${formatDate(estancia.fecha_entrada)} - ${formatDate(estancia.fecha_salida)}${colorTexto ? ' (' + colorTexto + ')' : ''}"
                 onclick="mostrarDetalleEstancia('${estancia.id}')">`;
             html += `<div class="gantt-bar-content">`;

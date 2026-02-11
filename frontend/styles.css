@@ -1595,7 +1595,7 @@ body {
     background: rgba(255, 255, 255, 0.02);
 }
 
-/* Barra Gantt — barras diagonales tipo paralelogramo, divididas por franja */
+/* Barra Gantt — barras diagonales tipo paralelogramo con cruce visual */
 .gantt-bar {
     position: absolute;
     display: flex;
@@ -1603,11 +1603,11 @@ body {
     cursor: pointer;
     overflow: visible;
     transition: filter 0.15s;
-    opacity: 0.88;
+    opacity: 0.82;
     border: none;
     box-shadow: none;
-    transform: skewX(-8deg);
-    border-radius: 4px;
+    transform: skewX(-18deg);
+    border-radius: 3px;
 }
 
 .gantt-bar:hover {
@@ -1621,14 +1621,14 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 0 18px;
-    transform: skewX(8deg);
+    padding: 0 24px;
+    transform: skewX(18deg);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     width: 100%;
     font-weight: 700;
-    font-size: 0.85rem;
+    font-size: 0.88rem;
 }
 
 .gantt-bar-foto {
