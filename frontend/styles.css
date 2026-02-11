@@ -1481,10 +1481,18 @@ body {
 /* ========== CALENDARIO DE OCUPACION ========== */
 .calendario-controls {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    gap: 1rem;
+    gap: 0.5rem;
     flex-wrap: wrap;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--color-bg-card);
+    padding: 0.5rem 0;
+}
+
+.calendario-controls #btn-nueva-reserva {
+    margin-left: auto;
 }
 
 .calendario-rango {
