@@ -2653,7 +2653,7 @@ function renderCalendarioOcupacion() {
 
         html += `<div class="gantt-row" style="height: ${ROW_H}px;">`;
         html += `<div class="gantt-hab-label" style="width: ${HAB_W}px;">${hab.nombre}</div>`;
-        html += `<div class="gantt-timeline" style="left: ${HAB_W}px; width: ${TOTAL_DIAS * COL_W}px;">`;
+        html += `<div class="gantt-timeline" style="width: ${TOTAL_DIAS * COL_W}px;">`;
 
         // Grid de fondo (líneas de días)
         dias.forEach((d, i) => {
@@ -2908,8 +2908,10 @@ async function eliminarEstancia(estanciaId) {
 function cambiarSemanaCalendario(direccion) {
     if (!calendarioSemanaInicio) {
         calendarioSemanaInicio = new Date();
+        calendarioSemanaInicio.setHours(0, 0, 0, 0);
     }
     calendarioSemanaInicio.setDate(calendarioSemanaInicio.getDate() + (direccion * 30));
+    calendarioSemanaInicio.setHours(0, 0, 0, 0);
     renderCalendarioOcupacion();
     // Después de renderizar, scroll al inicio
     const cont = document.querySelector('.calendario-ocupacion-container');
