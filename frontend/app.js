@@ -151,12 +151,8 @@ function setupEventListeners() {
         scrollCalendarioAHoy();
     });
 
-    // Botón "+ Nueva Reserva" en calendario → navega a Recepción > Check-In
-    document.getElementById('btn-nueva-reserva')?.addEventListener('click', () => {
-        navigateToSection('recepcion');
-        const tabCheckIn = document.querySelector('.tab[data-tab="check-in"]');
-        if (tabCheckIn) switchTab(tabCheckIn, 'check-in');
-    });
+    // Botón "+ Nueva Reserva" en calendario → abre modal inline
+    document.getElementById('btn-nueva-reserva')?.addEventListener('click', abrirModalNuevaReserva);
 
     // Selects dinámicos
     document.getElementById('caja-perro')?.addEventListener('change', cargarCargosPerro);
@@ -2966,6 +2962,247 @@ function scrollCalendarioAHoy(soloScroll = false) {
             cont.scrollLeft = Math.max(0, offset);
         }
     }, 50);
+}
+
+// ============================================
+// MODAL NUEVA RESERVA DESDE CALENDARIO
+// ============================================
+let reservaServiciosSeleccionados = [];
+
+function abrirModalNuevaReserva() {
+    // Generar opciones de perros
+    let perrosOptions = '<option value="">-- Seleccionar huésped --</option>';
+    perros.forEach(p => {
+        const dueño = p.propietarios?.nombre || '';
+        perrosOptions += `<option value="${p.id}">${p.nombre}${dueño ? ' (' + dueño + ')' : ''}</option>`;
+    });
+
+    // Generar opciones de habitaciones
+    let habOptions = '<option value="">-- Seleccionar habitación --</option>';
+    catalogoHabitaciones.forEach(h => {
+        habOptions += `<option value="${h.nombre}">${h.nombre}</option>`;
+    });
+
+    // Generar opciones de servicios
+    let serviciosOptions = '<option value="">-- Agregar servicio --</option>';
+    catalogoServicios.forEach(s => {
+        serviciosOptions += `<option value="${s.id}">${s.nombre} - $${s.precio} (${s.tipo_cobro})</option>`;
+    });
+
+    // Generar colores
+    let coloresHTML = '';
+    catalogoColores.forEach(c => {
+        const selected = c.color === '#45BF4D' ? 'selected' : '';
+        coloresHTML += `<div class="color-option ${selected}" onclick="seleccionarColorReserva('${c.color}')" title="${c.texto}"><span class="color-circle" style="background-color: ${c.color};"></span></div>`;
+    });
+
+    // Fecha default: hoy
+    const hoy = new Date();
+    const hoyStr = hoy.toISOString().split('T')[0];
+
+    const modalHTML = `
+        <div class="modal-overlay active" id="modal-nueva-reserva">
+            <div class="modal" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h3 class="modal-title">Nueva Reserva</h3>
+                    <button class="modal-close" onclick="cerrarModalNuevaReserva()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Huésped *</label>
+                        <select id="reserva-perro" class="form-select">${perrosOptions}</select>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Fecha Entrada *</label>
+                            <input type="date" id="reserva-entrada" class="form-input" value="${hoyStr}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Fecha Salida *</label>
+                            <input type="date" id="reserva-salida" class="form-input">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Habitación</label>
+                        <select id="reserva-habitacion" class="form-select">${habOptions}</select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Servicio</label>
+                        <div class="flex gap-1">
+                            <select id="reserva-servicio-select" class="form-select" style="flex:1;">${serviciosOptions}</select>
+                            <button type="button" class="btn btn-primary" onclick="agregarServicioReserva()">+</button>
+                        </div>
+                    </div>
+                    <div id="reserva-servicios-lista" class="servicios-tags" style="min-height: 28px;">
+                        <span class="text-muted" style="font-size:0.8rem;">Sin servicios</span>
+                    </div>
+                    <div class="card mt-2" style="background: var(--color-bg-input); padding: 0.75rem;">
+                        <div class="flex-between">
+                            <span>Días:</span>
+                            <span id="reserva-dias">0</span>
+                        </div>
+                        <div class="flex-between mt-1">
+                            <span><strong>Total:</strong></span>
+                            <span id="reserva-total" class="text-success" style="font-weight:700;">$0.00</span>
+                        </div>
+                    </div>
+                    <div class="form-group mt-2">
+                        <label class="form-label">Color / Estado</label>
+                        <div class="colores-selector modal-colores">${coloresHTML || '<p class="text-muted">No hay colores</p>'}</div>
+                        <input type="hidden" id="reserva-color" value="#45BF4D">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button onclick="cerrarModalNuevaReserva()" class="btn btn-secondary">Cancelar</button>
+                    <button onclick="confirmarNuevaReserva()" class="btn btn-success">Confirmar Reserva</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    reservaServiciosSeleccionados = [];
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+    // Listeners para calcular total en tiempo real
+    document.getElementById('reserva-entrada')?.addEventListener('change', calcularTotalReserva);
+    document.getElementById('reserva-salida')?.addEventListener('change', calcularTotalReserva);
+}
+
+function cerrarModalNuevaReserva() {
+    const modal = document.getElementById('modal-nueva-reserva');
+    if (modal) modal.remove();
+    reservaServiciosSeleccionados = [];
+}
+
+function seleccionarColorReserva(color) {
+    document.querySelectorAll('#modal-nueva-reserva .color-option').forEach(opt => opt.classList.remove('selected'));
+    event.currentTarget.classList.add('selected');
+    document.getElementById('reserva-color').value = color;
+}
+
+function agregarServicioReserva() {
+    const sel = document.getElementById('reserva-servicio-select');
+    if (!sel || !sel.value) return;
+
+    const servicio = catalogoServicios.find(s => s.id === sel.value);
+    if (!servicio || reservaServiciosSeleccionados.find(s => s.id === servicio.id)) return;
+
+    reservaServiciosSeleccionados.push(servicio);
+    sel.value = '';
+    renderServiciosReserva();
+    calcularTotalReserva();
+}
+
+function quitarServicioReserva(servicioId) {
+    reservaServiciosSeleccionados = reservaServiciosSeleccionados.filter(s => s.id !== servicioId);
+    renderServiciosReserva();
+    calcularTotalReserva();
+}
+
+function renderServiciosReserva() {
+    const container = document.getElementById('reserva-servicios-lista');
+    if (!container) return;
+
+    if (reservaServiciosSeleccionados.length === 0) {
+        container.innerHTML = '<span class="text-muted" style="font-size:0.8rem;">Sin servicios</span>';
+        return;
+    }
+
+    container.innerHTML = reservaServiciosSeleccionados.map(s =>
+        `<span class="servicio-tag">${s.nombre} <span class="servicio-tag-remove" onclick="quitarServicioReserva('${s.id}')">&times;</span></span>`
+    ).join('');
+}
+
+function calcularTotalReserva() {
+    const entrada = document.getElementById('reserva-entrada')?.value;
+    const salida = document.getElementById('reserva-salida')?.value;
+    const diasEl = document.getElementById('reserva-dias');
+    const totalEl = document.getElementById('reserva-total');
+
+    if (!entrada || !salida) {
+        if (diasEl) diasEl.textContent = '0';
+        if (totalEl) totalEl.textContent = '$0.00';
+        return;
+    }
+
+    const dEntrada = parseDateLocal(entrada);
+    const dSalida = parseDateLocal(salida);
+    const dias = Math.max(1, Math.ceil((dSalida - dEntrada) / (1000 * 60 * 60 * 24)));
+
+    if (diasEl) diasEl.textContent = `${dias} día(s)`;
+
+    let total = 0;
+    reservaServiciosSeleccionados.forEach(s => {
+        total += s.tipo_cobro === 'unico' ? s.precio : s.precio * dias;
+    });
+
+    if (totalEl) totalEl.textContent = `$${total.toFixed(2)}`;
+}
+
+async function confirmarNuevaReserva() {
+    const perroId = document.getElementById('reserva-perro')?.value;
+    const fechaEntrada = document.getElementById('reserva-entrada')?.value;
+    const fechaSalida = document.getElementById('reserva-salida')?.value;
+    const habitacion = document.getElementById('reserva-habitacion')?.value;
+    const color = document.getElementById('reserva-color')?.value || '#45BF4D';
+
+    if (!perroId || !fechaEntrada || !fechaSalida) {
+        showToast('Completa huésped, fecha entrada y fecha salida', 'error');
+        return;
+    }
+
+    if (reservaServiciosSeleccionados.length === 0) {
+        showToast('Agrega al menos un servicio', 'error');
+        return;
+    }
+
+    const dEntrada = parseDateLocal(fechaEntrada);
+    const dSalida = parseDateLocal(fechaSalida);
+    const dias = Math.max(1, Math.ceil((dSalida - dEntrada) / (1000 * 60 * 60 * 24)));
+
+    let total = 0;
+    reservaServiciosSeleccionados.forEach(s => {
+        total += s.tipo_cobro === 'unico' ? s.precio : s.precio * dias;
+    });
+
+    const data = {
+        perro_id: perroId,
+        habitacion: habitacion,
+        fecha_entrada: fechaEntrada,
+        fecha_salida: fechaSalida,
+        servicios_ids: reservaServiciosSeleccionados.map(s => s.id),
+        servicios_nombres: reservaServiciosSeleccionados.map(s => s.nombre),
+        total_estimado: total,
+        color_etiqueta: color
+    };
+
+    try {
+        showLoading();
+        const estancia = await apiPost('/estancias', data);
+
+        // Crear cargos por cada servicio
+        for (const s of reservaServiciosSeleccionados) {
+            const monto = s.tipo_cobro === 'unico' ? s.precio : s.precio * dias;
+            await apiPost('/cargos', {
+                perro_id: perroId,
+                fecha_cargo: fechaEntrada,
+                fecha_servicio: fechaEntrada,
+                concepto: `${s.nombre} (${s.tipo_cobro === 'unico' ? 'único' : dias + ' días'})`,
+                monto: monto
+            });
+        }
+
+        // Agregar a lista local y refrescar calendario
+        estancias.push(estancia);
+        cerrarModalNuevaReserva();
+        renderCalendarioOcupacion();
+
+        hideLoading();
+        showToast('Reserva creada exitosamente', 'success');
+    } catch (error) {
+        hideLoading();
+        showToast('Error: ' + error.message, 'error');
+    }
 }
 
 // ============================================
