@@ -2594,8 +2594,7 @@ function renderCalendarioOcupacion() {
     const hoyStr = new Date().toDateString();
     const COL_W = 65; // ancho de cada columna de día en px
     const HAB_W = 120; // ancho columna habitación
-    const BAR_H = 42; // altura de cada barra
-    const BAR_OFFSET = 6; // desplazamiento vertical entre barras superpuestas
+    const ROW_H = 56; // altura fija de cada fila
     const primerDia = dias[0];
 
     // Filtrar estancias activas
@@ -2638,25 +2637,8 @@ function renderCalendarioOcupacion() {
     // Filas por habitación
     habsOrdenadas.forEach(hab => {
         const estanciasHab = estanciasActivas.filter(e => e.habitacion === hab.nombre);
-        // Calcular slots (si hay perros que se solapan en fechas, necesitan slots diferentes)
-        const slots = [];
-        estanciasHab.forEach(est => {
-            const entrada = parseDateLocal(est.fecha_entrada);
-            const salida = est.fecha_salida ? parseDateLocal(est.fecha_salida) : entrada;
-            let slotIdx = 0;
-            while (slots[slotIdx] && slots[slotIdx].some(s => {
-                const sEnt = parseDateLocal(s.fecha_entrada);
-                const sSal = s.fecha_salida ? parseDateLocal(s.fecha_salida) : sEnt;
-                return entrada <= sSal && salida >= sEnt;
-            })) { slotIdx++; }
-            if (!slots[slotIdx]) slots[slotIdx] = [];
-            slots[slotIdx].push(est);
-        });
 
-        const numSlots = Math.max(1, slots.length);
-        const rowHeight = BAR_H + (numSlots - 1) * BAR_OFFSET + 8;
-
-        html += `<div class="gantt-row" style="height: ${rowHeight}px;">`;
+        html += `<div class="gantt-row" style="height: ${ROW_H}px;">`;
         html += `<div class="gantt-hab-label" style="width: ${HAB_W}px;">${hab.nombre}</div>`;
         html += `<div class="gantt-timeline" style="left: ${HAB_W}px; width: ${TOTAL_DIAS * COL_W}px;">`;
 
@@ -2667,40 +2649,38 @@ function renderCalendarioOcupacion() {
             let cls = 'gantt-cell';
             if (esHoy) cls += ' gantt-hoy';
             if (esFinde) cls += ' gantt-finde';
-            html += `<div class="${cls}" style="left:${i * COL_W}px; width:${COL_W}px; height:${rowHeight}px;"></div>`;
+            html += `<div class="${cls}" style="left:${i * COL_W}px; width:${COL_W}px; height:${ROW_H}px;"></div>`;
         });
 
-        // Barras de estancias
-        slots.forEach((slotEstancias, slotIdx) => {
-            slotEstancias.forEach(estancia => {
-                const entrada = parseDateLocal(estancia.fecha_entrada);
-                const salida = estancia.fecha_salida ? parseDateLocal(estancia.fecha_salida) : entrada;
-                const perroNombre = estancia.perros?.nombre || 'Perro';
-                const perroFoto = estancia.perros?.foto_perro_url || null;
-                const color = estancia.color_etiqueta || '#45BF4D';
-                const textColor = esColorClaro(color) ? '#000' : '#fff';
-                const colorTexto = catalogoColores.find(c => c.color === color)?.texto || '';
+        // Barras de estancias — todas llenan la fila completa y se superponen con transparencia
+        estanciasHab.forEach((estancia, idx) => {
+            const entrada = parseDateLocal(estancia.fecha_entrada);
+            const salida = estancia.fecha_salida ? parseDateLocal(estancia.fecha_salida) : entrada;
+            const perroNombre = estancia.perros?.nombre || 'Perro';
+            const perroFoto = estancia.perros?.foto_perro_url || null;
+            const color = estancia.color_etiqueta || '#45BF4D';
+            const textColor = esColorClaro(color) ? '#000' : '#fff';
+            const colorTexto = catalogoColores.find(c => c.color === color)?.texto || '';
 
-                // Calcular posición
-                const startDay = Math.max(0, Math.round((entrada - primerDia) / 86400000));
-                const endDay = Math.min(TOTAL_DIAS - 1, Math.round((salida - primerDia) / 86400000));
-                if (endDay < 0 || startDay >= TOTAL_DIAS) return;
+            // Calcular posición horizontal
+            const startDay = Math.max(0, Math.round((entrada - primerDia) / 86400000));
+            const endDay = Math.min(TOTAL_DIAS - 1, Math.round((salida - primerDia) / 86400000));
+            if (endDay < 0 || startDay >= TOTAL_DIAS) return;
 
-                const left = startDay * COL_W + 2;
-                const width = (endDay - startDay + 1) * COL_W - 4;
-                const top = 4 + slotIdx * BAR_OFFSET;
+            const left = startDay * COL_W;
+            const width = (endDay - startDay + 1) * COL_W;
 
-                html += `<div class="gantt-bar" style="left:${left}px; width:${width}px; top:${top}px; height:${BAR_H}px; background-color:${color}; color:${textColor}; z-index:${2 + slotIdx};"
-                    title="${perroNombre}: ${formatDate(estancia.fecha_entrada)} - ${formatDate(estancia.fecha_salida)}${colorTexto ? ' (' + colorTexto + ')' : ''}"
-                    onclick="mostrarDetalleEstancia('${estancia.id}')">`;
-                if (perroFoto) {
-                    html += `<img src="${perroFoto}" class="gantt-bar-foto" alt="${perroNombre}">`;
-                } else {
-                    html += `<span class="gantt-bar-emoji">🐕</span>`;
-                }
-                html += `<span class="gantt-bar-name">${perroNombre}</span>`;
-                html += `</div>`;
-            });
+            html += `<div class="gantt-bar" style="left:${left}px; width:${width}px; top:0; height:${ROW_H}px; background-color:${color}; color:${textColor}; z-index:${2 + idx};"
+                title="${perroNombre}: ${formatDate(estancia.fecha_entrada)} - ${formatDate(estancia.fecha_salida)}${colorTexto ? ' (' + colorTexto + ')' : ''}"
+                onclick="mostrarDetalleEstancia('${estancia.id}')">`;
+            html += `<div class="gantt-bar-content">`;
+            if (perroFoto) {
+                html += `<img src="${perroFoto}" class="gantt-bar-foto" alt="${perroNombre}">`;
+            } else {
+                html += `<span class="gantt-bar-emoji">🐕</span>`;
+            }
+            html += `<span class="gantt-bar-name">${perroNombre}</span>`;
+            html += `</div></div>`;
         });
 
         html += '</div></div>';

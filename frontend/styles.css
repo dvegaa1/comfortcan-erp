@@ -1551,6 +1551,7 @@ body {
     position: relative;
     border-bottom: 1px solid var(--color-border);
     display: flex;
+    overflow: hidden;
 }
 
 .gantt-row:nth-child(even) {
@@ -1574,6 +1575,7 @@ body {
 .gantt-timeline {
     position: relative;
     flex-shrink: 0;
+    overflow: hidden;
 }
 
 .gantt-cell {
@@ -1593,45 +1595,53 @@ body {
     background: rgba(255, 255, 255, 0.02);
 }
 
-/* Barra Gantt (una sola barra continua por estancia) */
+/* Barra Gantt — barras diagonales tipo paralelogramo como referencia */
 .gantt-bar {
     position: absolute;
-    border-radius: 8px;
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 0 12px;
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: white;
     cursor: pointer;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.25);
-    transition: filter 0.15s;
-    opacity: 0.92;
-    border: 1px solid rgba(255,255,255,0.15);
+    overflow: visible;
+    transition: filter 0.15s, opacity 0.15s;
+    opacity: 0.78;
+    border: none;
+    box-shadow: none;
+    transform: skewX(-8deg);
+    border-radius: 4px;
 }
 
 .gantt-bar:hover {
     filter: brightness(1.15);
-    opacity: 1;
+    opacity: 0.95;
     z-index: 20 !important;
-    box-shadow: 0 3px 10px rgba(0,0,0,0.4);
+}
+
+/* Contenido interno des-skewed para que texto y fotos se vean normal */
+.gantt-bar-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 18px;
+    transform: skewX(8deg);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+    font-weight: 700;
+    font-size: 0.85rem;
 }
 
 .gantt-bar-foto {
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     object-fit: cover;
-    border: 2px solid rgba(255,255,255,0.5);
+    border: 2px solid rgba(255,255,255,0.6);
     flex-shrink: 0;
 }
 
 .gantt-bar-emoji {
-    font-size: 1.1rem;
+    font-size: 1.2rem;
     flex-shrink: 0;
 }
 
@@ -1639,7 +1649,8 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
     line-height: 1;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.4);
 }
 
 .calendario-leyenda {
