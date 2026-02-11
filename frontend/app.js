@@ -2591,113 +2591,122 @@ function renderCalendarioOcupacion() {
         rangoLabel.textContent = `${fechaInicio.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} - ${fechaFin.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}`;
     }
 
-    container.style.gridTemplateColumns = '';
-
     const hoyStr = new Date().toDateString();
-
-    let html = '<table class="calendario-tabla"><thead><tr>';
-    html += '<th class="calendario-th-habitacion">Habitación</th>';
-
-    let mesAnterior = -1;
-    dias.forEach((d, i) => {
-        const mes = d.getMonth();
-        const nombreDia = d.toLocaleDateString('es-MX', { weekday: 'short' });
-        const numDia = d.getDate();
-        const esHoy = d.toDateString() === hoyStr;
-        const esFinde = d.getDay() === 0 || d.getDay() === 6;
-        let clases = 'calendario-th-dia';
-        if (esHoy) clases += ' calendario-hoy';
-        if (esFinde) clases += ' calendario-finde';
-        // Marcar inicio de mes con separador
-        if (mes !== mesAnterior && i > 0) clases += ' calendario-nuevo-mes';
-        mesAnterior = mes;
-
-        const mesLabel = numDia === 1 || i === 0 ? `<span class="calendario-mes-label">${d.toLocaleDateString('es-MX', { month: 'short' })}</span>` : '';
-        html += `<th class="${clases}" data-date="${d.toDateString()}">${mesLabel}${nombreDia}<br>${numDia}</th>`;
-    });
-    html += '</tr></thead><tbody>';
-
-    // Si no hay habitaciones
-    if (catalogoHabitaciones.length === 0) {
-        html += `<tr><td colspan="${dias.length + 1}" class="text-center text-muted">No hay habitaciones configuradas.</td></tr>`;
-        html += '</tbody></table>';
-        container.innerHTML = html;
-        return;
-    }
+    const COL_W = 65; // ancho de cada columna de día en px
+    const HAB_W = 120; // ancho columna habitación
+    const ROW_H = 28; // altura por cada "slot" de perro
+    const ROW_PAD = 6; // padding vertical de la fila
+    const primerDia = dias[0];
 
     // Filtrar estancias activas
     const estanciasActivas = estancias.filter(e => e.estado !== 'Completada');
 
-    // Ordenar habitaciones numéricamente (natural sort)
+    // Ordenar habitaciones
     const habsOrdenadas = [...catalogoHabitaciones].sort((a, b) => {
         return a.nombre.localeCompare(b.nombre, undefined, { numeric: true, sensitivity: 'base' });
     });
 
-    // Una sola fila por habitación con barras apiladas
+    // Construir Gantt con divs
+    let html = '<div class="gantt">';
+
+    // Header de días
+    html += `<div class="gantt-header" style="padding-left: ${HAB_W}px;">`;
+    let mesAnterior = -1;
+    dias.forEach((d, i) => {
+        const nombreDia = d.toLocaleDateString('es-MX', { weekday: 'short' });
+        const numDia = d.getDate();
+        const mes = d.getMonth();
+        const esHoy = d.toDateString() === hoyStr;
+        const esFinde = d.getDay() === 0 || d.getDay() === 6;
+        let cls = 'gantt-day-header';
+        if (esHoy) cls += ' gantt-hoy';
+        if (esFinde) cls += ' gantt-finde';
+        if (mes !== mesAnterior && i > 0) cls += ' gantt-nuevo-mes';
+        mesAnterior = mes;
+        const mesLabel = numDia === 1 || i === 0 ? `<span class="gantt-mes-label">${d.toLocaleDateString('es-MX', { month: 'short' })}</span>` : '';
+        html += `<div class="${cls}" style="width:${COL_W}px;" data-date="${d.toDateString()}">${mesLabel}${nombreDia}<br>${numDia}</div>`;
+    });
+    html += '</div>';
+
+    if (catalogoHabitaciones.length === 0) {
+        html += '<div class="text-center text-muted" style="padding: 2rem;">No hay habitaciones configuradas.</div>';
+        html += '</div>';
+        container.innerHTML = html;
+        return;
+    }
+
+    // Filas por habitación
     habsOrdenadas.forEach(hab => {
         const estanciasHab = estanciasActivas.filter(e => e.habitacion === hab.nombre);
-
-        html += '<tr>';
-        html += `<td class="calendario-td-habitacion">${hab.nombre}</td>`;
-
-        dias.forEach((dia, idx) => {
-            const clsDia = diaClases(dia, hoyStr);
-
-            // Buscar TODAS las estancias que caen en este día para esta habitación
-            const estanciasEnDia = estanciasHab.filter(e => {
-                const entrada = parseDateLocal(e.fecha_entrada);
-                const salida = e.fecha_salida ? parseDateLocal(e.fecha_salida) : entrada;
-                return dia >= entrada && dia <= salida;
-            });
-
-            if (estanciasEnDia.length > 0) {
-                html += `<td class="calendario-td-dia ocupado${clsDia}">`;
-                html += '<div class="barras-stack">';
-
-                estanciasEnDia.forEach(estancia => {
-                    const entrada = parseDateLocal(estancia.fecha_entrada);
-                    const salida = estancia.fecha_salida ? parseDateLocal(estancia.fecha_salida) : entrada;
-                    const esInicio = dia.getTime() === entrada.getTime();
-                    const esFin = dia.getTime() === salida.getTime();
-                    const esUnico = esInicio && esFin;
-                    const perroNombre = estancia.perros?.nombre || 'Perro';
-                    const perroFoto = estancia.perros?.foto_perro_url || null;
-                    const color = estancia.color_etiqueta || '#45BF4D';
-                    const textColor = esColorClaro(color) ? '#000' : '#fff';
-                    const colorTexto = catalogoColores.find(c => c.color === color)?.texto || '';
-
-                    let barraClass = 'estancia-barra';
-                    if (esUnico) barraClass += ' unico';
-                    else if (esInicio) barraClass += ' inicio';
-                    else if (esFin) barraClass += ' fin';
-                    else barraClass += ' medio';
-
-                    html += `<div class="${barraClass}" style="background-color: ${color}; color: ${textColor};"
-                        title="${perroNombre}: ${formatDate(estancia.fecha_entrada)} - ${formatDate(estancia.fecha_salida)}${colorTexto ? ' (' + colorTexto + ')' : ''}"
-                        onclick="mostrarDetalleEstancia('${estancia.id}')">`;
-
-                    if (esInicio || idx === 0) {
-                        if (perroFoto) {
-                            html += `<img src="${perroFoto}" class="calendario-perro-foto" alt="${perroNombre}">`;
-                        } else {
-                            html += `<span class="calendario-perro-emoji">🐕</span>`;
-                        }
-                        html += `<span class="calendario-perro-nombre">${perroNombre}</span>`;
-                    }
-
-                    html += `</div>`;
-                });
-
-                html += '</div></td>';
-            } else {
-                html += `<td class="calendario-td-dia${clsDia}"></td>`;
-            }
+        // Calcular slots (si hay perros que se solapan en fechas, necesitan slots diferentes)
+        const slots = [];
+        estanciasHab.forEach(est => {
+            const entrada = parseDateLocal(est.fecha_entrada);
+            const salida = est.fecha_salida ? parseDateLocal(est.fecha_salida) : entrada;
+            let slotIdx = 0;
+            while (slots[slotIdx] && slots[slotIdx].some(s => {
+                const sEnt = parseDateLocal(s.fecha_entrada);
+                const sSal = s.fecha_salida ? parseDateLocal(s.fecha_salida) : sEnt;
+                return entrada <= sSal && salida >= sEnt;
+            })) { slotIdx++; }
+            if (!slots[slotIdx]) slots[slotIdx] = [];
+            slots[slotIdx].push(est);
         });
 
-        html += '</tr>';
+        const numSlots = Math.max(1, slots.length);
+        const rowHeight = numSlots * ROW_H + ROW_PAD * 2;
+
+        html += `<div class="gantt-row" style="height: ${rowHeight}px;">`;
+        html += `<div class="gantt-hab-label" style="width: ${HAB_W}px;">${hab.nombre}</div>`;
+        html += `<div class="gantt-timeline" style="left: ${HAB_W}px; width: ${TOTAL_DIAS * COL_W}px;">`;
+
+        // Grid de fondo (líneas de días)
+        dias.forEach((d, i) => {
+            const esHoy = d.toDateString() === hoyStr;
+            const esFinde = d.getDay() === 0 || d.getDay() === 6;
+            let cls = 'gantt-cell';
+            if (esHoy) cls += ' gantt-hoy';
+            if (esFinde) cls += ' gantt-finde';
+            html += `<div class="${cls}" style="left:${i * COL_W}px; width:${COL_W}px; height:${rowHeight}px;"></div>`;
+        });
+
+        // Barras de estancias
+        slots.forEach((slotEstancias, slotIdx) => {
+            slotEstancias.forEach(estancia => {
+                const entrada = parseDateLocal(estancia.fecha_entrada);
+                const salida = estancia.fecha_salida ? parseDateLocal(estancia.fecha_salida) : entrada;
+                const perroNombre = estancia.perros?.nombre || 'Perro';
+                const perroFoto = estancia.perros?.foto_perro_url || null;
+                const color = estancia.color_etiqueta || '#45BF4D';
+                const textColor = esColorClaro(color) ? '#000' : '#fff';
+                const colorTexto = catalogoColores.find(c => c.color === color)?.texto || '';
+
+                // Calcular posición
+                const startDay = Math.max(0, Math.round((entrada - primerDia) / 86400000));
+                const endDay = Math.min(TOTAL_DIAS - 1, Math.round((salida - primerDia) / 86400000));
+                if (endDay < 0 || startDay >= TOTAL_DIAS) return;
+
+                const left = startDay * COL_W + 3;
+                const width = (endDay - startDay + 1) * COL_W - 6;
+                const top = ROW_PAD + slotIdx * ROW_H + 2;
+
+                html += `<div class="gantt-bar" style="left:${left}px; width:${width}px; top:${top}px; height:${ROW_H - 4}px; background-color:${color}; color:${textColor};"
+                    title="${perroNombre}: ${formatDate(estancia.fecha_entrada)} - ${formatDate(estancia.fecha_salida)}${colorTexto ? ' (' + colorTexto + ')' : ''}"
+                    onclick="mostrarDetalleEstancia('${estancia.id}')">`;
+                if (perroFoto) {
+                    html += `<img src="${perroFoto}" class="gantt-bar-foto" alt="${perroNombre}">`;
+                } else {
+                    html += `<span class="gantt-bar-emoji">🐕</span>`;
+                }
+                html += `<span class="gantt-bar-name">${perroNombre}</span>`;
+                html += `</div>`;
+            });
+        });
+
+        html += '</div></div>';
     });
 
-    html += '</tbody></table>';
+    html += '</div>';
     container.innerHTML = html;
 }
 
@@ -2874,16 +2883,14 @@ function cambiarSemanaCalendario(direccion) {
 
 function scrollCalendarioAHoy(soloScroll = false) {
     if (!soloScroll) {
-        // Resetear para que hoy quede visible
         calendarioSemanaInicio = null;
         renderCalendarioOcupacion();
     }
-    // Scroll horizontal hasta la columna de hoy
     setTimeout(() => {
         const cont = document.querySelector('.calendario-ocupacion-container');
-        const hoyTh = cont?.querySelector('.calendario-hoy');
-        if (cont && hoyTh) {
-            const offset = hoyTh.offsetLeft - 140;
+        const hoyEl = cont?.querySelector('.gantt-hoy');
+        if (cont && hoyEl) {
+            const offset = hoyEl.offsetLeft - 140;
             cont.scrollLeft = Math.max(0, offset);
         }
     }, 50);
