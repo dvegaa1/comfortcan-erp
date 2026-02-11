@@ -151,6 +151,13 @@ function setupEventListeners() {
         scrollCalendarioAHoy();
     });
 
+    // Botón "+ Nueva Reserva" en calendario → navega a Recepción > Check-In
+    document.getElementById('btn-nueva-reserva')?.addEventListener('click', () => {
+        navigateToSection('recepcion');
+        const tabCheckIn = document.querySelector('.tab[data-tab="check-in"]');
+        if (tabCheckIn) switchTab(tabCheckIn, 'check-in');
+    });
+
     // Selects dinámicos
     document.getElementById('caja-perro')?.addEventListener('change', cargarCargosPerro);
     document.getElementById('expediente-perro')?.addEventListener('change', cargarExpediente);
