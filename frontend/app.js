@@ -2762,8 +2762,6 @@ function renderCalendarioOcupacion() {
             html += `<div class="gantt-bar-content">`;
             if (perroFoto) {
                 html += `<img src="${perroFoto}" class="gantt-bar-foto" alt="${perroNombre}">`;
-            } else {
-                html += `<span class="gantt-bar-emoji">🐕</span>`;
             }
             html += `<span class="gantt-bar-name">${perroNombre}</span>`;
             html += `</div></div>`;
