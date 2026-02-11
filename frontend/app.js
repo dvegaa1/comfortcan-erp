@@ -2594,8 +2594,8 @@ function renderCalendarioOcupacion() {
     const hoyStr = new Date().toDateString();
     const COL_W = 65; // ancho de cada columna de día en px
     const HAB_W = 120; // ancho columna habitación
-    const ROW_H = 28; // altura por cada "slot" de perro
-    const ROW_PAD = 6; // padding vertical de la fila
+    const BAR_H = 42; // altura de cada barra
+    const BAR_OFFSET = 6; // desplazamiento vertical entre barras superpuestas
     const primerDia = dias[0];
 
     // Filtrar estancias activas
@@ -2654,7 +2654,7 @@ function renderCalendarioOcupacion() {
         });
 
         const numSlots = Math.max(1, slots.length);
-        const rowHeight = numSlots * ROW_H + ROW_PAD * 2;
+        const rowHeight = BAR_H + (numSlots - 1) * BAR_OFFSET + 8;
 
         html += `<div class="gantt-row" style="height: ${rowHeight}px;">`;
         html += `<div class="gantt-hab-label" style="width: ${HAB_W}px;">${hab.nombre}</div>`;
@@ -2686,11 +2686,11 @@ function renderCalendarioOcupacion() {
                 const endDay = Math.min(TOTAL_DIAS - 1, Math.round((salida - primerDia) / 86400000));
                 if (endDay < 0 || startDay >= TOTAL_DIAS) return;
 
-                const left = startDay * COL_W + 3;
-                const width = (endDay - startDay + 1) * COL_W - 6;
-                const top = ROW_PAD + slotIdx * ROW_H + 2;
+                const left = startDay * COL_W + 2;
+                const width = (endDay - startDay + 1) * COL_W - 4;
+                const top = 4 + slotIdx * BAR_OFFSET;
 
-                html += `<div class="gantt-bar" style="left:${left}px; width:${width}px; top:${top}px; height:${ROW_H - 4}px; background-color:${color}; color:${textColor};"
+                html += `<div class="gantt-bar" style="left:${left}px; width:${width}px; top:${top}px; height:${BAR_H}px; background-color:${color}; color:${textColor}; z-index:${2 + slotIdx};"
                     title="${perroNombre}: ${formatDate(estancia.fecha_entrada)} - ${formatDate(estancia.fecha_salida)}${colorTexto ? ' (' + colorTexto + ')' : ''}"
                     onclick="mostrarDetalleEstancia('${estancia.id}')">`;
                 if (perroFoto) {
