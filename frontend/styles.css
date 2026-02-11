@@ -1595,15 +1595,15 @@ body {
     background: rgba(255, 255, 255, 0.02);
 }
 
-/* Barra Gantt — barras diagonales tipo paralelogramo como referencia */
+/* Barra Gantt — barras diagonales tipo paralelogramo, divididas por franja */
 .gantt-bar {
     position: absolute;
     display: flex;
     align-items: center;
     cursor: pointer;
     overflow: visible;
-    transition: filter 0.15s, opacity 0.15s;
-    opacity: 0.78;
+    transition: filter 0.15s;
+    opacity: 0.88;
     border: none;
     box-shadow: none;
     transform: skewX(-8deg);
@@ -1612,7 +1612,7 @@ body {
 
 .gantt-bar:hover {
     filter: brightness(1.15);
-    opacity: 0.95;
+    opacity: 1;
     z-index: 20 !important;
 }
 
