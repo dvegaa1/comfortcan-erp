@@ -1603,15 +1603,15 @@ body {
     cursor: pointer;
     overflow: visible;
     transition: filter 0.15s;
-    opacity: 0.82;
+    opacity: 0.92;
     border: none;
     box-shadow: none;
-    transform: skewX(-18deg);
-    border-radius: 3px;
+    transform: skewX(-25deg);
+    border-radius: 4px;
 }
 
 .gantt-bar:hover {
-    filter: brightness(1.15);
+    filter: brightness(1.12);
     opacity: 1;
     z-index: 20 !important;
 }
@@ -1621,8 +1621,8 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 0 24px;
-    transform: skewX(18deg);
+    padding: 0 28px;
+    transform: skewX(25deg);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
