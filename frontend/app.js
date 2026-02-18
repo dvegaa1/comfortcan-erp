@@ -2677,7 +2677,7 @@ function renderCalendarioOcupacion() {
             return { estancia, startDay, endDay };
         }).filter(b => b.endDay >= 0 && b.startDay < TOTAL_DIAS);
 
-        // Barras con clip-path diagonal donde hay overlap o son consecutivas
+        // Barras — solo clip-path diagonal cuando hay overlap real (mismo día)
         barrasInfo.forEach((bInfo, idx) => {
             const { estancia, startDay, endDay } = bInfo;
             const perroNombre = estancia.perros?.nombre || 'Perro';
@@ -2686,69 +2686,28 @@ function renderCalendarioOcupacion() {
             const textColor = esColorClaro(color) ? '#000' : '#fff';
             const colorTexto = catalogoColores.find(c => c.color === color)?.texto || '';
 
-            // Detectar barra siguiente: overlap real O consecutiva (checkout/checkin mismo día o día siguiente)
-            const nextBar = barrasInfo.find((b, i) => i > idx && b.startDay <= endDay + 1 && b.startDay > startDay);
-            // Detectar barra anterior: overlap real O consecutiva
-            const prevBar = barrasInfo.find((b, i) => i < idx && b.endDay >= startDay - 1 && b.endDay < endDay);
+            const left = startDay * COL_W;
+            const barW = (endDay - startDay + 1) * COL_W;
 
-            // Ajustar endDay/startDay para barras consecutivas:
-            // Si la siguiente barra empieza justo después (consecutiva), extender esta barra
-            // para que compartan el día de transición con diagonal
-            let drawStartDay = startDay;
-            let drawEndDay = endDay;
+            // Detectar overlap real: otra barra comparte al menos 1 día
+            const nextOverlap = barrasInfo.find((b, i) => i > idx && b.startDay <= endDay && b.startDay > startDay);
+            const prevOverlap = barrasInfo.find((b, i) => i < idx && b.endDay >= startDay && b.endDay < endDay);
 
-            let hasNextDiag = false;
-            let hasPrevDiag = false;
-            let diagNextDay = -1; // día donde empieza la diagonal (relativo al grid)
-            let diagPrevDay = -1; // día donde termina la diagonal anterior
-
-            if (nextBar) {
-                if (nextBar.startDay === endDay + 1) {
-                    // Consecutivas: extender esta barra 1 día para crear zona de transición
-                    drawEndDay = endDay + 1;
-                    diagNextDay = endDay + 1; // la diagonal está en el día extra
-                    hasNextDiag = true;
-                } else if (nextBar.startDay <= endDay) {
-                    // Overlap real
-                    diagNextDay = nextBar.startDay;
-                    hasNextDiag = true;
-                }
-            }
-
-            if (prevBar) {
-                if (prevBar.endDay === startDay - 1) {
-                    // Consecutivas: extender esta barra 1 día hacia atrás
-                    drawStartDay = startDay - 1;
-                    diagPrevDay = startDay - 1; // la diagonal está en el día extra
-                    hasPrevDiag = true;
-                } else if (prevBar.endDay >= startDay) {
-                    // Overlap real
-                    diagPrevDay = prevBar.endDay;
-                    hasPrevDiag = true;
-                }
-            }
-
-            const left = drawStartDay * COL_W;
-            const barW = (drawEndDay - drawStartDay + 1) * COL_W;
-
-            // Construir clip-path con 4 esquinas
             let topLeft = '0 0';
             let topRight = `${barW}px 0`;
             let bottomRight = `${barW}px ${ROW_H}px`;
             let bottomLeft = `0 ${ROW_H}px`;
             let needsClip = false;
 
-            if (hasNextDiag) {
-                // Corte diagonal en el extremo derecho
-                const cutX = (diagNextDay - drawStartDay) * COL_W;
+            if (nextOverlap) {
+                const cutX = (nextOverlap.startDay - startDay) * COL_W;
                 topRight = `${cutX}px 0`;
                 bottomRight = `${barW}px ${ROW_H}px`;
                 needsClip = true;
             }
 
-            if (hasPrevDiag) {
-                // Corte diagonal en el extremo izquierdo
-                const cutX = (diagPrevDay - drawStartDay + 1) * COL_W;
+            if (prevOverlap) {
+                const cutX = (prevOverlap.endDay - startDay + 1) * COL_W;
                 bottomLeft = `${cutX}px ${ROW_H}px`;
                 topLeft = '0 0';
                 needsClip = true;
