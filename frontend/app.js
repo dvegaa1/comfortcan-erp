@@ -2595,7 +2595,7 @@ function renderCalendarioOcupacion() {
     }
 
     const hoyStr = new Date().toDateString();
-    const COL_W = 65; // ancho de cada columna de día en px
+    const COL_W = 100; // ancho de cada columna de día en px
     const HAB_W = 120; // ancho columna habitación
     const ROW_H = 60; // altura fija de cada fila
     const primerDia = dias[0];
