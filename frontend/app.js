@@ -4,34 +4,8 @@
 
 const API_URL = 'https://comfortcan-api.onrender.com';
 
-// Debug: Función para verificar estado del storage
-window.verificarStorage = async function() {
-    console.log(' Verificando estado del storage...');
-    try {
-        const response = await fetch(`${API_URL}/storage/check`, {
-            headers: { 'Authorization': `Bearer ${authToken}` }
-        });
-        const data = await response.json();
-        console.log(' Estado del storage:', data);
-        return data;
-    } catch (err) {
-        console.error(' Error verificando storage:', err);
-    }
-};
-
-// Debug: Función para probar subida directa a Supabase
-window.testUploadDirecto = async function() {
-    console.log(' Para probar, necesitas verificar las políticas en Supabase:');
-    console.log('1. Ve a Supabase Dashboard > Storage > fotos');
-    console.log('2. Ve a Policies');
-    console.log('3. Verifica que existan estas políticas:');
-    console.log('   - SELECT (public) - Para leer fotos públicamente');
-    console.log('   - INSERT (authenticated) - Para subir fotos');
-    console.log('   - DELETE (authenticated) - Para eliminar fotos');
-};
-
 // Estado global
-let authToken = localStorage.getItem('authToken');
+let authToken = sessionStorage.getItem('authToken');
 let propietarios = [];
 let perros = [];
 let catalogoServicios = [];
@@ -43,6 +17,11 @@ let cargosActuales = [];
 let serviciosSeleccionados = [];
 let calendarioSemanaInicio = null;
 let calendarioTouchStartX = 0;
+
+// Estado global - Nuevos módulos ERP
+let catalogoGrooming = [];
+let personalList = [];
+let inventarioItems = [];
 
 // ============================================
 // INICIALIZACIÓN
@@ -184,6 +163,24 @@ function setupEventListeners() {
     // File uploads
     document.getElementById('foto-perro-input')?.addEventListener('change', (e) => previewImage(e, 'foto-perro-preview'));
     document.getElementById('foto-cartilla-input')?.addEventListener('change', (e) => previewImage(e, 'foto-cartilla-preview'));
+
+    // Historial
+    document.getElementById('historial-perro-select')?.addEventListener('change', cargarHistorial);
+
+    // Notas de estancia
+    document.getElementById('notas-estancia-select')?.addEventListener('change', cargarNotasEstancia);
+
+    // Filtros alimentación
+    document.getElementById('filtro-alim-fecha')?.addEventListener('change', cargarAlimentacion);
+    document.getElementById('filtro-alim-perro')?.addEventListener('change', cargarAlimentacion);
+
+    // Filtros medicamentos
+    document.getElementById('filtro-med-fecha')?.addEventListener('change', cargarMedicamentos);
+
+    // Filtros grooming
+    document.getElementById('filtro-grooming-desde')?.addEventListener('change', cargarGroomingCitas);
+    document.getElementById('filtro-grooming-hasta')?.addEventListener('change', cargarGroomingCitas);
+    document.getElementById('filtro-grooming-estado')?.addEventListener('change', cargarGroomingCitas);
 }
 
 function toggleDesparasitacion() {
@@ -233,7 +230,7 @@ async function handleLogin(e) {
         }
 
         authToken = data.access_token;
-        localStorage.setItem('authToken', authToken);
+        sessionStorage.setItem('authToken', authToken);
 
         showApp();
         loadInitialData();
@@ -246,7 +243,7 @@ async function handleLogin(e) {
 }
 
 function handleLogout() {
-    localStorage.removeItem('authToken');
+    sessionStorage.removeItem('authToken');
     authToken = null;
     showLogin();
 }
@@ -275,9 +272,13 @@ async function apiPost(endpoint, data) {
         },
         body: JSON.stringify(data)
     });
+    if (response.status === 401) {
+        handleLogout();
+        throw new Error('Sesión expirada');
+    }
     if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.detail || 'Error en petición');
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || 'Error al crear');
     }
     return response.json();
 }
@@ -291,7 +292,14 @@ async function apiPut(endpoint, data) {
         },
         body: JSON.stringify(data)
     });
-    if (!response.ok) throw new Error('Error al actualizar');
+    if (response.status === 401) {
+        handleLogout();
+        throw new Error('Sesión expirada');
+    }
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || 'Error al actualizar');
+    }
     return response.json();
 }
 
@@ -304,7 +312,14 @@ async function apiPatch(endpoint, data) {
         },
         body: JSON.stringify(data)
     });
-    if (!response.ok) throw new Error('Error al actualizar');
+    if (response.status === 401) {
+        handleLogout();
+        throw new Error('Sesión expirada');
+    }
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || 'Error al actualizar');
+    }
     return response.json();
 }
 
@@ -313,8 +328,49 @@ async function apiDelete(endpoint) {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${authToken}` }
     });
-    if (!response.ok) throw new Error('Error al eliminar');
+    if (response.status === 401) {
+        handleLogout();
+        throw new Error('Sesión expirada');
+    }
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || 'Error al eliminar');
+    }
     return true;
+}
+
+// ============================================
+// CACHÉ DE CATÁLOGOS
+// TTL de 30 min: los catálogos casi nunca cambian durante la sesión
+// ============================================
+const CACHE_TTL_MS = 30 * 60 * 1000;
+
+function getCachedCatalogo(key) {
+    try {
+        const raw = sessionStorage.getItem(`cache_${key}`);
+        if (!raw) return null;
+        const { data, timestamp } = JSON.parse(raw);
+        if (Date.now() - timestamp > CACHE_TTL_MS) {
+            sessionStorage.removeItem(`cache_${key}`);
+            return null;
+        }
+        return data;
+    } catch {
+        return null;
+    }
+}
+
+function setCachedCatalogo(key, data) {
+    try {
+        sessionStorage.setItem(`cache_${key}`, JSON.stringify({ data, timestamp: Date.now() }));
+    } catch {
+        // sessionStorage lleno — ignorar, la app sigue funcionando sin caché
+    }
+}
+
+function invalidarCachesCatalogos() {
+    ['catalogo-servicios', 'catalogo-paseos', 'catalogo-habitaciones', 'catalogo-colores']
+        .forEach(k => sessionStorage.removeItem(`cache_${k}`));
 }
 
 // ============================================
@@ -324,15 +380,27 @@ async function loadInitialData() {
     try {
         showLoading();
 
+        // Catálogos: usar caché si está fresco (< 30 min), sino pedir al servidor
+        const svCached  = getCachedCatalogo('catalogo-servicios');
+        const psCached  = getCachedCatalogo('catalogo-paseos');
+        const habCached = getCachedCatalogo('catalogo-habitaciones');
+        const colCached = getCachedCatalogo('catalogo-colores');
+
         const [props, dogs, servicios, paseos, habitaciones, colores, estanciasData] = await Promise.all([
             apiGet('/propietarios'),
             apiGet('/perros'),
-            apiGet('/catalogo-servicios'),
-            apiGet('/catalogo-paseos'),
-            apiGet('/catalogo-habitaciones'),
-            apiGet('/catalogo-colores').catch(() => []),
+            svCached  ? Promise.resolve(svCached)  : apiGet('/catalogo-servicios'),
+            psCached  ? Promise.resolve(psCached)  : apiGet('/catalogo-paseos'),
+            habCached ? Promise.resolve(habCached) : apiGet('/catalogo-habitaciones'),
+            colCached ? Promise.resolve(colCached) : apiGet('/catalogo-colores').catch(() => []),
             apiGet('/estancias')
         ]);
+
+        // Guardar en caché los que se pidieron al servidor
+        if (!svCached  && servicios)    setCachedCatalogo('catalogo-servicios',    servicios);
+        if (!psCached  && paseos)       setCachedCatalogo('catalogo-paseos',       paseos);
+        if (!habCached && habitaciones) setCachedCatalogo('catalogo-habitaciones', habitaciones);
+        if (!colCached && colores?.length) setCachedCatalogo('catalogo-colores',   colores);
 
         propietarios = props || [];
         perros = dogs || [];
@@ -374,11 +442,15 @@ function llenarSelectPropietarios() {
 }
 
 function llenarSelectPerros() {
-    const selects = ['checkin-perro', 'paseo-perro', 'filtro-paseo-perro', 'caja-perro', 'expediente-perro', 'gestion-perro-select'];
+    const selects = [
+        'checkin-perro', 'paseo-perro', 'filtro-paseo-perro', 'caja-perro',
+        'expediente-perro', 'gestion-perro-select',
+        'grooming-perro', 'alim-perro', 'med-perro', 'filtro-alim-perro', 'historial-perro-select'
+    ];
     selects.forEach(id => {
         const select = document.getElementById(id);
         if (select) {
-            const defaultText = id === 'filtro-paseo-perro' ? 'Todos' : '-- Seleccionar perro --';
+            const defaultText = (id === 'filtro-paseo-perro' || id === 'filtro-alim-perro') ? 'Todos' : '-- Seleccionar perro --';
             select.innerHTML = `<option value="">${defaultText}</option>`;
             perros.forEach(p => {
                 const dueno = p.propietarios || propietarios.find(prop => prop.id === p.propietario_id);
@@ -444,6 +516,19 @@ function navigateToSection(sectionId) {
         renderTablaHabitaciones();
         renderTablaColores();
     }
+
+    // Nuevas secciones ERP
+    if (sectionId === 'dashboard') cargarDashboard();
+    if (sectionId === 'grooming') { cargarGroomingCatalogo(); cargarGroomingCitas(); }
+    if (sectionId === 'operaciones') {
+        llenarSelectNotasEstancia();
+        cargarAlimentacion();
+        cargarMedicamentos();
+        if (!personalList.length) cargarPersonal();
+    }
+    if (sectionId === 'reportes') setRangoReporte('mes');
+    if (sectionId === 'personal') cargarPersonal();
+    if (sectionId === 'inventario') cargarInventario();
 }
 
 function switchTab(clickedTab, tabId) {
@@ -2012,12 +2097,76 @@ async function guardarEdicionCliente(e, clienteId) {
     }
 }
 
+// ============================================
+// MODAL ELIMINACIÓN PERMANENTE
+// El usuario debe escribir el nombre exacto para confirmar
+// ============================================
+function mostrarModalEliminarPermanente(nombre, subtitulo, onConfirm) {
+    const modalId = 'modal-eliminar-permanente';
+    document.getElementById(modalId)?.remove();
+
+    const modal = document.createElement('div');
+    modal.id = modalId;
+    modal.style.cssText = `
+        position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+        display: flex; align-items: center; justify-content: center;
+        z-index: 9999;
+    `;
+    modal.innerHTML = `
+        <div style="background: var(--color-surface); border: 1px solid var(--color-border);
+                    border-radius: 8px; padding: 24px; max-width: 420px; width: 90%; box-shadow: 0 8px 32px rgba(0,0,0,0.4);">
+            <h3 style="color: #e74c3c; margin: 0 0 8px;">⚠️ Eliminar permanentemente</h3>
+            <p style="color: var(--color-text-muted); margin: 0 0 8px; font-size: 0.9rem;">${subtitulo}</p>
+            <p style="margin: 0 0 12px; font-size: 0.9rem;">
+                Para confirmar, escribe <strong style="color: var(--color-text);">${nombre}</strong>:
+            </p>
+            <input type="text" id="modal-confirmar-input" autocomplete="off"
+                   style="width: 100%; box-sizing: border-box; padding: 8px 10px; border-radius: 6px;
+                          background: var(--color-bg); border: 1px solid var(--color-border);
+                          color: var(--color-text); font-size: 1rem; margin-bottom: 16px;"
+                   placeholder="Escribe el nombre aquí">
+            <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                <button id="modal-btn-cancelar"
+                        style="padding: 8px 16px; border-radius: 6px; border: 1px solid var(--color-border);
+                               background: transparent; color: var(--color-text); cursor: pointer;">
+                    Cancelar
+                </button>
+                <button id="modal-btn-confirmar" disabled
+                        style="padding: 8px 16px; border-radius: 6px; border: none;
+                               background: #e74c3c; color: #fff; cursor: pointer; opacity: 0.4;">
+                    Eliminar permanentemente
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const input   = document.getElementById('modal-confirmar-input');
+    const btnOk   = document.getElementById('modal-btn-confirmar');
+    const btnCanc = document.getElementById('modal-btn-cancelar');
+
+    input.addEventListener('input', () => {
+        const match = input.value.trim() === nombre;
+        btnOk.disabled = !match;
+        btnOk.style.opacity = match ? '1' : '0.4';
+    });
+
+    btnCanc.addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    btnOk.addEventListener('click', () => { modal.remove(); onConfirm(); });
+
+    setTimeout(() => input.focus(), 50);
+}
+
 async function eliminarPerroPermanente(perroId) {
     const perro = perros.find(p => p.id === perroId);
     const nombre = perro?.nombre || 'este perro';
-    if (!confirm(`¿Eliminar PERMANENTEMENTE a "${nombre}"? Se borrarán todas sus estancias, cargos y paseos. Esta acción NO se puede deshacer.`)) return;
-    if (!confirm(`¿Estás SEGURO? Esto eliminará a "${nombre}" y TODOS sus datos para siempre.`)) return;
 
+    mostrarModalEliminarPermanente(
+        nombre,
+        'Se borrarán todas sus estancias, cargos y paseos. Esta acción NO se puede deshacer.',
+        async () => {
     try {
         showLoading();
         await apiDelete(`/perros/${perroId}/permanente`);
@@ -2032,17 +2181,19 @@ async function eliminarPerroPermanente(perroId) {
         hideLoading();
         showToast('Error al eliminar: ' + error.message, 'error');
     }
+    });  // fin callback modal
 }
 
 async function eliminarClientePermanente(clienteId) {
     const cliente = propietarios.find(p => p.id === clienteId);
     const nombre = cliente?.nombre || 'este cliente';
-    if (!confirm(`¿Eliminar PERMANENTEMENTE a "${nombre}" y TODOS sus perros? Se borrarán todas las estancias, cargos y paseos. Esta acción NO se puede deshacer.`)) return;
-    if (!confirm(`¿Estás SEGURO? Esto eliminará a "${nombre}", todos sus perros y TODOS sus datos para siempre.`)) return;
 
+    mostrarModalEliminarPermanente(
+        nombre,
+        'Se eliminarán TODOS sus perros, estancias, cargos y paseos. Esta acción NO se puede deshacer.',
+        async () => {
     try {
         showLoading();
-        // Obtener perros del cliente para limpiar datos locales
         const perrosCliente = perros.filter(p => p.propietario_id === clienteId);
         await apiDelete(`/propietarios/${clienteId}/permanente`);
         propietarios = propietarios.filter(p => p.id !== clienteId);
@@ -2062,6 +2213,7 @@ async function eliminarClientePermanente(clienteId) {
         hideLoading();
         showToast('Error al eliminar: ' + error.message, 'error');
     }
+    });  // fin callback modal
 }
 
 // ============================================
@@ -2112,6 +2264,7 @@ async function handleNuevoServicio() {
         });
 
         catalogoServicios.push(nuevo);
+        invalidarCachesCatalogos();
         llenarSelectServicios();
 
         document.getElementById('nuevo-servicio-nombre').value = '';
@@ -2131,6 +2284,7 @@ async function eliminarServicioCatalogo(servicioId) {
     try {
         await apiDelete(`/catalogo-servicios/${servicioId}`);
         catalogoServicios = catalogoServicios.filter(s => s.id !== servicioId);
+        invalidarCachesCatalogos();
         llenarSelectServicios();
         showToast('Servicio eliminado', 'success');
     } catch (error) {
@@ -2170,6 +2324,7 @@ async function guardarEdicionServicio(servicioId) {
         });
         const idx = catalogoServicios.findIndex(s => s.id === servicioId);
         if (idx !== -1) catalogoServicios[idx] = { ...catalogoServicios[idx], ...actualizado };
+        invalidarCachesCatalogos();
         llenarSelectServicios();
         renderTablaServicios();
         hideLoading();
@@ -2220,6 +2375,7 @@ async function handleNuevoTipoPaseo() {
         });
 
         catalogoPaseos.push(nuevo);
+        invalidarCachesCatalogos();
         llenarSelectPaseos();
 
         document.getElementById('nuevo-paseo-nombre').value = '';
@@ -2240,6 +2396,7 @@ async function eliminarTipoPaseo(paseoId) {
     try {
         await apiDelete(`/catalogo-paseos/${paseoId}`);
         catalogoPaseos = catalogoPaseos.filter(p => p.id !== paseoId);
+        invalidarCachesCatalogos();
         llenarSelectPaseos();
         showToast('Tipo de paseo eliminado', 'success');
     } catch (error) {
@@ -2274,6 +2431,7 @@ async function guardarEdicionPaseo(paseoId) {
         });
         const idx = catalogoPaseos.findIndex(x => x.id === paseoId);
         if (idx !== -1) catalogoPaseos[idx] = { ...catalogoPaseos[idx], ...actualizado };
+        invalidarCachesCatalogos();
         llenarSelectPaseos();
         renderTablaPaseos();
         hideLoading();
@@ -2338,6 +2496,7 @@ async function handleNuevaHabitacion() {
         });
 
         catalogoHabitaciones.push(nueva);
+        invalidarCachesCatalogos();
         llenarSelectHabitaciones();
         renderTablaHabitaciones();
 
@@ -2359,6 +2518,7 @@ async function eliminarHabitacion(habitacionId) {
     try {
         await apiDelete(`/catalogo-habitaciones/${habitacionId}`);
         catalogoHabitaciones = catalogoHabitaciones.filter(h => h.id !== habitacionId);
+        invalidarCachesCatalogos();
         llenarSelectHabitaciones();
         renderTablaHabitaciones();
         showToast('Habitacion eliminada', 'success');
@@ -2395,6 +2555,7 @@ async function guardarEdicionHabitacion(habitacionId) {
         });
         const idx = catalogoHabitaciones.findIndex(x => x.id === habitacionId);
         if (idx !== -1) catalogoHabitaciones[idx] = { ...catalogoHabitaciones[idx], ...actualizado };
+        invalidarCachesCatalogos();
         llenarSelectHabitaciones();
         renderTablaHabitaciones();
         hideLoading();
@@ -2495,6 +2656,7 @@ async function handleNuevoColor() {
         });
 
         catalogoColores.push(nuevo);
+        invalidarCachesCatalogos();
         renderTablaColores();
         renderColoresCheckIn();
 
@@ -2514,6 +2676,7 @@ async function eliminarColor(colorId) {
     try {
         await apiDelete(`/catalogo-colores/${colorId}`);
         catalogoColores = catalogoColores.filter(c => c.id !== colorId);
+        invalidarCachesCatalogos();
         renderTablaColores();
         renderColoresCheckIn();
         showToast('Color eliminado', 'success');
@@ -2546,6 +2709,7 @@ async function guardarEdicionColor(colorId) {
         const actualizado = await apiPut(`/catalogo-colores/${colorId}`, { color, texto });
         const idx = catalogoColores.findIndex(x => x.id === colorId);
         if (idx !== -1) catalogoColores[idx] = { ...catalogoColores[idx], ...actualizado };
+        invalidarCachesCatalogos();
         renderTablaColores();
         renderColoresCheckIn();
         hideLoading();
@@ -3231,8 +3395,1059 @@ async function debugFotosPerros() {
 }
 
 // ============================================
+// DASHBOARD
+// ============================================
+async function cargarDashboard() {
+    try {
+        showLoading();
+        const data = await apiGet('/dashboard/resumen-dia');
+        hideLoading();
+        renderDashboard(data);
+    } catch (error) {
+        hideLoading();
+        showToast('Error cargando dashboard: ' + error.message, 'error');
+    }
+}
+
+function renderDashboard(data) {
+    // KPIs
+    const hospedadosEl = document.getElementById('kpi-activas');
+    const checkoutsEl  = document.getElementById('kpi-checkouts');
+    const paseosEl     = document.getElementById('kpi-paseos');
+    const montoEl      = document.getElementById('kpi-monto-pend');
+    const vacunasEl    = document.getElementById('kpi-vacunas');
+
+    if (hospedadosEl) hospedadosEl.textContent = data.estancias_activas?.length || 0;
+    if (checkoutsEl)  checkoutsEl.textContent  = data.checkouts_pendientes?.length || 0;
+    if (paseosEl)     paseosEl.textContent      = data.paseos_hoy?.length || 0;
+    if (montoEl)      montoEl.textContent        = `$${(data.monto_pendiente || 0).toFixed(2)}`;
+    if (vacunasEl)    vacunasEl.textContent      = data.vacunas_alertas?.length || 0;
+
+    // Panel hospedados activos
+    const panelHospedados = document.getElementById('dashboard-hospedados');
+    if (panelHospedados) {
+        if (!data.estancias_activas?.length) {
+            panelHospedados.innerHTML = '<p class="text-muted text-center">Sin huéspedes activos</p>';
+        } else {
+            panelHospedados.innerHTML = data.estancias_activas.map(e => {
+                const perro = e.perros || {};
+                const dueno = perro.propietarios || {};
+                return `
+                    <div class="card mb-2" style="padding:0.75rem;">
+                        <div class="flex-between">
+                            <strong>${perro.nombre || 'N/A'}</strong>
+                            <span class="badge badge-success">Activo</span>
+                        </div>
+                        <div class="text-muted" style="font-size:0.85rem;">
+                            👤 ${dueno.nombre || 'Sin dueño'} · 📞 ${dueno.telefono || ''}
+                        </div>
+                        <div class="text-muted" style="font-size:0.85rem;">
+                            📅 ${formatDate(e.fecha_entrada)} → ${formatDate(e.fecha_salida)} · 🏠 ${e.habitacion || 'Sin asignar'}
+                        </div>
+                    </div>`;
+            }).join('');
+        }
+    }
+
+    // Panel check-outs pendientes
+    const panelCheckouts = document.getElementById('dashboard-checkouts');
+    if (panelCheckouts) {
+        if (!data.checkouts_pendientes?.length) {
+            panelCheckouts.innerHTML = '<p class="text-muted text-center">Sin salidas pendientes hoy</p>';
+        } else {
+            panelCheckouts.innerHTML = data.checkouts_pendientes.map(e => {
+                const perro = e.perros || {};
+                const dueno = perro.propietarios || {};
+                return `
+                    <div class="card mb-2" style="padding:0.75rem; border-left:3px solid #FFA500;">
+                        <strong>${perro.nombre || 'N/A'}</strong>
+                        <div class="text-muted" style="font-size:0.85rem;">👤 ${dueno.nombre || ''} · 📞 ${dueno.telefono || ''}</div>
+                        <div class="text-muted" style="font-size:0.85rem;">Salida esperada: ${formatDate(e.fecha_salida)}</div>
+                    </div>`;
+            }).join('');
+        }
+    }
+
+    // Panel paseos de hoy
+    const panelPaseos = document.getElementById('dashboard-paseos-hoy');
+    if (panelPaseos) {
+        if (!data.paseos_hoy?.length) {
+            panelPaseos.innerHTML = '<p class="text-muted text-center">Sin paseos hoy</p>';
+        } else {
+            panelPaseos.innerHTML = data.paseos_hoy.map(p => {
+                const perro = p.perros || {};
+                const dueno = perro.propietarios || {};
+                return `
+                    <div class="card mb-2" style="padding:0.75rem;">
+                        <strong>${perro.nombre || 'N/A'}</strong>
+                        <div class="text-muted" style="font-size:0.85rem;">👤 ${dueno.nombre || ''} · Estado: ${p.estado || '-'}</div>
+                    </div>`;
+            }).join('');
+        }
+    }
+
+    // Panel alertas vacunas
+    const panelVacunas = document.getElementById('dashboard-vacunas');
+    if (panelVacunas) {
+        if (!data.vacunas_alertas?.length) {
+            panelVacunas.innerHTML = '<p class="text-muted text-center">Sin alertas de vacunas</p>';
+        } else {
+            panelVacunas.innerHTML = data.vacunas_alertas.map(p => {
+                const dueno = p.propietarios || {};
+                const vacunas = [];
+                if (p.vacuna_rabia_vence)     vacunas.push(`Rabia: ${formatDate(p.vacuna_rabia_vence)}`);
+                if (p.vacuna_sextuple_vence)  vacunas.push(`Séxtuple: ${formatDate(p.vacuna_sextuple_vence)}`);
+                if (p.vacuna_bordetella_vence) vacunas.push(`Bordetella: ${formatDate(p.vacuna_bordetella_vence)}`);
+                if (p.vacuna_giardia_vence)   vacunas.push(`Giardia: ${formatDate(p.vacuna_giardia_vence)}`);
+                return `
+                    <div class="card mb-2" style="padding:0.75rem; border-left:3px solid #FF4444;">
+                        <strong>${p.nombre}</strong>
+                        <div class="text-muted" style="font-size:0.85rem;">👤 ${dueno.nombre || ''} · 📞 ${dueno.telefono || ''}</div>
+                        <div style="font-size:0.8rem; color:#FF6666;">${vacunas.join(' · ') || 'Vacuna próxima a vencer'}</div>
+                    </div>`;
+            }).join('');
+        }
+    }
+}
+
+// ============================================
+// GROOMING - CATÁLOGO
+// ============================================
+async function cargarGroomingCatalogo() {
+    try {
+        const data = await apiGet('/grooming/catalogo');
+        catalogoGrooming = data || [];
+        renderTablaGroomingCatalogo(catalogoGrooming);
+        llenarSelectGroomingTipo();
+    } catch (error) {
+        showToast('Error cargando catálogo grooming: ' + error.message, 'error');
+    }
+}
+
+function renderTablaGroomingCatalogo(data) {
+    const tbody = document.getElementById('tabla-grooming-catalogo');
+    if (!tbody) return;
+    if (!data.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Sin servicios en catálogo</td></tr>';
+        return;
+    }
+    tbody.innerHTML = data.map(item => `
+        <tr>
+            <td>${item.nombre}</td>
+            <td>$${parseFloat(item.precio || 0).toFixed(2)}</td>
+            <td>${item.duracion_minutos ? item.duracion_minutos + ' min' : '-'}</td>
+            <td>
+                <button class="btn btn-sm btn-danger" onclick="eliminarGroomingCatalogo('${item.id}')">🗑</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+async function handleNuevoGroomingCatalogo() {
+    const nombre  = document.getElementById('nuevo-grooming-nombre')?.value?.trim();
+    const precio  = parseFloat(document.getElementById('nuevo-grooming-precio')?.value || 0);
+    const duracion = parseInt(document.getElementById('nuevo-grooming-duracion')?.value || 0) || null;
+
+    if (!nombre || !precio) { showToast('Nombre y precio son requeridos', 'error'); return; }
+
+    try {
+        showLoading();
+        await apiPost('/grooming/catalogo', { nombre, precio, duracion_minutos: duracion });
+        document.getElementById('nuevo-grooming-nombre').value = '';
+        document.getElementById('nuevo-grooming-precio').value = '';
+        if (document.getElementById('nuevo-grooming-duracion')) document.getElementById('nuevo-grooming-duracion').value = '';
+        await cargarGroomingCatalogo();
+        hideLoading();
+        showToast('Servicio de grooming agregado', 'success');
+    } catch (error) {
+        hideLoading();
+        showToast(error.message, 'error');
+    }
+}
+
+async function eliminarGroomingCatalogo(id) {
+    if (!confirm('¿Eliminar este servicio del catálogo?')) return;
+    try {
+        showLoading();
+        await apiDelete(`/grooming/catalogo/${id}`);
+        await cargarGroomingCatalogo();
+        hideLoading();
+        showToast('Servicio eliminado', 'success');
+    } catch (error) {
+        hideLoading();
+        showToast(error.message, 'error');
+    }
+}
+
+function llenarSelectGroomingTipo() {
+    const select = document.getElementById('grooming-tipo');
+    if (!select) return;
+    select.innerHTML = '<option value="">-- Seleccionar servicio --</option>';
+    catalogoGrooming.forEach(s => {
+        select.innerHTML += `<option value="${s.nombre}" data-id="${s.id}" data-precio="${s.precio}">${s.nombre} - $${s.precio}</option>`;
+    });
+    // Auto-rellenar precio al elegir servicio
+    select.onchange = () => {
+        const opt = select.options[select.selectedIndex];
+        const precioInput = document.getElementById('grooming-precio');
+        if (opt?.dataset.precio && precioInput) precioInput.value = opt.dataset.precio;
+    };
+}
+
+// ============================================
+// GROOMING - CITAS
+// ============================================
+async function cargarGroomingCitas() {
+    try {
+        const desde    = document.getElementById('filtro-grooming-desde')?.value || '';
+        const hasta    = document.getElementById('filtro-grooming-hasta')?.value || '';
+        const estado   = document.getElementById('filtro-grooming-estado')?.value || '';
+        const params   = [];
+        if (desde)  params.push(`fecha_inicio=${desde}`);
+        if (hasta)  params.push(`fecha_fin=${hasta}`);
+        if (estado) params.push(`estado=${estado}`);
+        const qs = params.length ? '?' + params.join('&') : '';
+        const data = await apiGet(`/grooming/citas${qs}`);
+        renderTablaGroomingCitas(data || []);
+    } catch (error) {
+        showToast('Error cargando citas de grooming: ' + error.message, 'error');
+    }
+}
+
+function renderTablaGroomingCitas(data) {
+    const tbody = document.getElementById('tabla-grooming-citas');
+    if (!tbody) return;
+    if (!data.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Sin citas registradas</td></tr>';
+        return;
+    }
+    tbody.innerHTML = data.map(c => {
+        const perro = c.perros || {};
+        const dueno = perro.propietarios || {};
+        const estadoBadge = c.estado === 'Completada' ? 'badge-success' :
+                            c.estado === 'Cancelada'  ? 'badge-danger'  : 'badge-warning';
+        return `
+            <tr>
+                <td>${formatDate(c.fecha)}${c.hora ? ' ' + c.hora.substring(0,5) : ''}</td>
+                <td>${perro.nombre || 'N/A'}</td>
+                <td>${dueno.nombre || '-'}</td>
+                <td>${c.tipo_grooming || '-'}</td>
+                <td>$${parseFloat(c.precio || 0).toFixed(2)}</td>
+                <td><span class="badge ${estadoBadge}">${c.estado || 'Pendiente'}</span></td>
+                <td>
+                    ${!c.enviado_caja
+                        ? `<button class="btn btn-sm btn-success" onclick="enviarGroomingACaja('${c.id}')">💵 Caja</button>`
+                        : '<span class="text-muted" style="font-size:0.8rem;">En caja ✓</span>'
+                    }
+                    <button class="btn btn-sm btn-danger" onclick="eliminarGroomingCita('${c.id}')">🗑</button>
+                </td>
+            </tr>`;
+    }).join('');
+}
+
+async function handleNuevaGroomingCita() {
+    const perroId = document.getElementById('grooming-perro')?.value;
+    const tipo    = document.getElementById('grooming-tipo')?.value;
+    const fecha   = document.getElementById('grooming-fecha')?.value;
+    const hora    = document.getElementById('grooming-hora')?.value || null;
+    const precio  = parseFloat(document.getElementById('grooming-precio')?.value || 0);
+    const notas   = document.getElementById('grooming-notas')?.value?.trim() || null;
+
+    if (!perroId || !tipo || !fecha || !precio) {
+        showToast('Perro, tipo, fecha y precio son requeridos', 'error');
+        return;
+    }
+
+    const tipoSelect  = document.getElementById('grooming-tipo');
+    const opt         = tipoSelect?.options[tipoSelect.selectedIndex];
+    const catalogoId  = opt?.dataset.id || null;
+
+    try {
+        showLoading();
+        await apiPost('/grooming/citas', {
+            perro_id: perroId,
+            catalogo_grooming_id: catalogoId,
+            tipo_grooming: tipo,
+            fecha, hora, precio, notas,
+            estado: 'Pendiente'
+        });
+        document.getElementById('grooming-perro').value  = '';
+        document.getElementById('grooming-tipo').value   = '';
+        document.getElementById('grooming-fecha').value  = '';
+        if (document.getElementById('grooming-hora'))   document.getElementById('grooming-hora').value   = '';
+        if (document.getElementById('grooming-precio')) document.getElementById('grooming-precio').value = '';
+        if (document.getElementById('grooming-notas'))  document.getElementById('grooming-notas').value  = '';
+        await cargarGroomingCitas();
+        hideLoading();
+        showToast('Cita de grooming registrada', 'success');
+    } catch (error) {
+        hideLoading();
+        showToast(error.message, 'error');
+    }
+}
+
+async function enviarGroomingACaja(id) {
+    if (!confirm('¿Enviar este servicio de grooming a caja?')) return;
+    try {
+        showLoading();
+        await apiPost(`/grooming/citas/${id}/enviar-caja`, {});
+        await cargarGroomingCitas();
+        hideLoading();
+        showToast('Grooming enviado a caja exitosamente', 'success');
+    } catch (error) {
+        hideLoading();
+        showToast(error.message, 'error');
+    }
+}
+
+async function eliminarGroomingCita(id) {
+    if (!confirm('¿Eliminar esta cita de grooming?')) return;
+    try {
+        showLoading();
+        await apiDelete(`/grooming/citas/${id}`);
+        await cargarGroomingCitas();
+        hideLoading();
+        showToast('Cita eliminada', 'success');
+    } catch (error) {
+        hideLoading();
+        showToast(error.message, 'error');
+    }
+}
+
+// ============================================
+// OPERACIONES - ALIMENTACIÓN
+// ============================================
+async function cargarAlimentacion() {
+    try {
+        const fecha   = document.getElementById('filtro-alim-fecha')?.value || '';
+        const perroId = document.getElementById('filtro-alim-perro')?.value || '';
+        const params  = [];
+        if (fecha)   params.push(`fecha=${fecha}`);
+        if (perroId) params.push(`perro_id=${perroId}`);
+        const qs = params.length ? '?' + params.join('&') : '';
+        const data = await apiGet(`/alimentacion${qs}`);
+        renderTablaAlimentacion(data || []);
+    } catch (error) {
+        showToast('Error cargando alimentación: ' + error.message, 'error');
+    }
+}
+
+function renderTablaAlimentacion(data) {
+    const tbody = document.getElementById('tabla-alimentacion');
+    if (!tbody) return;
+    if (!data.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Sin registros de alimentación</td></tr>';
+        return;
+    }
+    tbody.innerHTML = data.map(r => {
+        const perro     = r.perros || {};
+        const comioText = r.comio === true ? '✅ Sí' : r.comio === false ? '❌ No' : '-';
+        return `
+            <tr>
+                <td>${formatDate(r.fecha)}${r.hora ? ' ' + r.hora.substring(0,5) : ''}</td>
+                <td>${perro.nombre || 'N/A'}</td>
+                <td>${r.cantidad_g ? r.cantidad_g + ' g' : '-'}</td>
+                <td>${comioText}</td>
+                <td>${r.notas || '-'}</td>
+                <td><button class="btn btn-sm btn-danger" onclick="eliminarAlimentacion('${r.id}')">🗑</button></td>
+            </tr>`;
+    }).join('');
+}
+
+async function handleNuevaAlimentacion() {
+    const perroId  = document.getElementById('alim-perro')?.value;
+    const fecha    = document.getElementById('alim-fecha')?.value;
+    const hora     = document.getElementById('alim-hora')?.value || null;
+    const cantidad = parseFloat(document.getElementById('alim-cantidad')?.value || 0) || null;
+    const comioVal = document.getElementById('alim-comio')?.value;
+    const comio    = comioVal === 'si' ? true : comioVal === 'no' ? false : null;
+    const notas    = document.getElementById('alim-notas')?.value?.trim() || null;
+
+    if (!perroId || !fecha) { showToast('Perro y fecha son requeridos', 'error'); return; }
+
+    try {
+        showLoading();
+        await apiPost('/alimentacion', { perro_id: perroId, fecha, hora, cantidad_g: cantidad, comio, notas });
+        document.getElementById('alim-perro').value  = '';
+        document.getElementById('alim-fecha').value  = '';
+        if (document.getElementById('alim-hora'))     document.getElementById('alim-hora').value     = '';
+        if (document.getElementById('alim-cantidad')) document.getElementById('alim-cantidad').value = '';
+        if (document.getElementById('alim-comio'))    document.getElementById('alim-comio').value    = '';
+        if (document.getElementById('alim-notas'))    document.getElementById('alim-notas').value    = '';
+        await cargarAlimentacion();
+        hideLoading();
+        showToast('Registro de alimentación guardado', 'success');
+    } catch (error) {
+        hideLoading();
+        showToast(error.message, 'error');
+    }
+}
+
+async function eliminarAlimentacion(id) {
+    if (!confirm('¿Eliminar este registro?')) return;
+    try {
+        showLoading();
+        await apiDelete(`/alimentacion/${id}`);
+        await cargarAlimentacion();
+        hideLoading();
+        showToast('Registro eliminado', 'success');
+    } catch (error) {
+        hideLoading();
+        showToast(error.message, 'error');
+    }
+}
+
+// ============================================
+// OPERACIONES - MEDICAMENTOS
+// ============================================
+async function cargarMedicamentos() {
+    try {
+        const fecha   = document.getElementById('filtro-med-fecha')?.value || '';
+        const params  = [];
+        if (fecha) params.push(`fecha=${fecha}`);
+        const qs = params.length ? '?' + params.join('&') : '';
+        const data = await apiGet(`/medicamentos-log${qs}`);
+        renderTablaMedicamentos(data || []);
+    } catch (error) {
+        showToast('Error cargando medicamentos: ' + error.message, 'error');
+    }
+}
+
+function renderTablaMedicamentos(data) {
+    const tbody = document.getElementById('tabla-medicamentos');
+    if (!tbody) return;
+    if (!data.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Sin registros de medicamentos</td></tr>';
+        return;
+    }
+    tbody.innerHTML = data.map(r => {
+        const perro = r.perros || {};
+        return `
+            <tr>
+                <td>${formatDate(r.fecha)}${r.hora ? ' ' + r.hora.substring(0,5) : ''}</td>
+                <td>${perro.nombre || 'N/A'}</td>
+                <td>${r.medicamento || '-'}</td>
+                <td>${r.dosis || '-'}</td>
+                <td>${r.administrado_por || '-'}</td>
+                <td><button class="btn btn-sm btn-danger" onclick="eliminarMedicamento('${r.id}')">🗑</button></td>
+            </tr>`;
+    }).join('');
+}
+
+async function handleNuevoMedicamento() {
+    const perroId  = document.getElementById('med-perro')?.value;
+    const nombre   = document.getElementById('med-nombre')?.value?.trim();
+    const dosis    = document.getElementById('med-dosis')?.value?.trim() || null;
+    const fecha    = document.getElementById('med-fecha')?.value;
+    const hora     = document.getElementById('med-hora')?.value || null;
+    const personal = document.getElementById('med-personal')?.value?.trim() || null;
+
+    if (!perroId || !nombre || !fecha) {
+        showToast('Perro, medicamento y fecha son requeridos', 'error');
+        return;
+    }
+
+    try {
+        showLoading();
+        await apiPost('/medicamentos-log', {
+            perro_id: perroId, medicamento: nombre, dosis, fecha, hora, administrado_por: personal
+        });
+        document.getElementById('med-perro').value  = '';
+        document.getElementById('med-nombre').value = '';
+        document.getElementById('med-fecha').value  = '';
+        if (document.getElementById('med-dosis'))     document.getElementById('med-dosis').value    = '';
+        if (document.getElementById('med-hora'))      document.getElementById('med-hora').value     = '';
+        if (document.getElementById('med-personal'))  document.getElementById('med-personal').value = '';
+        await cargarMedicamentos();
+        hideLoading();
+        showToast('Medicamento registrado', 'success');
+    } catch (error) {
+        hideLoading();
+        showToast(error.message, 'error');
+    }
+}
+
+async function eliminarMedicamento(id) {
+    if (!confirm('¿Eliminar este registro?')) return;
+    try {
+        showLoading();
+        await apiDelete(`/medicamentos-log/${id}`);
+        await cargarMedicamentos();
+        hideLoading();
+        showToast('Registro eliminado', 'success');
+    } catch (error) {
+        hideLoading();
+        showToast(error.message, 'error');
+    }
+}
+
+// ============================================
+// OPERACIONES - NOTAS DE ESTANCIA
+// ============================================
+function llenarSelectNotasEstancia() {
+    const select = document.getElementById('notas-estancia-select');
+    if (!select) return;
+    const activas = estancias.filter(e => e.estado === 'Activa');
+    select.innerHTML = '<option value="">-- Seleccionar estancia activa --</option>';
+    activas.forEach(e => {
+        const perro      = perros.find(p => p.id === e.perro_id);
+        const nombrePerro = perro?.nombre || 'Perro';
+        select.innerHTML += `<option value="${e.id}">${nombrePerro} — Entrada: ${formatDate(e.fecha_entrada)}</option>`;
+    });
+}
+
+async function cargarNotasEstancia() {
+    const estanciaId = document.getElementById('notas-estancia-select')?.value;
+    const panel      = document.getElementById('panel-notas-estancia');
+    if (!estanciaId) {
+        if (panel) panel.classList.add('hidden');
+        return;
+    }
+    if (panel) panel.classList.remove('hidden');
+    try {
+        const data = await apiGet(`/notas-estancia/${estanciaId}`);
+        renderNotasEstancia(data || []);
+    } catch (error) {
+        showToast('Error cargando notas: ' + error.message, 'error');
+    }
+}
+
+function renderNotasEstancia(data) {
+    const container = document.getElementById('lista-notas-estancia');
+    if (!container) return;
+    if (!data.length) {
+        container.innerHTML = '<p class="text-muted">Sin notas aún.</p>';
+        return;
+    }
+    container.innerHTML = data.map(n => `
+        <div class="card mb-2" style="padding:0.75rem;">
+            <div class="flex-between">
+                <span style="font-size:0.8rem; color:var(--color-text-muted);">
+                    ✍️ ${n.autor || 'Sistema'} · ${formatDate(n.created_at)}
+                </span>
+                <button class="btn btn-sm btn-danger" onclick="eliminarNotaEstancia('${n.id}')">🗑</button>
+            </div>
+            <p style="margin:0.25rem 0 0; font-size:0.9rem;">${n.nota || ''}</p>
+        </div>
+    `).join('');
+}
+
+async function handleNuevaNotaEstancia() {
+    const estanciaId = document.getElementById('notas-estancia-select')?.value;
+    const nota       = document.getElementById('nota-texto')?.value?.trim();
+    const autor      = document.getElementById('nota-autor')?.value?.trim() || null;
+
+    if (!estanciaId || !nota) {
+        showToast('Selecciona una estancia y escribe la nota', 'error');
+        return;
+    }
+
+    try {
+        showLoading();
+        await apiPost('/notas-estancia', { estancia_id: estanciaId, nota, autor });
+        document.getElementById('nota-texto').value = '';
+        await cargarNotasEstancia();
+        hideLoading();
+        showToast('Nota guardada', 'success');
+    } catch (error) {
+        hideLoading();
+        showToast(error.message, 'error');
+    }
+}
+
+async function eliminarNotaEstancia(id) {
+    if (!confirm('¿Eliminar esta nota?')) return;
+    try {
+        showLoading();
+        await apiDelete(`/notas-estancia/${id}`);
+        await cargarNotasEstancia();
+        hideLoading();
+        showToast('Nota eliminada', 'success');
+    } catch (error) {
+        hideLoading();
+        showToast(error.message, 'error');
+    }
+}
+
+// ============================================
+// HISTORIAL
+// ============================================
+async function cargarHistorial() {
+    const perroId  = document.getElementById('historial-perro-select')?.value;
+    const contenido = document.getElementById('historial-contenido');
+    if (!perroId) {
+        if (contenido) contenido.classList.add('hidden');
+        return;
+    }
+    try {
+        showLoading();
+        const data = await apiGet(`/historial/perro/${perroId}`);
+        hideLoading();
+        if (contenido) contenido.classList.remove('hidden');
+        renderHistorial(data);
+    } catch (error) {
+        hideLoading();
+        showToast('Error cargando historial: ' + error.message, 'error');
+    }
+}
+
+function renderHistorial(data) {
+    // KPIs
+    const visitasEl = document.getElementById('hist-visitas');
+    const totalEl   = document.getElementById('hist-total-pagado');
+    const paseosEl  = document.getElementById('hist-paseos');
+    if (visitasEl) visitasEl.textContent = data.num_visitas || 0;
+    if (totalEl)   totalEl.textContent   = `$${(data.total_pagado || 0).toFixed(2)}`;
+    if (paseosEl)  paseosEl.textContent  = data.paseos?.length || 0;
+
+    // Tabla estancias
+    const tbodyEst = document.getElementById('hist-tabla-estancias');
+    if (tbodyEst) {
+        if (!data.estancias?.length) {
+            tbodyEst.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Sin estancias registradas</td></tr>';
+        } else {
+            tbodyEst.innerHTML = data.estancias.map(e => `
+                <tr>
+                    <td>${formatDate(e.fecha_entrada)}</td>
+                    <td>${formatDate(e.fecha_salida)}</td>
+                    <td>${e.habitacion || '-'}</td>
+                    <td><span class="badge ${e.estado === 'Activa' ? 'badge-success' : 'badge-secondary'}">${e.estado}</span></td>
+                    <td>$${parseFloat(e.total_estimado || 0).toFixed(2)}</td>
+                </tr>
+            `).join('');
+        }
+    }
+
+    // Tabla tickets
+    const tbodyTk = document.getElementById('hist-tabla-tickets');
+    if (tbodyTk) {
+        if (!data.tickets?.length) {
+            tbodyTk.innerHTML = '<tr><td colspan="3" class="text-center text-muted">Sin tickets registrados</td></tr>';
+        } else {
+            tbodyTk.innerHTML = data.tickets.map(t => `
+                <tr>
+                    <td>${formatDate(t.fecha)}</td>
+                    <td>${t.metodo_pago || '-'}</td>
+                    <td>$${parseFloat(t.total || 0).toFixed(2)}</td>
+                </tr>
+            `).join('');
+        }
+    }
+}
+
+// ============================================
+// REPORTES
+// ============================================
+function setRangoReporte(tipo) {
+    const hoy = new Date();
+    let inicio, fin;
+    fin = hoy.toISOString().split('T')[0];
+
+    if (tipo === 'hoy') {
+        inicio = fin;
+    } else if (tipo === 'semana') {
+        const lunes = new Date(hoy);
+        lunes.setDate(hoy.getDate() - ((hoy.getDay() + 6) % 7)); // lunes
+        inicio = lunes.toISOString().split('T')[0];
+    } else if (tipo === 'mes') {
+        inicio = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-01`;
+    } else if (tipo === 'anio') {
+        inicio = `${hoy.getFullYear()}-01-01`;
+    } else {
+        inicio = fin;
+    }
+
+    const inicioEl = document.getElementById('rep-fecha-inicio');
+    const finEl    = document.getElementById('rep-fecha-fin');
+    if (inicioEl) inicioEl.value = inicio;
+    if (finEl)    finEl.value    = fin;
+    ejecutarReporte();
+}
+
+async function ejecutarReporte() {
+    const inicio = document.getElementById('rep-fecha-inicio')?.value;
+    const fin    = document.getElementById('rep-fecha-fin')?.value;
+    if (!inicio || !fin) { showToast('Selecciona fechas de inicio y fin', 'error'); return; }
+
+    try {
+        showLoading();
+        const [ingresos, conceptos, ocupacion, frecuentes] = await Promise.all([
+            apiGet(`/reportes/ingresos?fecha_inicio=${inicio}&fecha_fin=${fin}`),
+            apiGet(`/reportes/cargos-por-concepto?fecha_inicio=${inicio}&fecha_fin=${fin}`),
+            apiGet(`/reportes/ocupacion?fecha_inicio=${inicio}&fecha_fin=${fin}`),
+            apiGet('/reportes/clientes-frecuentes')
+        ]);
+        hideLoading();
+        renderReporteIngresos(ingresos);
+        renderReporteConceptos(conceptos);
+        renderReporteOcupacion(ocupacion);
+        renderReporteFrecuentes(frecuentes);
+        showToast('Reportes actualizados', 'success');
+    } catch (error) {
+        hideLoading();
+        showToast('Error generando reportes: ' + error.message, 'error');
+    }
+}
+
+function renderReporteIngresos(data) {
+    // KPIs principales
+    const totalEl   = document.getElementById('rep-total');
+    const ticketsEl = document.getElementById('rep-num-tickets');
+    const promEl    = document.getElementById('rep-promedio');
+    if (totalEl)   totalEl.textContent   = `$${(data.total || 0).toFixed(2)}`;
+    if (ticketsEl) ticketsEl.textContent = data.num_tickets || 0;
+    if (promEl) {
+        const prom = data.num_tickets > 0 ? data.total / data.num_tickets : 0;
+        promEl.textContent = `$${prom.toFixed(2)}`;
+    }
+
+    // Gráfica de barras por día (HTML puro)
+    const graficaEl = document.getElementById('rep-grafica-dias');
+    if (graficaEl) {
+        if (data.por_dia?.length) {
+            const maxVal = Math.max(...data.por_dia.map(d => d.total), 1);
+            graficaEl.innerHTML = `
+                <div style="display:flex; align-items:flex-end; gap:4px; height:120px; padding:0.5rem 0; overflow-x:auto;">
+                    ${data.por_dia.map(d => {
+                        const pct = Math.round((d.total / maxVal) * 100);
+                        const dia = d.fecha.split('-').slice(1).join('/');
+                        return `
+                            <div style="display:flex; flex-direction:column; align-items:center; min-width:36px; flex:1;">
+                                <span style="font-size:0.65rem; color:var(--color-text-muted);">$${d.total.toFixed(0)}</span>
+                                <div style="width:100%; background:var(--color-primary); border-radius:3px 3px 0 0; height:${pct}%; min-height:4px; transition:height 0.3s;"></div>
+                                <span style="font-size:0.65rem; color:var(--color-text-muted); margin-top:2px;">${dia}</span>
+                            </div>`;
+                    }).join('')}
+                </div>`;
+        } else {
+            graficaEl.innerHTML = '<p class="text-muted text-center">Sin datos para graficar</p>';
+        }
+    }
+
+    // Por método de pago
+    const metodosEl = document.getElementById('rep-tabla-metodos');
+    if (metodosEl) {
+        if (!data.por_metodo?.length) {
+            metodosEl.innerHTML = '<tr><td colspan="2" class="text-center text-muted">Sin datos</td></tr>';
+        } else {
+            metodosEl.innerHTML = data.por_metodo.map(m => `
+                <tr>
+                    <td>${m.metodo}</td>
+                    <td><strong>$${m.total.toFixed(2)}</strong></td>
+                </tr>
+            `).join('');
+        }
+    }
+
+    // Lista de tickets del período
+    const ticketsTbody = document.getElementById('rep-tabla-tickets');
+    if (ticketsTbody) {
+        if (!data.tickets?.length) {
+            ticketsTbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Sin tickets en el período</td></tr>';
+        } else {
+            ticketsTbody.innerHTML = data.tickets.map(t => `
+                <tr>
+                    <td>${formatDate(t.fecha)}</td>
+                    <td>${t.perros?.nombre || '-'}</td>
+                    <td>${t.metodo_pago || '-'}</td>
+                    <td>$${parseFloat(t.total || 0).toFixed(2)}</td>
+                </tr>
+            `).join('');
+        }
+    }
+}
+
+function renderReporteConceptos(data) {
+    const tbody = document.getElementById('rep-tabla-conceptos');
+    if (!tbody) return;
+    if (!data.por_concepto?.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Sin datos en el período</td></tr>';
+        return;
+    }
+    tbody.innerHTML = data.por_concepto.map(c => `
+        <tr>
+            <td>${c.concepto}</td>
+            <td>$${c.total.toFixed(2)}</td>
+            <td class="text-success">$${c.pagado.toFixed(2)}</td>
+            <td style="color:#FF6666;">$${c.pendiente.toFixed(2)}</td>
+        </tr>
+    `).join('');
+}
+
+function renderReporteOcupacion(data) {
+    const totalEl = document.getElementById('rep-total-estancias');
+    if (totalEl) totalEl.textContent = data.total_estancias || 0;
+
+    const tbody = document.getElementById('rep-tabla-ocupacion');
+    if (!tbody) return;
+    if (!data.por_habitacion?.length) {
+        tbody.innerHTML = '<tr><td colspan="2" class="text-center text-muted">Sin datos en el período</td></tr>';
+        return;
+    }
+    tbody.innerHTML = data.por_habitacion.map(h => `
+        <tr>
+            <td>${h.habitacion}</td>
+            <td><strong>${h.estancias}</strong></td>
+        </tr>
+    `).join('');
+}
+
+function renderReporteFrecuentes(data) {
+    const tbody = document.getElementById('rep-tabla-frecuentes');
+    if (!tbody) return;
+    if (!data.clientes?.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Sin datos</td></tr>';
+        return;
+    }
+    tbody.innerHTML = data.clientes.map((c, i) => `
+        <tr>
+            <td>${i + 1}</td>
+            <td>${c.nombre}</td>
+            <td>${c.propietario}</td>
+            <td><strong>${c.visitas}</strong></td>
+        </tr>
+    `).join('');
+}
+
+// ============================================
+// PERSONAL
+// ============================================
+async function cargarPersonal() {
+    try {
+        const data = await apiGet('/personal');
+        personalList = data || [];
+        renderTablaPersonal(personalList);
+        llenarSelectPersonal();
+    } catch (error) {
+        showToast('Error cargando personal: ' + error.message, 'error');
+    }
+}
+
+function renderTablaPersonal(data) {
+    const tbody = document.getElementById('tabla-personal');
+    if (!tbody) return;
+    if (!data.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Sin empleados registrados</td></tr>';
+        return;
+    }
+    tbody.innerHTML = data.map(p => `
+        <tr>
+            <td>${p.nombre}</td>
+            <td>${p.cargo || '-'}</td>
+            <td>${p.telefono || '-'}</td>
+            <td><button class="btn btn-sm btn-danger" onclick="eliminarPersonal('${p.id}')">🗑</button></td>
+        </tr>
+    `).join('');
+}
+
+async function handleNuevoPersonal() {
+    const nombre   = document.getElementById('personal-nombre')?.value?.trim();
+    const cargo    = document.getElementById('personal-cargo')?.value?.trim() || null;
+    const telefono = document.getElementById('personal-telefono')?.value?.trim() || null;
+
+    if (!nombre) { showToast('El nombre es requerido', 'error'); return; }
+
+    try {
+        showLoading();
+        await apiPost('/personal', { nombre, cargo, telefono });
+        document.getElementById('personal-nombre').value  = '';
+        if (document.getElementById('personal-cargo'))    document.getElementById('personal-cargo').value    = '';
+        if (document.getElementById('personal-telefono')) document.getElementById('personal-telefono').value = '';
+        await cargarPersonal();
+        hideLoading();
+        showToast('Empleado registrado', 'success');
+    } catch (error) {
+        hideLoading();
+        showToast(error.message, 'error');
+    }
+}
+
+async function eliminarPersonal(id) {
+    if (!confirm('¿Desactivar este empleado?')) return;
+    try {
+        showLoading();
+        await apiDelete(`/personal/${id}`);
+        await cargarPersonal();
+        hideLoading();
+        showToast('Empleado desactivado', 'success');
+    } catch (error) {
+        hideLoading();
+        showToast(error.message, 'error');
+    }
+}
+
+// Llena el select de personal en el formulario de medicamentos
+function llenarSelectPersonal() {
+    const select = document.getElementById('med-personal');
+    if (!select) return;
+    const valorActual = select.value;
+    select.innerHTML = '<option value="">-- Personal --</option>';
+    personalList.forEach(p => {
+        select.innerHTML += `<option value="${p.nombre}">${p.nombre}${p.cargo ? ' (' + p.cargo + ')' : ''}</option>`;
+    });
+    if (valorActual) select.value = valorActual;
+}
+
+// ============================================
+// INVENTARIO
+// ============================================
+async function cargarInventario() {
+    try {
+        const data = await apiGet('/inventario');
+        inventarioItems = data || [];
+        renderTablaInventario(inventarioItems);
+        llenarSelectInventario();
+    } catch (error) {
+        showToast('Error cargando inventario: ' + error.message, 'error');
+    }
+}
+
+function renderTablaInventario(data) {
+    const tbody = document.getElementById('tabla-inventario');
+    if (!tbody) return;
+    if (!data.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Sin artículos registrados</td></tr>';
+        return;
+    }
+    tbody.innerHTML = data.map(item => {
+        const bajoBadge = item.bajo_minimo
+            ? '<span class="badge badge-danger" style="font-size:0.7rem;">⚠️ Bajo</span>'
+            : '';
+        const stockStyle = item.bajo_minimo ? 'style="color:#FF6666; font-weight:700;"' : '';
+        return `
+            <tr>
+                <td>${item.nombre} ${bajoBadge}</td>
+                <td>${item.categoria || '-'}</td>
+                <td ${stockStyle}>${item.stock_actual}</td>
+                <td>${item.stock_minimo || 0}</td>
+                <td>${item.unidad || '-'}</td>
+                <td>
+                    <button class="btn btn-sm btn-secondary" title="Ver movimientos" onclick="cargarMovimientosItem('${item.id}', '${item.nombre.replace(/'/g, '')}')">📋</button>
+                    <button class="btn btn-sm btn-danger" onclick="eliminarInventarioItem('${item.id}')">🗑</button>
+                </td>
+            </tr>`;
+    }).join('');
+}
+
+async function handleNuevoInventarioItem() {
+    const nombre      = document.getElementById('inv-nombre')?.value?.trim();
+    const categoria   = document.getElementById('inv-categoria')?.value || null;
+    const unidad      = document.getElementById('inv-unidad')?.value?.trim() || null;
+    const stockInicial = parseFloat(document.getElementById('inv-stock-inicial')?.value || 0);
+    const stockMinimo  = parseFloat(document.getElementById('inv-stock-minimo')?.value || 0);
+
+    if (!nombre) { showToast('El nombre del artículo es requerido', 'error'); return; }
+
+    try {
+        showLoading();
+        await apiPost('/inventario', { nombre, categoria, unidad, stock_actual: stockInicial, stock_minimo: stockMinimo });
+        document.getElementById('inv-nombre').value = '';
+        if (document.getElementById('inv-categoria'))    document.getElementById('inv-categoria').value    = '';
+        if (document.getElementById('inv-unidad'))       document.getElementById('inv-unidad').value       = '';
+        if (document.getElementById('inv-stock-inicial')) document.getElementById('inv-stock-inicial').value = '';
+        if (document.getElementById('inv-stock-minimo'))  document.getElementById('inv-stock-minimo').value  = '';
+        await cargarInventario();
+        hideLoading();
+        showToast('Artículo registrado', 'success');
+    } catch (error) {
+        hideLoading();
+        showToast(error.message, 'error');
+    }
+}
+
+async function eliminarInventarioItem(id) {
+    if (!confirm('¿Eliminar este artículo del inventario?')) return;
+    try {
+        showLoading();
+        await apiDelete(`/inventario/${id}`);
+        await cargarInventario();
+        hideLoading();
+        showToast('Artículo eliminado', 'success');
+    } catch (error) {
+        hideLoading();
+        showToast(error.message, 'error');
+    }
+}
+
+// Rellena el select de artículos en el formulario de movimientos
+function llenarSelectInventario() {
+    const select = document.getElementById('mov-item');
+    if (!select) return;
+    const valorActual = select.value;
+    select.innerHTML = '<option value="">-- Seleccionar artículo --</option>';
+    inventarioItems.forEach(item => {
+        select.innerHTML += `<option value="${item.id}">${item.nombre} (Stock: ${item.stock_actual} ${item.unidad || ''})</option>`;
+    });
+    if (valorActual) select.value = valorActual;
+}
+
+async function handleMovimientoInventario() {
+    const itemId   = document.getElementById('mov-item')?.value;
+    const tipo     = document.getElementById('mov-tipo')?.value;
+    const cantidad = parseFloat(document.getElementById('mov-cantidad')?.value || 0);
+    const motivo   = document.getElementById('mov-motivo')?.value?.trim() || null;
+
+    if (!itemId || !tipo || !cantidad) {
+        showToast('Artículo, tipo y cantidad son requeridos', 'error');
+        return;
+    }
+
+    try {
+        showLoading();
+        await apiPost('/inventario/movimiento', { item_id: itemId, tipo, cantidad, motivo });
+        if (document.getElementById('mov-cantidad')) document.getElementById('mov-cantidad').value = '';
+        if (document.getElementById('mov-motivo'))   document.getElementById('mov-motivo').value   = '';
+        await Promise.all([cargarInventario(), cargarMovimientosItem(itemId, null, false)]);
+        hideLoading();
+        showToast(`Movimiento de ${tipo} registrado`, 'success');
+    } catch (error) {
+        hideLoading();
+        showToast(error.message, 'error');
+    }
+}
+
+async function cargarMovimientosItem(itemId, nombreItem = null, autoNavegar = true) {
+    try {
+        const panel = document.getElementById('panel-historial-movimientos');
+        if (panel) panel.classList.remove('hidden');
+
+        // Navegar a la pestaña de movimientos y pre-seleccionar el item
+        if (autoNavegar) {
+            const seccionInv = document.getElementById('section-inventario');
+            const tabBtn = seccionInv?.querySelector('[data-tab="inv-movimiento"]');
+            if (tabBtn) switchTab(tabBtn, 'inv-movimiento');
+            const movItemSelect = document.getElementById('mov-item');
+            if (movItemSelect) movItemSelect.value = itemId;
+        }
+
+        const data  = await apiGet(`/inventario/${itemId}/movimientos`);
+        const tbody = document.getElementById('tabla-movimientos');
+        if (!tbody) return;
+
+        if (!data?.length) {
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Sin movimientos registrados</td></tr>';
+            return;
+        }
+        tbody.innerHTML = data.map(m => {
+            const tipoColor = m.tipo === 'entrada' ? 'var(--color-primary)' : '#FF6666';
+            const signo     = m.tipo === 'entrada' ? '+' : '-';
+            return `
+                <tr>
+                    <td>${formatDate(m.created_at)}</td>
+                    <td style="color:${tipoColor}; font-weight:600;">${m.tipo === 'entrada' ? '📦 Entrada' : '📤 Salida'}</td>
+                    <td><strong>${signo}${m.cantidad}</strong></td>
+                    <td>${m.motivo || '-'}</td>
+                </tr>`;
+        }).join('');
+    } catch (error) {
+        showToast('Error cargando movimientos: ' + error.message, 'error');
+    }
+}
+
+// ============================================
 // VERIFICACIÓN FINAL
 // ============================================
-console.log(' ComfortCan México - App.js v4 cargado');
-console.log(' Módulos: Auth, Propietarios, Perros, Check-in, Paseos, Caja, Expedientes, Configuración');
+console.log('✅ ComfortCan México - App.js v5 cargado');
+console.log('📦 Módulos: Auth, Propietarios, Perros, Check-in, Paseos, Caja, Expedientes, Configuración');
+console.log('🆕 Nuevos: Dashboard, Grooming, Operaciones, Historial, Reportes, Personal, Inventario');
 console.log('💡 Tip: Ejecuta debugFotosPerros() en la consola para verificar acceso a las imágenes');

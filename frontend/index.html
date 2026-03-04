@@ -53,26 +53,47 @@
             </div>
             
             <nav class="sidebar-nav">
+                <a class="nav-item" data-section="dashboard">
+                    📊 Dashboard
+                </a>
                 <a class="nav-item active" data-section="recepcion">
-                    Recepcion (Altas)
+                    🐾 Recepcion (Altas)
                 </a>
                 <a class="nav-item" data-section="paseos">
-                    Paseos y Agenda
+                    🦮 Paseos y Agenda
+                </a>
+                <a class="nav-item" data-section="grooming">
+                    ✂️ Grooming
+                </a>
+                <a class="nav-item" data-section="operaciones">
+                    🍖 Operaciones del Día
                 </a>
                 <a class="nav-item" data-section="caja">
-                    Caja y Ticket
+                    💵 Caja y Ticket
                 </a>
                 <a class="nav-item" data-section="expedientes">
-                    Expedientes
+                    📋 Expedientes
+                </a>
+                <a class="nav-item" data-section="historial">
+                    🕐 Historial
+                </a>
+                <a class="nav-item" data-section="reportes">
+                    📈 Reportes
                 </a>
                 <a class="nav-item" data-section="gestion">
-                    Editar Datos
+                    ✏️ Editar Datos
                 </a>
                 <a class="nav-item" data-section="calendario">
-                    Calendario Ocupacion
+                    📅 Calendario
+                </a>
+                <a class="nav-item" data-section="personal">
+                    👥 Personal
+                </a>
+                <a class="nav-item" data-section="inventario">
+                    📦 Inventario
                 </a>
                 <a class="nav-item" data-section="configuracion">
-                    Servicios y Precios
+                    ⚙️ Servicios y Precios
                 </a>
             </nav>
             
@@ -84,6 +105,72 @@
         <!-- Main Content -->
         <main class="main-content">
             
+            <!-- ========== SECCIÓN: DASHBOARD ========== -->
+            <section id="section-dashboard" class="section">
+                <div class="page-header">
+                    <h1 class="page-title">Dashboard Operativo</h1>
+                    <button onclick="cargarDashboard()" class="btn btn-secondary">↻ Actualizar</button>
+                </div>
+
+                <!-- KPIs fila superior -->
+                <div class="form-row" id="dashboard-kpis" style="gap:12px; margin-bottom:16px;">
+                    <div class="card" style="flex:1; text-align:center; padding:16px;">
+                        <div style="font-size:2rem; font-weight:700; color:var(--color-primary);" id="kpi-activas">--</div>
+                        <div class="text-muted" style="font-size:.85rem;">Hospedados hoy</div>
+                    </div>
+                    <div class="card" style="flex:1; text-align:center; padding:16px;">
+                        <div style="font-size:2rem; font-weight:700; color:#e74c3c;" id="kpi-checkouts">--</div>
+                        <div class="text-muted" style="font-size:.85rem;">Check-outs pendientes</div>
+                    </div>
+                    <div class="card" style="flex:1; text-align:center; padding:16px;">
+                        <div style="font-size:2rem; font-weight:700; color:#f39c12;" id="kpi-paseos">--</div>
+                        <div class="text-muted" style="font-size:.85rem;">Paseos hoy</div>
+                    </div>
+                    <div class="card" style="flex:1; text-align:center; padding:16px;">
+                        <div style="font-size:2rem; font-weight:700; color:#e67e22;" id="kpi-monto-pend">--</div>
+                        <div class="text-muted" style="font-size:.85rem;">Por cobrar</div>
+                    </div>
+                    <div class="card" style="flex:1; text-align:center; padding:16px;">
+                        <div style="font-size:2rem; font-weight:700; color:#e74c3c;" id="kpi-vacunas">--</div>
+                        <div class="text-muted" style="font-size:.85rem;">Alertas vacunas</div>
+                    </div>
+                </div>
+
+                <div class="form-row" style="gap:16px; align-items:flex-start;">
+                    <!-- Hospedados hoy -->
+                    <div class="card" style="flex:1;">
+                        <h3 class="mb-2">🐕 Hospedados Ahora</h3>
+                        <div id="dashboard-hospedados">
+                            <p class="text-muted text-center">Cargando...</p>
+                        </div>
+                    </div>
+                    <!-- Check-outs pendientes -->
+                    <div class="card" style="flex:1;">
+                        <h3 class="mb-2" style="color:#e74c3c;">🚪 Check-Outs Pendientes</h3>
+                        <div id="dashboard-checkouts">
+                            <p class="text-muted text-center">Cargando...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-row" style="gap:16px; align-items:flex-start; margin-top:16px;">
+                    <!-- Paseos hoy -->
+                    <div class="card" style="flex:1;">
+                        <h3 class="mb-2">🦮 Paseos de Hoy</h3>
+                        <div id="dashboard-paseos-hoy">
+                            <p class="text-muted text-center">Cargando...</p>
+                        </div>
+                    </div>
+                    <!-- Alertas vacunas -->
+                    <div class="card" style="flex:1;">
+                        <h3 class="mb-2" style="color:#e74c3c;">⚠️ Alertas de Vacunas (30 días)</h3>
+                        <div id="dashboard-vacunas">
+                            <p class="text-muted text-center">Cargando...</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- ========== SECCIÓN: RECEPCIÓN ========== -->
             <section id="section-recepcion" class="section active">
                 <div class="page-header">
@@ -881,6 +968,570 @@
                 </div>
             </section>
             
+            <!-- ========== SECCIÓN: GROOMING ========== -->
+            <section id="section-grooming" class="section">
+                <div class="page-header">
+                    <h1 class="page-title">✂️ Grooming</h1>
+                </div>
+                <div class="tabs">
+                    <div class="tab active" data-tab="grooming-citas">Citas</div>
+                    <div class="tab" data-tab="grooming-catalogo">Catálogo</div>
+                </div>
+
+                <!-- Tab: Citas -->
+                <div id="tab-grooming-citas" class="tab-content active">
+                    <div class="card">
+                        <h3 class="mb-2">Nueva Cita de Grooming</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Perro *</label>
+                                <select id="grooming-perro" class="form-select"></select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Tipo de Grooming *</label>
+                                <select id="grooming-tipo" class="form-select">
+                                    <option value="">-- Seleccionar --</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Fecha *</label>
+                                <input type="date" id="grooming-fecha" class="form-input">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Hora</label>
+                                <input type="time" id="grooming-hora" class="form-input">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Precio *</label>
+                                <input type="number" step="0.01" id="grooming-precio" class="form-input" placeholder="0.00">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Notas</label>
+                            <input type="text" id="grooming-notas" class="form-input" placeholder="Ej: corte específico, alergia a shampoo...">
+                        </div>
+                        <button onclick="handleNuevaGroomingCita()" class="btn btn-primary">Agendar Cita</button>
+                    </div>
+
+                    <!-- Filtros -->
+                    <div class="card mt-2">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Desde</label>
+                                <input type="date" id="filtro-grooming-desde" class="form-input" onchange="cargarGroomingCitas()">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Hasta</label>
+                                <input type="date" id="filtro-grooming-hasta" class="form-input" onchange="cargarGroomingCitas()">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Estado</label>
+                                <select id="filtro-grooming-estado" class="form-select" onchange="cargarGroomingCitas()">
+                                    <option value="">Todos</option>
+                                    <option value="Pendiente">Pendiente</option>
+                                    <option value="En proceso">En proceso</option>
+                                    <option value="Completado">Completado</option>
+                                    <option value="Cancelado">Cancelado</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card mt-2">
+                        <div class="table-container">
+                            <table class="table">
+                                <thead><tr>
+                                    <th>Perro</th><th>Dueño</th><th>Fecha</th><th>Hora</th>
+                                    <th>Tipo</th><th>Precio</th><th>Estado</th><th>Acciones</th>
+                                </tr></thead>
+                                <tbody id="tabla-grooming-citas">
+                                    <tr><td colspan="8" class="text-center text-muted">Cargando...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Catálogo -->
+                <div id="tab-grooming-catalogo" class="tab-content">
+                    <div class="card">
+                        <h3 class="mb-2">Nuevo Servicio de Grooming</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Nombre *</label>
+                                <input type="text" id="nuevo-grooming-nombre" class="form-input" placeholder="Ej: Baño y corte completo">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Precio Base *</label>
+                                <input type="number" step="0.01" id="nuevo-grooming-precio" class="form-input">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Duración (min)</label>
+                                <input type="number" id="nuevo-grooming-duracion" class="form-input" value="60">
+                            </div>
+                        </div>
+                        <button onclick="handleNuevoGroomingCatalogo()" class="btn btn-primary">Agregar Servicio</button>
+                    </div>
+                    <div class="card mt-2">
+                        <div class="table-container">
+                            <table class="table">
+                                <thead><tr><th>Nombre</th><th>Precio</th><th>Duración</th><th>Acciones</th></tr></thead>
+                                <tbody id="tabla-grooming-catalogo">
+                                    <tr><td colspan="4" class="text-center text-muted">Cargando...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ========== SECCIÓN: OPERACIONES DEL DÍA ========== -->
+            <section id="section-operaciones" class="section">
+                <div class="page-header">
+                    <h1 class="page-title">🍖 Operaciones del Día</h1>
+                </div>
+                <div class="tabs">
+                    <div class="tab active" data-tab="ops-alimentacion">Alimentación</div>
+                    <div class="tab" data-tab="ops-medicamentos">Medicamentos</div>
+                    <div class="tab" data-tab="ops-notas">Notas de Estancia</div>
+                </div>
+
+                <!-- Tab: Alimentación -->
+                <div id="tab-ops-alimentacion" class="tab-content active">
+                    <div class="card">
+                        <h3 class="mb-2">Registrar Alimentación</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Perro *</label>
+                                <select id="alim-perro" class="form-select"></select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Fecha *</label>
+                                <input type="date" id="alim-fecha" class="form-input">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Hora</label>
+                                <input type="time" id="alim-hora" class="form-input">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Cantidad (g)</label>
+                                <input type="number" id="alim-cantidad" class="form-input" placeholder="Ej: 250">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">¿Comió?</label>
+                                <select id="alim-comio" class="form-select">
+                                    <option value="true">Sí comió</option>
+                                    <option value="false">No comió</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Notas</label>
+                            <input type="text" id="alim-notas" class="form-input" placeholder="Observaciones...">
+                        </div>
+                        <button onclick="handleNuevaAlimentacion()" class="btn btn-primary">Registrar</button>
+                    </div>
+                    <div class="card mt-2">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Filtrar por fecha</label>
+                                <input type="date" id="filtro-alim-fecha" class="form-input" onchange="cargarAlimentacion()">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Perro</label>
+                                <select id="filtro-alim-perro" class="form-select" onchange="cargarAlimentacion()">
+                                    <option value="">Todos</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="table-container mt-2">
+                            <table class="table">
+                                <thead><tr><th>Perro</th><th>Fecha</th><th>Hora</th><th>¿Comió?</th><th>Cantidad</th><th>Notas</th><th></th></tr></thead>
+                                <tbody id="tabla-alimentacion">
+                                    <tr><td colspan="7" class="text-center text-muted">Selecciona una fecha</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Medicamentos -->
+                <div id="tab-ops-medicamentos" class="tab-content">
+                    <div class="card">
+                        <h3 class="mb-2">Registrar Medicamento Administrado</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Perro *</label>
+                                <select id="med-perro" class="form-select"></select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Medicamento *</label>
+                                <input type="text" id="med-nombre" class="form-input" placeholder="Ej: Rimadyl 100mg">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Dosis</label>
+                                <input type="text" id="med-dosis" class="form-input" placeholder="Ej: 1 tableta">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Fecha *</label>
+                                <input type="date" id="med-fecha" class="form-input">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Hora</label>
+                                <input type="time" id="med-hora" class="form-input">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Administrado por</label>
+                                <select id="med-personal" class="form-select">
+                                    <option value="">-- Seleccionar --</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button onclick="handleNuevoMedicamento()" class="btn btn-primary">Registrar</button>
+                    </div>
+                    <div class="card mt-2">
+                        <div class="form-group">
+                            <label class="form-label">Filtrar por fecha</label>
+                            <input type="date" id="filtro-med-fecha" class="form-input" onchange="cargarMedicamentos()">
+                        </div>
+                        <div class="table-container mt-2">
+                            <table class="table">
+                                <thead><tr><th>Perro</th><th>Medicamento</th><th>Dosis</th><th>Fecha</th><th>Hora</th><th>Por</th><th></th></tr></thead>
+                                <tbody id="tabla-medicamentos">
+                                    <tr><td colspan="7" class="text-center text-muted">Selecciona una fecha</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Notas de Estancia -->
+                <div id="tab-ops-notas" class="tab-content">
+                    <div class="card">
+                        <h3 class="mb-2">Notas de Estancia</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Estancia (perro activo)</label>
+                                <select id="notas-estancia-select" class="form-select" onchange="cargarNotasEstancia()"></select>
+                            </div>
+                        </div>
+                        <div id="panel-notas-estancia" class="hidden">
+                            <div class="form-row mt-2">
+                                <div class="form-group" style="flex:3;">
+                                    <input type="text" id="nota-texto" class="form-input" placeholder="Escribe una nota...">
+                                </div>
+                                <div class="form-group" style="flex:1;">
+                                    <input type="text" id="nota-autor" class="form-input" placeholder="Tu nombre">
+                                </div>
+                            </div>
+                            <button onclick="handleNuevaNotaEstancia()" class="btn btn-primary btn-sm">Agregar Nota</button>
+                            <div id="lista-notas-estancia" class="mt-2"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ========== SECCIÓN: HISTORIAL ========== -->
+            <section id="section-historial" class="section">
+                <div class="page-header">
+                    <h1 class="page-title">🕐 Historial</h1>
+                </div>
+                <div class="card">
+                    <div class="form-group">
+                        <label class="form-label">Seleccionar Perro</label>
+                        <select id="historial-perro-select" class="form-select" onchange="cargarHistorial()">
+                            <option value="">-- Seleccionar perro --</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="historial-contenido" class="hidden">
+                    <!-- KPIs del perro -->
+                    <div class="form-row mt-2" style="gap:12px;">
+                        <div class="card" style="flex:1; text-align:center; padding:12px;">
+                            <div style="font-size:1.8rem; font-weight:700; color:var(--color-primary);" id="hist-visitas">0</div>
+                            <div class="text-muted" style="font-size:.8rem;">Total visitas</div>
+                        </div>
+                        <div class="card" style="flex:1; text-align:center; padding:12px;">
+                            <div style="font-size:1.8rem; font-weight:700; color:#2ecc71;" id="hist-total-pagado">$0</div>
+                            <div class="text-muted" style="font-size:.8rem;">Total pagado</div>
+                        </div>
+                        <div class="card" style="flex:1; text-align:center; padding:12px;">
+                            <div style="font-size:1.8rem; font-weight:700; color:#f39c12;" id="hist-paseos">0</div>
+                            <div class="text-muted" style="font-size:.8rem;">Paseos registrados</div>
+                        </div>
+                    </div>
+
+                    <div class="form-row mt-2" style="gap:16px; align-items:flex-start;">
+                        <div class="card" style="flex:1;">
+                            <h3 class="mb-2">Estancias</h3>
+                            <div class="table-container">
+                                <table class="table">
+                                    <thead><tr><th>Entrada</th><th>Salida</th><th>Habitación</th><th>Estado</th><th>Total</th></tr></thead>
+                                    <tbody id="hist-tabla-estancias"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="card" style="flex:1;">
+                            <h3 class="mb-2">Tickets Pagados</h3>
+                            <div class="table-container">
+                                <table class="table">
+                                    <thead><tr><th>Fecha</th><th>Total</th><th>Método</th></tr></thead>
+                                    <tbody id="hist-tabla-tickets"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ========== SECCIÓN: REPORTES ========== -->
+            <section id="section-reportes" class="section">
+                <div class="page-header">
+                    <h1 class="page-title">📈 Reportes</h1>
+                </div>
+                <div class="tabs">
+                    <div class="tab active" data-tab="rep-ingresos">Ingresos</div>
+                    <div class="tab" data-tab="rep-conceptos">Por Concepto</div>
+                    <div class="tab" data-tab="rep-ocupacion">Ocupación</div>
+                    <div class="tab" data-tab="rep-frecuentes">Clientes Frecuentes</div>
+                </div>
+
+                <!-- Filtro de fechas compartido -->
+                <div class="card">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Desde</label>
+                            <input type="date" id="rep-fecha-inicio" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Hasta</label>
+                            <input type="date" id="rep-fecha-fin" class="form-input">
+                        </div>
+                        <div class="form-group" style="display:flex; align-items:flex-end;">
+                            <button onclick="ejecutarReporte()" class="btn btn-primary">Generar Reporte</button>
+                        </div>
+                    </div>
+                    <!-- Accesos rápidos -->
+                    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+                        <button onclick="setRangoReporte('mes')" class="btn btn-secondary btn-sm">Este mes</button>
+                        <button onclick="setRangoReporte('semana')" class="btn btn-secondary btn-sm">Esta semana</button>
+                        <button onclick="setRangoReporte('hoy')" class="btn btn-secondary btn-sm">Hoy</button>
+                        <button onclick="setRangoReporte('mes_anterior')" class="btn btn-secondary btn-sm">Mes anterior</button>
+                    </div>
+                </div>
+
+                <!-- Tab: Ingresos -->
+                <div id="tab-rep-ingresos" class="tab-content active">
+                    <div class="form-row mt-2" style="gap:12px;">
+                        <div class="card" style="flex:1; text-align:center; padding:16px;">
+                            <div style="font-size:2rem; font-weight:700; color:var(--color-primary);" id="rep-total">$0</div>
+                            <div class="text-muted">Total del período</div>
+                        </div>
+                        <div class="card" style="flex:1; text-align:center; padding:16px;">
+                            <div style="font-size:2rem; font-weight:700;" id="rep-num-tickets">0</div>
+                            <div class="text-muted">Tickets emitidos</div>
+                        </div>
+                        <div class="card" style="flex:1; text-align:center; padding:16px;">
+                            <div style="font-size:2rem; font-weight:700; color:#3498db;" id="rep-promedio">$0</div>
+                            <div class="text-muted">Ticket promedio</div>
+                        </div>
+                    </div>
+                    <!-- Ingresos por día -->
+                    <div class="card mt-2">
+                        <h3 class="mb-2">Por Día</h3>
+                        <div id="rep-grafica-dias" style="overflow-x:auto;"></div>
+                    </div>
+                    <!-- Por método de pago -->
+                    <div class="card mt-2">
+                        <h3 class="mb-2">Por Método de Pago</h3>
+                        <div id="rep-metodos" class="table-container">
+                            <table class="table">
+                                <thead><tr><th>Método</th><th>Total</th><th>%</th></tr></thead>
+                                <tbody id="rep-tabla-metodos"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <!-- Lista de tickets -->
+                    <div class="card mt-2">
+                        <h3 class="mb-2">Tickets del Período</h3>
+                        <div class="table-container">
+                            <table class="table">
+                                <thead><tr><th>Fecha</th><th>Perro</th><th>Propietario</th><th>Método</th><th>Total</th></tr></thead>
+                                <tbody id="rep-tabla-tickets"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Por Concepto -->
+                <div id="tab-rep-conceptos" class="tab-content">
+                    <div class="card mt-2">
+                        <div class="table-container">
+                            <table class="table">
+                                <thead><tr><th>Concepto</th><th>Total</th><th>Pagado</th><th>Pendiente</th></tr></thead>
+                                <tbody id="rep-tabla-conceptos"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Ocupación -->
+                <div id="tab-rep-ocupacion" class="tab-content">
+                    <div class="card mt-2">
+                        <div style="font-size:1.5rem; font-weight:700;" id="rep-total-estancias">0</div>
+                        <div class="text-muted mb-2">Estancias en el período</div>
+                        <div class="table-container">
+                            <table class="table">
+                                <thead><tr><th>Habitación</th><th>Estancias</th><th>%</th></tr></thead>
+                                <tbody id="rep-tabla-ocupacion"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Clientes Frecuentes -->
+                <div id="tab-rep-frecuentes" class="tab-content">
+                    <div class="card mt-2">
+                        <div class="table-container">
+                            <table class="table">
+                                <thead><tr><th>#</th><th>Perro</th><th>Propietario</th><th>Teléfono</th><th>Visitas</th></tr></thead>
+                                <tbody id="rep-tabla-frecuentes"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ========== SECCIÓN: PERSONAL ========== -->
+            <section id="section-personal" class="section">
+                <div class="page-header">
+                    <h1 class="page-title">👥 Personal</h1>
+                </div>
+                <div class="card">
+                    <h3 class="mb-2">Agregar Empleado</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Nombre *</label>
+                            <input type="text" id="personal-nombre" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Cargo</label>
+                            <input type="text" id="personal-cargo" class="form-input" placeholder="Ej: Paseador, Groomer">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Teléfono</label>
+                            <input type="tel" id="personal-telefono" class="form-input">
+                        </div>
+                    </div>
+                    <button onclick="handleNuevoPersonal()" class="btn btn-primary">Agregar</button>
+                </div>
+                <div class="card mt-2">
+                    <div class="table-container">
+                        <table class="table">
+                            <thead><tr><th>Nombre</th><th>Cargo</th><th>Teléfono</th><th>Acciones</th></tr></thead>
+                            <tbody id="tabla-personal">
+                                <tr><td colspan="4" class="text-center text-muted">Cargando...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ========== SECCIÓN: INVENTARIO ========== -->
+            <section id="section-inventario" class="section">
+                <div class="page-header">
+                    <h1 class="page-title">📦 Inventario</h1>
+                </div>
+                <div class="tabs">
+                    <div class="tab active" data-tab="inv-items">Artículos</div>
+                    <div class="tab" data-tab="inv-movimiento">Registrar Movimiento</div>
+                </div>
+
+                <!-- Tab: Artículos -->
+                <div id="tab-inv-items" class="tab-content active">
+                    <div class="card">
+                        <h3 class="mb-2">Nuevo Artículo</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Nombre *</label>
+                                <input type="text" id="inv-nombre" class="form-input" placeholder="Ej: Croquetas Royal Canin">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Categoría</label>
+                                <select id="inv-categoria" class="form-select">
+                                    <option value="Alimento">Alimento</option>
+                                    <option value="Medicamento">Medicamento</option>
+                                    <option value="Higiene">Higiene</option>
+                                    <option value="Equipo">Equipo</option>
+                                    <option value="Otro">Otro</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Unidad</label>
+                                <input type="text" id="inv-unidad" class="form-input" placeholder="Ej: kg, piezas, litros" value="piezas">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Stock inicial</label>
+                                <input type="number" step="0.01" id="inv-stock-inicial" class="form-input" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Stock mínimo</label>
+                                <input type="number" step="0.01" id="inv-stock-minimo" class="form-input" value="0" placeholder="Alerta bajo este nivel">
+                            </div>
+                        </div>
+                        <button onclick="handleNuevoInventarioItem()" class="btn btn-primary">Agregar Artículo</button>
+                    </div>
+                    <div class="card mt-2">
+                        <div class="table-container">
+                            <table class="table">
+                                <thead><tr><th>Artículo</th><th>Categoría</th><th>Stock</th><th>Mínimo</th><th>Unidad</th><th>Estado</th><th>Acciones</th></tr></thead>
+                                <tbody id="tabla-inventario">
+                                    <tr><td colspan="7" class="text-center text-muted">Cargando...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Movimiento -->
+                <div id="tab-inv-movimiento" class="tab-content">
+                    <div class="card">
+                        <h3 class="mb-2">Registrar Entrada / Salida</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Artículo *</label>
+                                <select id="mov-item" class="form-select"></select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Tipo *</label>
+                                <select id="mov-tipo" class="form-select">
+                                    <option value="entrada">Entrada (compra/recepción)</option>
+                                    <option value="salida">Salida (consumo/pérdida)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Cantidad *</label>
+                                <input type="number" step="0.01" id="mov-cantidad" class="form-input">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Motivo</label>
+                            <input type="text" id="mov-motivo" class="form-input" placeholder="Ej: Compra mensual, Consumo de perros hospedados">
+                        </div>
+                        <button onclick="handleMovimientoInventario()" class="btn btn-primary">Registrar Movimiento</button>
+                    </div>
+                    <div class="card mt-2" id="panel-historial-movimientos" class="hidden">
+                        <h3 class="mb-2">Últimos movimientos</h3>
+                        <div class="table-container">
+                            <table class="table">
+                                <thead><tr><th>Tipo</th><th>Cantidad</th><th>Motivo</th><th>Fecha</th></tr></thead>
+                                <tbody id="tabla-movimientos"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
         </main>
     </div>
 
